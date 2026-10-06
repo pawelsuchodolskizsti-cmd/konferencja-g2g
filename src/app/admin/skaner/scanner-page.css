@@ -1,0 +1,130 @@
+.scanner-page {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 580px);
+  margin: auto;
+  padding: 24px 22px 64px;
+  color: white;
+}
+.scanner-back {
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.scanner-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.scanner-page h1 {
+  font:
+    400 clamp(48px, 14vw, 66px)/1 Georgia,
+    serif;
+  letter-spacing: -0.045em;
+  margin: 18px 0;
+}
+.scanner-event {
+  font-size: 14px;
+  color: #e3f3ff;
+}
+.scanner-page .card {
+  padding: 22px 18px;
+  border: 1px solid #c0eeff99;
+  border-radius: 24px;
+  background: #125b8cdb;
+  box-shadow: 0 10px 40px #07365322;
+  backdrop-filter: blur(18px);
+}
+.scanner-page h2 {
+  font-size: 18px;
+  font-weight: 400;
+}
+.scanner-page .muted {
+  color: #def2ff;
+  font-size: 13px;
+}
+.scanner-page button {
+  min-height: 50px;
+  width: 100%;
+  color: #124e78;
+  background: #f4fbff;
+  border: 1px solid #d3efff;
+  border-radius: 30px;
+  font-size: 14px;
+}
+.scanner-page #qr-reader {
+  overflow: hidden;
+  border-radius: 14px;
+  margin-bottom: 18px !important;
+}
+.scanner-page video {
+  width: 100% !important;
+}
+.scanner-page .scanresult {
+  margin-top: 20px;
+  padding: 24px 16px;
+  border-radius: 18px;
+  font-size: 21px;
+}
+.scanner-page .scan-first {
+  background: #d8ffe6;
+  color: #09542d;
+  border: 2px solid #56e996;
+  box-shadow: 0 0 26px #49ee8759;
+}
+.scanner-page .scan-used {
+  background: #fff2b3;
+  color: #654400;
+  border: 2px solid #ffce39;
+  box-shadow: 0 0 26px #ffc83a66;
+}
+.scanner-page .scan-person {
+  margin: 18px 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.scanner-page .scan-time {
+  font-size: 12px;
+  margin-bottom: 22px;
+}
+.scanner-page .scanresult button {
+  background: #ffffffb0;
+  color: inherit;
+  border-color: currentColor;
+}
+.scanner-page summary {
+  min-height: 44px;
+  padding: 12px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.scanner-page input {
+  font-size: 16px;
+  background: #064674;
+  border-color: #a7d9f7;
+  color: white;
+  min-height: 50px;
+}
+.scanner-page label {
+  font-size: 13px;
+}
+.scanner-page .error {
+  color: #7c1230;
+  background: #ffe5ee;
+  font-size: 14px;
+}
+.scanner-events a {
+  display: block;
+  color: white;
+  min-height: 44px;
+  padding: 10px;
+}
+.scan-used {
+  background: #fff2b3;
+  color: #654400;
+}
