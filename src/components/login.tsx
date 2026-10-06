@@ -1,100 +1,110 @@
 "use client";
+
 import { useState } from "react";
-import Link from "next/link";
-export function Login({ admin = false }: { admin?: boolean }) {
+import styles from "@/app/uczestnik/participant-login.module.css";
+import adminStyles from "./admin-login.module.css";
+
+export function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <main className="auth">
-      <Link className="brand" href="/">
-        <span>K</span> Konferencje
-      </Link>
-      <section className="card">
-        <div className="eyebrow">
-          {admin ? "Dla organizatorów" : "Twoje wydarzenie"}
-        </div>
-        <h1>{admin ? "Panel fundacji" : "Strefa uczestnika"}</h1>
-        <p className="muted">
-          {admin
-            ? "Zaloguj się, aby zarządzać wydarzeniem."
-            : "Wpisz indywidualny kod z wiadomości z zaproszeniem."}
-        </p>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError("");
-            const f = new FormData(e.currentTarget);
-            try {
-              const res = await fetch(
-                `/api/auth/${admin ? "admin" : "participant"}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(Object.fromEntries(f)),
-                },
-              );
-              const json = await res.json();
-              if (!res.ok) throw new Error(json.error);
-              window.location.assign(admin ? "/admin" : "/uczestnik/panel");
-            } catch (e) {
-              setError(
-                e instanceof Error ? e.message : "Nie udało się zalogować.",
-              );
-              setBusy(false);
-            }
-          }}
+    <form
+      className={`${styles.form} ${adminStyles.form}`}
+      aria-busy={busy}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (busy) return;
+        const data = new FormData(event.currentTarget);
+        setBusy(true);
+        setError("");
+        try {
+          const response = await fetch("/api/auth/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: data.get("email"),
+              password: data.get("password"),
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok)
+            throw new Error(
+              result.error || "Nie udało się zalogować. Spróbuj ponownie.",
+            );
+          window.location.assign("/admin");
+        } catch (error) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Nie udało się połączyć. Spróbuj ponownie.",
+          );
+          setBusy(false);
+        }
+      }}
+    >
+      <label htmlFor="admin-email">Adres e-mail</label>
+      <div className={styles.inputWrap}>
+        <input
+          id="admin-email"
+          name="email"
+          type="email"
+          required
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="Twój adres e-mail"
+          aria-describedby={error ? "admin-login-error" : undefined}
+        />
+        <svg
+          className={styles.keyIcon}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
         >
-          {admin ? (
-            <>
-              <label>
-                E-mail
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="username"
-                />
-              </label>
-              <label>
-                Hasło
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  maxLength={128}
-                  autoComplete="current-password"
-                />
-              </label>
-            </>
-          ) : (
-            <label>
-              Twój kod dostępu
-              <input
-                name="code"
-                autoComplete="one-time-code"
-                autoCapitalize="characters"
-                required
-                maxLength={100}
-                placeholder="Np. K7M2PX"
-              />
-            </label>
-          )}
-          {error && (
-            <p role="alert" className="notice error">
-              {error}
-            </p>
-          )}
-          <button disabled={busy} style={{ width: "100%" }}>
-            {busy
-              ? "Logowanie…"
-              : admin
-                ? "Zaloguj się"
-                : "Przejdź do swojej strefy"}
-          </button>
-        </form>
-      </section>
-      <Link href="/wydarzenie">Zobacz program wydarzenia</Link>
-    </main>
+          <rect x="3" y="5" width="18" height="14" rx="3" />
+          <path d="m4 7 8 6 8-6" />
+        </svg>
+      </div>
+      <label className={adminStyles.passwordLabel} htmlFor="admin-password">
+        Hasło
+      </label>
+      <div className={styles.inputWrap}>
+        <input
+          id="admin-password"
+          name="password"
+          type="password"
+          required
+          maxLength={128}
+          autoComplete="current-password"
+          placeholder="Twoje hasło"
+          aria-describedby={error ? "admin-login-error" : undefined}
+        />
+        <svg
+          className={styles.keyIcon}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="5" y="10" width="14" height="11" rx="3" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" />
+        </svg>
+      </div>
+      {error && (
+        <p id="admin-login-error" role="alert" className={styles.error}>
+          {error}
+        </p>
+      )}
+      <button type="submit" disabled={busy}>
+        <span>{busy ? "Logowanie…" : "Zaloguj się"}</span>
+      </button>
+    </form>
   );
 }

@@ -8,7 +8,7 @@ export function ConferenceShell({
   current = "home",
 }: {
   children: ReactNode;
-  current?: "home" | "participant";
+  current?: "home" | "participant" | "admin";
 }) {
   return (
     <main className={styles.page}>
