@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "@/app/uczestnik/participant-login.module.css";
 import adminStyles from "./admin-login.module.css";
 
 export function Login() {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   return (
@@ -31,7 +33,8 @@ export function Login() {
             throw new Error(
               result.error || "Nie udało się zalogować. Spróbuj ponownie.",
             );
-          window.location.assign("/admin");
+          router.push("/admin");
+          router.refresh();
         } catch (error) {
           setError(
             error instanceof Error
