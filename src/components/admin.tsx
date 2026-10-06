@@ -130,9 +130,7 @@ export function Admin({
             <a
               key={key}
               href={
-                key === "checkin"
-                  ? `/admin/skaner?event=${eventId}`
-                  : `?section=${key}`
+                key === "checkin" ? "/skanowaniebiletow" : `?section=${key}`
               }
               className={section === key && !configuring ? "active" : ""}
               aria-current={
@@ -295,11 +293,7 @@ export function Admin({
                       <p className="muted">
                         Potwierdzenie wejścia odblokowuje dostęp do szkoleń.
                       </p>
-                      <button
-                        onClick={() =>
-                          router.push(`/admin/skaner?event=${eventId}`)
-                        }
-                      >
+                      <button onClick={() => router.push("/skanowaniebiletow")}>
                         Otwórz skaner QR
                       </button>
                     </section>

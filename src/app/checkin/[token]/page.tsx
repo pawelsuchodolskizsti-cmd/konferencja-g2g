@@ -18,7 +18,7 @@ export default async function Page({
         {valid && (
           <Link
             className="button"
-            href={`/admin/skaner?token=${encodeURIComponent(token)}`}
+            href={`/skanowaniebiletow?token=${encodeURIComponent(token)}`}
           >
             Otwórz panel rejestracji
           </Link>
