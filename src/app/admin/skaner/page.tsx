@@ -44,16 +44,6 @@ export default async function Page({
         {event ? (
           <>
             <p className="scanner-event">{event.name}</p>
-            {events.length > 1 && (
-              <details className="scanner-events">
-                <summary>Zmień wydarzenie</summary>
-                {events.map((e) => (
-                  <Link key={e.id} href={`/admin/skaner?event=${e.id}`}>
-                    {e.name}
-                  </Link>
-                ))}
-              </details>
-            )}
             <Scanner
               key={event.id}
               eventId={event.id}
@@ -62,8 +52,8 @@ export default async function Page({
           </>
         ) : (
           <p>
-            Brak dostępu do wydarzenia. Wybierz wydarzenie w panelu
-            administratora.
+            Uzupełnij ustawienia konferencji w panelu administratora, aby
+            uruchomić skaner.
           </p>
         )}
       </div>

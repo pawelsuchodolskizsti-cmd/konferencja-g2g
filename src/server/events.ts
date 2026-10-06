@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminEvents, auditLogs, events } from "@/db/schema";
 import { requireEvent } from "./auth";
+import { assert } from "./errors";
 
 export const eventInput = z
   .object({
@@ -52,8 +53,25 @@ export async function saveEvent(
   eventId?: string,
 ) {
   const value = eventInput.parse(data);
+  value.name = "Głowa do Góry";
   if (eventId) await requireEvent(adminId, eventId);
   return db().transaction(async (tx) => {
+    if (!eventId) {
+      await tx.execute(sql`select pg_advisory_xact_lock(72401926)`);
+      const existing = await tx.select({ id: events.id }).from(events).limit(1);
+      assert(
+        !existing.length,
+        409,
+        "Konferencja jest już skonfigurowana. Panel obsługuje tylko Głowę do Góry.",
+      );
+      value.slug = "glowa-do-gory";
+    } else {
+      const [existing] = await tx
+        .select({ slug: events.slug })
+        .from(events)
+        .where(eq(events.id, eventId));
+      value.slug = existing.slug;
+    }
     const [event] = eventId
       ? await tx
           .update(events)
@@ -63,14 +81,12 @@ export async function saveEvent(
       : await tx.insert(events).values(value).returning();
     if (!eventId)
       await tx.insert(adminEvents).values({ adminId, eventId: event.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        adminId,
-        eventId: event.id,
-        action: eventId ? "EVENT_UPDATED" : "EVENT_CREATED",
-        targetId: event.id,
-      });
+    await tx.insert(auditLogs).values({
+      adminId,
+      eventId: event.id,
+      action: eventId ? "EVENT_UPDATED" : "EVENT_CREATED",
+      targetId: event.id,
+    });
     return event;
   });
 }

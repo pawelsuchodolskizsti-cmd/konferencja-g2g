@@ -39,7 +39,7 @@ export function EventForm({
         };
         try {
           const saved = await api<EventData>(
-            event ? `/api/admin/events/${event.id}` : "/api/admin/events",
+            event ? `/api/admin/events/${event.id}` : "/api/admin/events/setup",
             { method: event ? "PATCH" : "POST", body: JSON.stringify(data) },
           );
           onSaved(saved.id);
@@ -50,28 +50,20 @@ export function EventForm({
         }
       }}
     >
-      <h2>{event ? "Ustawienia wydarzenia" : "Utwórz wydarzenie"}</h2>
+      <h2>Ustawienia konferencji</h2>
       <div className="formgrid">
-        <label>
-          Nazwa wydarzenia
-          <input
-            name="name"
-            required
-            minLength={3}
-            maxLength={160}
-            defaultValue={event?.name}
-          />
-        </label>
-        <label>
-          Adres wydarzenia
-          <input
-            name="slug"
-            required
-            pattern="[a-z0-9]+(-[a-z0-9]+)*"
-            placeholder="konferencja-2026"
-            defaultValue={event?.slug}
-          />
-        </label>
+        <input type="hidden" name="name" value="Głowa do Góry" />
+        <input
+          type="hidden"
+          name="slug"
+          value={event?.slug || "glowa-do-gory"}
+        />
+        {!event && (
+          <p className="muted wide">
+            Uzupełnij dane konferencji Głowa do Góry. Panel obsługuje wyłącznie
+            ten projekt.
+          </p>
+        )}
         <label>
           Organizator
           <input name="organizer" required defaultValue={event?.organizer} />
@@ -237,7 +229,7 @@ export function EventForm({
         </p>
       )}
       <button disabled={busy}>
-        {busy ? "Zapisywanie…" : "Zapisz wydarzenie"}
+        {busy ? "Zapisywanie…" : "Zapisz ustawienia"}
       </button>
     </form>
   );

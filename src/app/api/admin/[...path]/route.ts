@@ -30,11 +30,15 @@ async function handle(req: Request, ctx: Context) {
     if (path.length === 1) {
       if (req.method === "GET")
         return Response.json(await adminEventList(admin.id));
-      if (req.method === "POST")
-        return Response.json(await saveEvent(admin.id, await jsonBody(req)), {
-          status: 201,
-        });
+      throw new AppError(
+        405,
+        "Panel obsługuje jedną konferencję. Użyj jej ustawień.",
+      );
     }
+    if (path.length === 2 && path[1] === "setup" && req.method === "POST")
+      return Response.json(await saveEvent(admin.id, await jsonBody(req)), {
+        status: 201,
+      });
     const eventId = z.uuid().parse(path[1]);
     await requireEvent(admin.id, eventId);
     const action = path[2];

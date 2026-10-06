@@ -15,7 +15,7 @@ const sections = [
   ["checkin", "Check-in"],
   ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
-  ["settings", "Ustawienia wydarzenia"],
+  ["settings", "Ustawienia konferencji"],
 ] as const;
 type EventOption = { id: string; name: string; slug: string };
 const mailLabels: Record<string, string> = {
@@ -37,10 +37,9 @@ export function Admin({
 }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [eventList, setEventList] = useState(initialEvents);
   const [eventId, setEventId] = useState(initialEvents[0]?.id || "");
   const [section, setSection] = useState(initialSection);
-  const [creating, setCreating] = useState(!initialEvents.length);
+  const configuring = !eventId;
   const [data, setData] = useState<Overview | null>(null);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
@@ -101,9 +100,7 @@ export function Admin({
     }
   }
   async function saved(id: string) {
-    setEventList(await api<EventOption[]>("/api/admin/events"));
     setEventId(id);
-    setCreating(false);
     setSection("dashboard");
     reload();
     setNotice("Ustawienia zostały zapisane.");
@@ -137,14 +134,15 @@ export function Admin({
                   ? `/admin/skaner?event=${eventId}`
                   : `?section=${key}`
               }
-              className={section === key && !creating ? "active" : ""}
-              aria-current={section === key && !creating ? "page" : undefined}
+              className={section === key && !configuring ? "active" : ""}
+              aria-current={
+                section === key && !configuring ? "page" : undefined
+              }
               onClick={(e) => {
                 if (key === "checkin") return;
                 e.preventDefault();
                 setSection(key);
                 setMenuOpen(false);
-                setCreating(false);
                 setNotice("");
               }}
             >
@@ -156,34 +154,14 @@ export function Admin({
         <div className="foot">
           Panel fundacji
           <br />
-          Organizacja wydarzeń
+          Konferencja Głowa do Góry
         </div>
       </aside>
       <main className="main">
         <header className="topbar">
           <div>
-            <label style={{ margin: 0 }}>
-              Wydarzenie
-              <select
-                aria-label="Wydarzenie"
-                value={eventId}
-                onChange={(e) => {
-                  setEventId(e.target.value);
-                  setCreating(false);
-                  setNotice("");
-                }}
-              >
-                {eventList.length ? (
-                  eventList.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">Brak wydarzeń</option>
-                )}
-              </select>
-            </label>
+            <div className="eyebrow">Konferencja</div>
+            <strong>Głowa do Góry</strong>
           </div>
           <div className="admin-account">
             <div className="muted" style={{ fontSize: ".85rem" }}>
@@ -207,8 +185,8 @@ export function Admin({
             <div>
               <div className="eyebrow">Panel organizatora</div>
               <h1>
-                {creating
-                  ? "Nowe wydarzenie"
+                {configuring
+                  ? "Ustawienia konferencji"
                   : sections.find(([key]) => key === section)?.[1] ||
                     "Dashboard"}
               </h1>
@@ -227,9 +205,6 @@ export function Admin({
                   Program wydarzenia
                 </Link>
               )}
-              <button className="secondary" onClick={() => setCreating(true)}>
-                Nowe wydarzenie
-              </button>
             </div>
           </div>
           {error && (
@@ -242,13 +217,13 @@ export function Admin({
               {notice}
             </p>
           )}
-          {creating ? (
+          {configuring ? (
             <EventForm onSaved={saved} />
           ) : !overview ? (
             <section className="card empty">
               {eventId
                 ? "Wczytywanie wydarzenia…"
-                : "Utwórz pierwsze wydarzenie, aby dodać uczestników."}
+                : "Uzupełnij ustawienia konferencji, aby dodać uczestników."}
             </section>
           ) : (
             <>
