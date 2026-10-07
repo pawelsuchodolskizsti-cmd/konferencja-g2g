@@ -391,3 +391,98 @@
     overflow-wrap: anywhere;
   }
 }
+
+.programSection {
+  padding-top: 48px;
+  padding-bottom: 56px;
+  margin-bottom: 56px;
+  background:
+    linear-gradient(
+      125deg,
+      #23394799 0%,
+      #216e9829 30%,
+      #8b8ab326 75%,
+      #26495d40 100%
+    ),
+    url("/branding/conference-desktop.webp") center / cover;
+}
+.programContent > .eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.programContent > p {
+  font-size: 12px;
+  margin: 0 0 28px;
+}
+.posterProgram {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.posterBlock {
+  margin: 18px 0 22px 43%;
+  padding: 10px 14px;
+  background: #fff;
+  color: #123e59;
+  text-transform: uppercase;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.posterEntry {
+  display: grid;
+  grid-template-columns: minmax(0, 40fr) minmax(0, 57fr);
+  gap: 3%;
+  padding: 10px 0 18px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.posterMeta {
+  text-align: right;
+  color: #fff;
+}
+.posterMeta p {
+  margin: 0;
+}
+.posterMeta span {
+  text-transform: uppercase;
+}
+.posterTime {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.posterContent h4 {
+  margin: 0;
+  color: #fff;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 700;
+}
+.posterContent p {
+  margin: 2px 0 0;
+  color: #102f44;
+  font-size: inherit;
+  line-height: inherit;
+}
+@media (max-width: 799px) {
+  .posterBlock {
+    margin-left: 0;
+    font-size: 14px;
+  }
+  .programContent .posterEntry {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding-bottom: 24px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .posterMeta {
+    text-align: left;
+  }
+  .posterMeta p:not(.posterTime) {
+    font-size: 12px;
+  }
+}

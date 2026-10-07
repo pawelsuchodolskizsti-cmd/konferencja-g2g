@@ -1,4 +1,3 @@
-import { ConferenceProgram } from "@/components/conference-program";
 import { db } from "@/db";
 import { events } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -42,7 +41,36 @@ export default async function Home() {
           <div className={styles.programContent}>
             <p className={styles.eyebrow}>27 października 2026 · Warszawa</p>
             <p>Teatr Garnizon Sztuki</p>
-            <ConferenceProgram items={event.agenda} />
+            <ol className={styles.posterProgram}>
+              {event.agenda.map((item, index) => (
+                <li key={`${item.start}-${index}`}>
+                  {item.block && (
+                    <h3 className={styles.posterBlock}>{item.block}</h3>
+                  )}
+                  <article className={styles.posterEntry}>
+                    <div className={styles.posterMeta}>
+                      <p className={styles.posterTime}>
+                        <time>{item.start}</time> - <time>{item.end}</time>
+                      </p>
+                      {item.speaker && (
+                        <p>
+                          <span>Prowadzenie:</span> {item.speaker}
+                        </p>
+                      )}
+                      {item.guest && (
+                        <p>
+                          <span>Gość specjalny:</span> {item.guest}
+                        </p>
+                      )}
+                    </div>
+                    <div className={styles.posterContent}>
+                      <h4>{item.title}</h4>
+                      {item.description && <p>{item.description}</p>}
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
       )}
