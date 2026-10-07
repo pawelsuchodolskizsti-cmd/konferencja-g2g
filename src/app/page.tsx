@@ -61,8 +61,34 @@ export default async function Home() {
           aria-labelledby="program-title"
         >
           <h2 id="program-title" className={styles.verticalProgramTitle}>
-            <span>Program konferencji</span>
-            <span>Głowa do góry</span>
+            <svg
+              viewBox="80 65 245 1450"
+              role="img"
+              aria-label="Program konferencji Głowa do góry"
+              className={styles.programTitleArtwork}
+            >
+              <defs>
+                <filter
+                  id="program-title-alpha"
+                  colorInterpolationFilters="sRGB"
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                >
+                  <feColorMatrix
+                    type="matrix"
+                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.333 0 0 0 -2.333"
+                  />
+                </filter>
+              </defs>
+              <image
+                href="/branding/program-oryginal.jpg"
+                width="1365"
+                height="1824"
+                filter="url(#program-title-alpha)"
+              />
+            </svg>
           </h2>
           <div className={styles.programContent}>
             <p className={styles.eyebrow}>27 października 2026 · Warszawa</p>

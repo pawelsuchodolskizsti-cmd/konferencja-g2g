@@ -376,8 +376,6 @@
 .programSection > .verticalProgramTitle {
   position: sticky;
   top: 24px;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
   margin: 0;
   font-size: clamp(28px, 5.5vw, 72px);
   font-weight: 700;
@@ -387,6 +385,12 @@
 }
 .verticalProgramTitle span {
   display: block;
+}
+.programTitleArtwork {
+  display: block;
+  width: clamp(54px, 16vw, 210px);
+  height: auto;
+  overflow: hidden;
 }
 .programContent {
   min-width: 0;
@@ -407,15 +411,7 @@
   padding-top: 48px;
   padding-bottom: 56px;
   margin-bottom: 56px;
-  background:
-    linear-gradient(
-      125deg,
-      #23394799 0%,
-      #216e9829 30%,
-      #8b8ab326 75%,
-      #26495d40 100%
-    ),
-    url("/branding/conference-desktop.webp") center / cover;
+  background: url("/branding/program-tlo.png") center / 100% 100% no-repeat;
 }
 .programContent > .eyebrow {
   font-size: 11px;
