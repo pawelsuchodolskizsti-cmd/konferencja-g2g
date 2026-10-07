@@ -223,3 +223,7 @@
 .page :global(.brand span) {
   display: none;
 }
+
+.page .menuPanel a:focus-visible {
+  outline-color: var(--conference-ink);
+}

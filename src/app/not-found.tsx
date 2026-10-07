@@ -6,7 +6,7 @@ export default function NotFound() {
       <div className="public">
         <section className="card">
           <h1>Nie znaleziono strony</h1>
-          <p>SprawdĹş adres lub wrĂłÄ‡ do listy wydarzeĹ„.</p>
+          <p>Sprawdź adres lub wróć do listy wydarzeń.</p>
           <Link className="button" href="/wydarzenie">
             Wydarzenia
           </Link>

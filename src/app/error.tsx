@@ -6,12 +6,12 @@ export default function ErrorPage({ reset }: { reset: () => void }) {
     <ConferenceShell current="participant">
       <div className="public">
         <section className="card">
-          <h1>Nie udaĹ‚o siÄ™ wczytaÄ‡ strony</h1>
+          <h1>Nie udało się wczytać strony</h1>
           <p>
-            SprĂłbuj ponownie za chwilÄ™. JeĹ›li problem siÄ™ powtarza,
-            skontaktuj siÄ™ z organizatorem.
+            Spróbuj ponownie za chwilę. Jeśli problem się powtarza, skontaktuj
+            się z organizatorem.
           </p>
-          <button onClick={reset}>SprĂłbuj ponownie</button>
+          <button onClick={reset}>Spróbuj ponownie</button>
         </section>
       </div>
     </ConferenceShell>
