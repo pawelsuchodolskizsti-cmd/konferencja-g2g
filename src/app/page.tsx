@@ -105,7 +105,7 @@ export default async function Home() {
         className={styles.organizers}
         aria-labelledby="organizers-title"
       >
-        <h2 id="organizers-title">Organizator i partnerzy</h2>
+        <h2 id="organizers-title">Organizator i patronaci</h2>
         <div className={styles.organizerGrid}>
           {[
             {
