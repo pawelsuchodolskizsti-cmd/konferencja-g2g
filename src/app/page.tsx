@@ -24,15 +24,34 @@ export default async function Home() {
       <section className={styles.hero} aria-labelledby="conference-title">
         <p className={styles.eyebrow}>Konferencja</p>
         <h1 className={styles.title} id="conference-title">
-          <Image
-            src="/branding/glowa-do-gory-oryginal.png"
-            alt="Głowa do góry"
-            width={484}
-            height={169}
-            priority
-            unoptimized
+          <svg
+            viewBox="0 0 484 169"
+            role="img"
+            aria-label="Głowa do góry"
             className={styles.originalTitle}
-          />
+          >
+            <defs>
+              <filter
+                id="title-white-alpha"
+                colorInterpolationFilters="sRGB"
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+              >
+                <feColorMatrix
+                  type="matrix"
+                  values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.333 0 0 0 -2.333"
+                />
+              </filter>
+            </defs>
+            <image
+              href="/branding/glowa-do-gory-oryginal.png"
+              width="484"
+              height="169"
+              filter="url(#title-white-alpha)"
+            />
+          </svg>
         </h1>
       </section>
       {!!event?.agenda.length && (
