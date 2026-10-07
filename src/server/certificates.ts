@@ -22,53 +22,73 @@ export async function renderCertificate(input: {
     { subset: true },
   );
   const page = pdf.addPage([841.89, 595.28]);
-  const ink = rgb(0.07, 0.17, 0.24);
-  const blue = rgb(0.07, 0.36, 0.87);
+  const ink = rgb(0.06, 0.35, 0.55);
+  const blue = rgb(0.08, 0.47, 0.68);
+  const white = rgb(1, 1, 1);
+  page.drawRectangle({ x: 0, y: 0, width: 842, height: 596, color: blue });
+  page.drawCircle({ x: 824, y: 575, size: 178, color: white, opacity: 0.09 });
+  page.drawCircle({ x: 22, y: 7, size: 147, color: white, opacity: 0.08 });
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 2; col++) {
+      page.drawCircle({
+        x: 40 + col * 37,
+        y: 280 + row * 37,
+        size: 16,
+        color: white,
+        opacity: 0.13,
+      });
+    }
+  }
+  page.drawRectangle({ x: 119, y: 48, width: 675, height: 499, color: white });
   page.drawRectangle({
-    x: 0,
-    y: 0,
-    width: 842,
-    height: 595,
-    color: rgb(0.98, 0.99, 1),
+    x: 133,
+    y: 62,
+    width: 647,
+    height: 471,
+    borderWidth: 0.6,
+    borderColor: blue,
+    borderOpacity: 0.25,
   });
-  page.drawRectangle({
-    x: 26,
-    y: 26,
-    width: 790,
-    height: 543,
-    borderWidth: 1,
-    borderColor: rgb(0.75, 0.81, 0.9),
-  });
-  page.drawRectangle({ x: 26, y: 549, width: 790, height: 20, color: blue });
+  const logo = await pdf.embedPng(
+    await readFile(
+      path.join(process.cwd(), "public/branding/g2g-horizontal.png"),
+    ),
+  );
+  const logoSize = logo.scaleToFit(66, 34);
+  page.drawImage(logo, { x: 26, y: 490, ...logoSize });
   function center(
     text: string,
     y: number,
     size: number,
     fontFace: PDFFont = font,
   ) {
-    while (fontFace.widthOfTextAtSize(text, size) > 720 && size > 10) size--;
+    while (fontFace.widthOfTextAtSize(text, size) > 589 && size > 8) size--;
     page.drawText(text, {
-      x: (842 - fontFace.widthOfTextAtSize(text, size)) / 2,
+      x: 456.5 - fontFace.widthOfTextAtSize(text, size) / 2,
       y,
       size,
       font: fontFace,
       color: ink,
     });
   }
-  center(input.organizer, 490, 15);
-  center("CERTYFIKAT UCZESTNICTWA", 416, 30);
-  center("Potwierdzamy, że", 355, 15);
-  center(input.name, 304, 32);
-  center("uczestniczył(a) w konferencji", 260, 15);
-  center(input.eventName, 220, 22);
-  center(input.date, 175, 16);
+  center(input.organizer, 495, 12);
+  center("CERTYFIKAT", 431, 41);
+  center("U C Z E S T N I C T W A", 402, 12);
+  center("Certyfikat otrzymuje", 351, 12);
+  center(input.name, 301, 31);
   page.drawLine({
-    start: { x: 330, y: 138 },
-    end: { x: 512, y: 138 },
+    start: { x: 247, y: 281 },
+    end: { x: 666, y: 281 },
     color: blue,
-    thickness: 2,
+    thickness: 0.7,
+    opacity: 0.3,
   });
-  center(`Numer certyfikatu: ${input.number}`, 83, 10);
+  center("za udział w konferencji", 249, 12);
+  center(input.eventName, 211, 26);
+  center(input.date, 177, 13);
+  center("Fundacja One Day", 117, 12);
+  center("ORGANIZATOR", 100, 8);
+  center(`Numer certyfikatu: ${input.number}`, 77, 7);
   pdf.setTitle("Certyfikat uczestnictwa");
   pdf.setAuthor(input.organizer);
   return Buffer.from(await pdf.save());
@@ -108,13 +128,12 @@ export async function generateCertificate(
         .onConflictDoNothing()
         .returning();
       if (inserted.length)
-        await tx
-          .insert(auditLogs)
-          .values({
-            eventId: event.id,
-            action: "CERTIFICATE_GENERATED",
-            targetId: participantId,
-          });
+        await tx.insert(auditLogs).values({
+          eventId: event.id,
+          action: "CERTIFICATE_GENERATED",
+          targetId: participantId,
+        });
     });
   return { pdf, number };
 }
+
