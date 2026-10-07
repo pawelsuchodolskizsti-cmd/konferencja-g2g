@@ -248,3 +248,9 @@
   line-height: 1.15;
   margin: 16px 0;
 }
+
+@media (max-width: 899px) {
+  .page:has(.programSection) .art {
+    background-size: max(100%, 938px, 113svh) auto;
+  }
+}
