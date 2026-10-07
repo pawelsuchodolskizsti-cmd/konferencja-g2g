@@ -24,8 +24,15 @@ export default async function Home() {
       <section className={styles.hero} aria-labelledby="conference-title">
         <p className={styles.eyebrow}>Konferencja</p>
         <h1 className={styles.title} id="conference-title">
-          <span>Głowa do</span>
-          <span>Góry</span>
+          <Image
+            src="/branding/glowa-do-gory-oryginal.png"
+            alt="Głowa do góry"
+            width={484}
+            height={169}
+            priority
+            unoptimized
+            className={styles.originalTitle}
+          />
         </h1>
       </section>
       {!!event?.agenda.length && (

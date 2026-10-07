@@ -486,3 +486,12 @@
     font-size: 12px;
   }
 }
+
+.originalTitle {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.title:has(.originalTitle) {
+  max-width: 484px;
+}
