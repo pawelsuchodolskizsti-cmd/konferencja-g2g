@@ -7,7 +7,7 @@ const config: NextConfig = {
     cpus: 2,
   },
   serverExternalPackages: ["postgres", "@pdf-lib/fontkit"],
-  outputFileTracingIncludes: { "/*": ["./assets/*"] },
+  outputFileTracingIncludes: { "/*": ["./assets/*", "./public/branding/*"] },
   async headers() {
     return [
       {
