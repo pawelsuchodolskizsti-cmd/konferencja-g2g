@@ -11,19 +11,13 @@ const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
   ["import", "Import"],
-  ["mail", "Mailing"],
+  ["mail", "Kody i eksport"],
   ["checkin", "Check-in"],
   ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
   ["settings", "Ustawienia konferencji"],
 ] as const;
 type EventOption = { id: string; name: string; slug: string };
-const mailLabels: Record<string, string> = {
-  SENT: "Wysłany",
-  QUEUED: "W kolejce",
-  SENDING: "W kolejce",
-  ERROR: "Błąd",
-};
 export function Admin({
   initialEvents,
   email,
@@ -73,11 +67,6 @@ export function Admin({
   const overview = data?.event.id === eventId ? data : null;
   const people = overview?.people || [];
   const present = people.filter((p) => p.checkedInAt).length;
-  const sent = people.filter((p) => p.emailStatus === "SENT").length;
-  const failed = people.filter((p) => p.emailStatus === "ERROR").length;
-  const queued = people.filter(
-    (p) => p.emailStatus === "QUEUED" || p.emailStatus === "SENDING",
-  ).length;
   async function action(path: string, body?: unknown, method = "POST") {
     setBusy(true);
     setError("");
@@ -249,9 +238,9 @@ export function Admin({
                       note="oczekuje na rejestrację"
                     />
                     <Stat
-                      label="Wysłane zaproszenia"
-                      value={sent}
-                      note={`${failed} błędów · ${queued} w kolejce`}
+                      label="Kody dostępu"
+                      value={people.length}
+                      note="gotowe do eksportu"
                     />
                   </div>
                   <div className="grid">
@@ -408,20 +397,7 @@ export function Admin({
                 </>
               )}
               {section === "mail" && (
-                <MailPanel
-                  eventId={eventId}
-                  count={people.length - sent - queued}
-                  sent={sent}
-                  failed={failed}
-                  queued={queued}
-                  enabled={overview.mailEnabled}
-                  busy={busy}
-                  send={async () => {
-                    const result = await action("mail");
-                    if (result)
-                      setNotice(`Dodano do kolejki: ${result.queued}.`);
-                  }}
-                />
+                <ExportPanel eventId={eventId} count={people.length} />
               )}
               {section === "courses" && (
                 <Courses data={overview} busy={busy} action={action} />
@@ -450,8 +426,7 @@ export function Admin({
                         overview.event.certificateUnlockAt,
                         overview.event.timezone,
                       )}
-                      . Uczestnicy pobierają je w swojej strefie lub zlecają
-                      wysyłkę na swój adres e-mail.
+                      . Uczestnicy pobierają plik PDF w swojej strefie.
                     </p>
                     <p className="muted">
                       Nazwisko, nazwa wydarzenia i numer certyfikatu są
@@ -565,7 +540,6 @@ function PeopleTable({
             <th>Uczestnik</th>
             <th>Status</th>
             <th>Wejście</th>
-            <th>Mail</th>
             <th>Certyfikat</th>
             {renderAction && <th>Działania</th>}
           </tr>
@@ -596,16 +570,6 @@ function PeopleTable({
                   </>
                 ) : (
                   "Brak"
-                )}
-              </td>
-              <td>
-                <span
-                  className={`badge ${p.emailStatus === "SENT" ? "good" : p.emailStatus === "ERROR" ? "bad" : ""}`}
-                >
-                  {mailLabels[p.emailStatus || ""] || "Niewysłany"}
-                </span>
-                {p.emailError === "REVIEW_REQUIRED" && (
-                  <p className="muted">Sprawdź wysyłkę u dostawcy.</p>
                 )}
               </td>
               <td>
@@ -657,8 +621,6 @@ function Participants({
       (filter === "all" ||
         (filter === "present" && p.checkedInAt) ||
         (filter === "absent" && !p.checkedInAt) ||
-        (filter === "sent" && p.emailStatus === "SENT") ||
-        (filter === "error" && p.emailStatus === "ERROR") ||
         (filter === "certificate" && p.certificateGeneratedAt)),
   );
   return (
@@ -681,8 +643,6 @@ function Participants({
             <option value="all">Wszyscy</option>
             <option value="present">Obecni</option>
             <option value="absent">Nieobecni</option>
-            <option value="sent">Mail wysłany</option>
-            <option value="error">Błąd maila</option>
             <option value="certificate">Certyfikat wygenerowany</option>
           </select>
           {!compact && (
@@ -690,7 +650,7 @@ function Participants({
               className="button secondary"
               href={`/api/admin/events/${eventId}/export`}
             >
-              Eksport CSV
+              Lista obecności CSV
             </a>
           )}
         </div>
@@ -785,102 +745,58 @@ function Participants({
     </>
   );
 }
-function MailPanel({
-  eventId,
-  count,
-  sent,
-  failed,
-  queued,
-  enabled,
-  busy,
-  send,
-}: {
-  eventId: string;
-  count: number;
-  sent: number;
-  failed: number;
-  queued: number;
-  enabled: boolean;
-  busy: boolean;
-  send: () => Promise<void>;
-}) {
-  const [preview, setPreview] = useState<{
-    subject: string;
-    html: string;
-  } | null>(null);
-  const [error, setError] = useState("");
+function ExportPanel({ eventId, count }: { eventId: string; count: number }) {
+  const base = `/api/admin/events/${eventId}/codes-export`;
   return (
     <>
-      <div className="stats">
-        <Stat label="Wysłane" value={sent} note="przyjęte przez dostawcę" />
-        <Stat
-          label="W kolejce"
-          value={queued}
-          note="oczekują na przetworzenie"
-        />
-        <Stat label="Błędy" value={failed} note="sprawdź listę uczestników" />
-      </div>
       <section className="card">
-        <h2>Zaproszenie na konferencję</h2>
+        <div className="eyebrow">Korespondencja seryjna</div>
+        <h2>Dane uczestników i kody</h2>
         <p>
-          Każdy uczestnik otrzyma własny QR i kod dostępu. Treść zaproszenia
-          edytujesz w ustawieniach wydarzenia.
+          Po zatwierdzeniu importu każda osoba otrzymuje unikalny,
+          sześcioznakowy kod. Pobierz Excel i użyj go jako źródła danych w
+          swojej poczcie.
         </p>
-        {!enabled && (
-          <p className="notice">
-            Wysyłka w tym środowisku jest wyłączona. Możesz przygotować szablon
-            i zobaczyć podgląd.
-          </p>
+        <p className="muted">
+          Plik zawiera imię, nazwisko, e-mail, kod, link do strefy i nazwę
+          indywidualnego biletu. Kolejne pobranie zachowuje te same kody.
+        </p>
+        {count ? (
+          <div className="actions">
+            <a className="button" href={base}>
+              Pobierz Excel z kodami ({count})
+            </a>
+            <a className="button secondary" href={`${base}?format=csv`}>
+              Pobierz CSV
+            </a>
+          </div>
+        ) : (
+          <p className="notice">Najpierw wgraj listę w sekcji Import.</p>
         )}
+      </section>
+      <section className="card">
+        <h2>Bilety z QR do załączenia</h2>
+        <p>
+          Każda paczka ZIP zawiera osobne bilety PDF oraz Excel pasujący do tych
+          biletów. Po rozpakowaniu przypisz plik z kolumny „Plik biletu” do
+          odpowiedniej osoby w narzędziu do korespondencji seryjnej.
+        </p>
         <div className="actions">
-          <button
-            className="secondary"
-            onClick={async () => {
-              try {
-                setPreview(
-                  await api(`/api/admin/events/${eventId}/mail-preview`),
-                );
-                setError("");
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "Błąd podglądu.");
-              }
-            }}
-          >
-            Podgląd wiadomości
-          </button>
-          <button
-            disabled={!enabled || busy || !count || !preview}
-            onClick={send}
-          >
-            Wyślij / ponów do {count} uczestników
-          </button>
+          {Array.from({ length: Math.ceil(count / 50) }, (_, index) => (
+            <a
+              className="button secondary"
+              key={index}
+              href={`${base}?format=zip&offset=${index * 50}`}
+            >
+              Bilety {index * 50 + 1}-{Math.min((index + 1) * 50, count)} (ZIP)
+            </a>
+          ))}
         </div>
-        <p className="muted" style={{ marginTop: "1rem" }}>
-          Najpierw sprawdź podgląd. Osoby z wysłaną wiadomością nie otrzymają
-          jej ponownie.
+        <p className="muted">
+          Excel jest źródłem danych dla korespondencji, a załącznikiem dla
+          uczestnika jest jego własny bilet. Obsługa indywidualnych załączników
+          zależy od programu pocztowego.
         </p>
-        {error && (
-          <p className="notice error" role="alert">
-            {error}
-          </p>
-        )}
-        {preview && (
-          <>
-            <h3>{preview.subject}</h3>
-            <iframe
-              title="Podgląd zaproszenia"
-              sandbox=""
-              srcDoc={preview.html}
-              style={{
-                width: "100%",
-                height: 650,
-                border: "1px solid #dbe3e9",
-                borderRadius: 8,
-                background: "white",
-              }}
-            />
-          </>
-        )}
       </section>
     </>
   );

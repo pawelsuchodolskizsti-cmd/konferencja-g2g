@@ -33,6 +33,11 @@ export function ImportPanel({
           Plik XLSX, do 2 MB i 2000 uczestników. Pierwszy wiersz: Imię,
           Nazwisko, Email.
         </p>
+        <p>
+          <a href="/przyklady/uczestnicy-testowi.xlsx" download>
+            Pobierz przykładowy Excel z 5 fikcyjnymi osobami
+          </a>
+        </p>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -134,7 +139,7 @@ export function ImportPanel({
                   },
                 );
                 setMessage(
-                  `Dodano ${result.imported} uczestników. Pominięto ${result.skipped} rekordów dodanych w międzyczasie.`,
+                  `Dodano ${result.imported} uczestników i wygenerowano ich kody. Plik z kodami pobierzesz w sekcji Kody i eksport. Pominięto ${result.skipped} rekordów dodanych w międzyczasie.`,
                 );
                 setPreview(null);
                 onComplete();

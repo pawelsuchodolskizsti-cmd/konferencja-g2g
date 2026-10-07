@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { cleanupEphemeral, processMail } from "@/server/mail";
+import { cleanupEphemeral } from "@/server/mail";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function GET(req: Request) {
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     await cleanupEphemeral();
-    return Response.json(await processMail());
+    return Response.json({ mailDisabled: true });
   } catch {
     return Response.json({ error: "Worker unavailable" }, { status: 503 });
   }

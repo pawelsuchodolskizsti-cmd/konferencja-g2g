@@ -26,6 +26,9 @@ export function EventForm({
         const form = new FormData(e.currentTarget);
         const data = {
           ...Object.fromEntries(form),
+          mailFrom: event?.mailFrom || "konferencja@oneday.com.pl",
+          mailSubject: event?.mailSubject || "Zaproszenie",
+          mailBody: event?.mailBody || "Zaproszenie na konferencję",
           startsAt: new Date(String(form.get("startsAt"))).toISOString(),
           endsAt: new Date(String(form.get("endsAt"))).toISOString(),
           certificateUnlockAt: new Date(
@@ -115,15 +118,6 @@ export function EventForm({
           Program będzie wyświetlany w strefie wydarzenia.
         </p>
         <label>
-          E-mail nadawcy
-          <input
-            name="mailFrom"
-            type="email"
-            required
-            defaultValue={event?.mailFrom}
-          />
-        </label>
-        <label>
           Przechowuj dane do
           <input
             name="retentionUntil"
@@ -186,34 +180,6 @@ export function EventForm({
       >
         Dodaj punkt programu
       </button>
-      <h2 style={{ marginTop: "2rem" }}>Zaproszenie</h2>
-      <p className="muted">
-        Możesz użyć:{" "}
-        {
-          "{{firstName}}, {{lastName}}, {{eventName}}, {{date}}, {{location}}, {{accessCode}}"
-        }
-        . Kod QR jest dołączany automatycznie.
-      </p>
-      <label>
-        Temat wiadomości
-        <input
-          name="mailSubject"
-          required
-          defaultValue={event?.mailSubject || "Zaproszenie: {{eventName}}"}
-        />
-      </label>
-      <label>
-        Treść wiadomości
-        <textarea
-          name="mailBody"
-          rows={8}
-          required
-          defaultValue={
-            event?.mailBody ||
-            "Cześć {{firstName}},\n\nzapraszamy na {{eventName}}.\n\nData: {{date}}\nMiejsce: {{location}}\n\nTwój kod dostępu: {{accessCode}}\n\nDo zobaczenia!"
-          }
-        />
-      </label>
       <label className="row">
         <input
           name="published"
