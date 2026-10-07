@@ -1,4 +1,4 @@
-import { ConferenceProgram } from "@/components/conference-program";
+import { ParticipantProgram } from "@/components/participant-program";
 import Image from "next/image";
 import { TrainingCarousel } from "@/components/training-carousel";
 import { ConferenceShell } from "@/components/conference-shell";
@@ -121,7 +121,12 @@ export default async function Page() {
             {event.location}
           </p>
           {event.agenda.length ? (
-            <ConferenceProgram items={event.agenda} />
+            <ParticipantProgram
+              items={event.agenda}
+              startsAt={event.startsAt.toISOString()}
+              timezone={event.timezone}
+              initialNow={new Date().toISOString()}
+            />
           ) : (
             <p className={styles.notice}>
               Szczegółowy program pojawi się wkrótce.
