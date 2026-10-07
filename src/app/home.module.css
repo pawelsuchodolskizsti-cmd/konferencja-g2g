@@ -314,3 +314,43 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.projectPartnerGrid {
+  display: grid;
+  gap: 16px;
+}
+.projectPartnerLogo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 360 / 150;
+  overflow: hidden;
+}
+.projectPartnerLogo img {
+  position: absolute;
+  width: 533.333333%;
+  max-width: none;
+  height: auto;
+  left: -416.666667%;
+}
+.incredibles img {
+  top: -426.666667%;
+}
+.presidential img {
+  top: -520%;
+}
+.yummy img {
+  top: -626.666667%;
+}
+.garnizon img {
+  top: -730%;
+}
+@media (min-width: 600px) {
+  .projectPartnerGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1000px) {
+  .projectPartnerGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

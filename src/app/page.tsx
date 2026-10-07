@@ -80,6 +80,40 @@ export default async function Home() {
           ))}
         </div>
       </section>
+      <section
+        id="partnerzy"
+        className={styles.organizers}
+        aria-labelledby="partners-title"
+      >
+        <h2 id="partners-title">Partnerzy projektu</h2>
+        <div className={styles.projectPartnerGrid}>
+          {[
+            {
+              name: "InCredibles - Program Sebastiana Kulczyka",
+              position: styles.incredibles,
+            },
+            {
+              name: "Presidential Hotel Warsaw",
+              position: styles.presidential,
+            },
+            { name: "Yummy - Party Box & Catering", position: styles.yummy },
+            { name: "Garnizon Sztuki", position: styles.garnizon },
+          ].map((partner) => (
+            <div
+              key={partner.name}
+              className={`${styles.projectPartnerLogo} ${partner.position}`}
+            >
+              <Image
+                src="/branding/organizatorzy-zrodlo.jpg"
+                alt={partner.name}
+                width={2858}
+                height={1905}
+                sizes="1920px"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
     </ConferenceShell>
   );
 }
