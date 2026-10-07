@@ -30,9 +30,9 @@ export default async function Page() {
           </Link>
         </div>
         <header className="publicheader">
-          <div className="eyebrow">Spotkajmy siÄ™</div>
+          <div className="eyebrow">Spotkajmy się</div>
           <h1>Wydarzenia fundacji</h1>
-          <p className="muted">Wybierz konferencjÄ™ i sprawdĹş program.</p>
+          <p className="muted">Wybierz konferencję i sprawdź program.</p>
         </header>
         {rows.length ? (
           rows.map((event) => (
@@ -48,16 +48,16 @@ export default async function Page() {
                   dateStyle: "long",
                   timeZone: event.timezone,
                 }).format(event.startsAt)}{" "}
-                Â· {event.location}
+                · {event.location}
               </p>
               <span style={{ color: "var(--brand)" }}>Zobacz program</span>
             </Link>
           ))
         ) : (
           <section className="card">
-            <h2>Program pojawi siÄ™ wkrĂłtce</h2>
+            <h2>Program pojawi się wkrótce</h2>
             <p className="muted">
-              Organizator nie opublikowaĹ‚ jeszcze ĹĽadnego wydarzenia.
+              Organizator nie opublikował jeszcze żadnego wydarzenia.
             </p>
           </section>
         )}
