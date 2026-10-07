@@ -493,7 +493,9 @@
   height: auto;
 }
 .title:has(.originalTitle) {
-  max-width: 484px;
+  width: calc(100% + 40px);
+  max-width: 557px;
+  margin-left: -10px;
 }
 
 .logoFilter {
