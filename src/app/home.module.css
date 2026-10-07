@@ -294,9 +294,14 @@
   margin: 0;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: #21477f;
+  font-family: "Conference Montserrat", Arial, sans-serif;
+  letter-spacing: 0;
   font-size: 12px;
   line-height: 1.5;
+  font-weight: 400;
+}
+.organizerCard h3 strong {
   font-weight: 700;
 }
 .partnerLogo {
