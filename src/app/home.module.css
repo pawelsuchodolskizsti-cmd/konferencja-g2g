@@ -508,9 +508,14 @@
   height: auto;
 }
 .title:has(.originalTitle) {
-  width: calc(100% + 40px);
-  max-width: 557px;
-  margin-left: -10px;
+  width: clamp(100px, 15vw, 165px);
+  max-width: 100%;
+  margin-left: 0;
+}
+.hero:has(.originalTitle) {
+  max-width: none;
+  padding-left: clamp(20px, 3vw, 48px);
+  padding-bottom: 64px;
 }
 
 .logoFilter {

@@ -25,12 +25,16 @@ export default async function Home() {
         <p className={styles.eyebrow}>Konferencja</p>
         <h1 className={styles.title} id="conference-title">
           <svg
-            viewBox="0 0 484 169"
+            viewBox="0 0 123 219"
             role="img"
             aria-label="Głowa do góry"
             className={styles.originalTitle}
           >
             <defs>
+              <clipPath id="title-layout-crop">
+                <rect x="59" y="15" width="174" height="56" />
+                <rect x="18" y="71" width="219" height="67" />
+              </clipPath>
               <filter
                 id="title-white-alpha"
                 colorInterpolationFilters="sRGB"
@@ -45,12 +49,16 @@ export default async function Home() {
                 />
               </filter>
             </defs>
-            <image
-              href="/branding/glowa-do-gory-oryginal.png"
-              width="484"
-              height="169"
-              filter="url(#title-white-alpha)"
-            />
+            <g transform="translate(0 219) rotate(-90) translate(-18 -15)">
+              <g clipPath="url(#title-layout-crop)">
+                <image
+                  href="/branding/tytul-uklad.png"
+                  width="263"
+                  height="149"
+                  filter="url(#title-white-alpha)"
+                />
+              </g>
+            </g>
           </svg>
         </h1>
       </section>
