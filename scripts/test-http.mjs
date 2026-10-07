@@ -73,11 +73,12 @@ try {
     cookie = r.headers.get("set-cookie").split(";")[0];
   });
   const list = await (await call("/api/admin/events")).json();
-  let eventId = list.find((e) => e.slug === "konferencja-testowa")?.id;
+  let eventId = list[0]?.id;
   if (!eventId) {
     const event = await (
-      await call("/api/admin/events", {
+      await call("/api/admin/events/setup", {
         method: "POST",
+        expected: 201,
         body: {
           name: "Konferencja testowa",
           slug: `test-${Date.now()}`,
