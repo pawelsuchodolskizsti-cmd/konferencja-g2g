@@ -16,6 +16,9 @@ const id = () => uuid("id").defaultRandom().primaryKey();
 const created = (name = "created_at") =>
   timestamp(name, { withTimezone: true }).defaultNow().notNull();
 export type AgendaItem = {
+  block?: string;
+  description?: string;
+  guest?: string;
   title: string;
   speaker: string;
   start: string;

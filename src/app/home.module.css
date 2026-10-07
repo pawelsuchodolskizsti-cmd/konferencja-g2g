@@ -236,3 +236,15 @@
 .page .menuPanel a:focus-visible {
   outline-color: var(--conference-ink);
 }
+
+.programSection {
+  position: relative;
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 24px clamp(20px, 5vw, 48px) 80px;
+}
+.programSection > h2 {
+  font-size: clamp(28px, 6vw, 48px);
+  line-height: 1.15;
+  margin: 16px 0;
+}

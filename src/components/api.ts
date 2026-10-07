@@ -1,3 +1,4 @@
+import type { AgendaItem } from "@/db/schema";
 export async function api<T>(
   url: string,
   options: RequestInit = {},
@@ -40,7 +41,7 @@ export type EventData = {
   mailBody: string;
   mailFrom: string;
   retentionUntil: string | null;
-  agenda: { title: string; speaker: string; start: string; end: string }[];
+  agenda: AgendaItem[];
 };
 export type Person = {
   id: string;

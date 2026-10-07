@@ -1,3 +1,4 @@
+import { ConferenceProgram } from "@/components/conference-program";
 import Image from "next/image";
 import { TrainingCarousel } from "@/components/training-carousel";
 import { ConferenceShell } from "@/components/conference-shell";
@@ -120,20 +121,7 @@ export default async function Page() {
             {event.location}
           </p>
           {event.agenda.length ? (
-            <ol className={styles.agenda}>
-              {event.agenda.map((item, i) => (
-                <li key={i}>
-                  <div className={styles.time}>
-                    {item.start}
-                    <small>{item.end}</small>
-                  </div>
-                  <div>
-                    <h3>{item.title}</h3>
-                    {item.speaker && <p>{item.speaker}</p>}
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <ConferenceProgram items={event.agenda} />
           ) : (
             <p className={styles.notice}>
               Szczegółowy program pojawi się wkrótce.

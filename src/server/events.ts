@@ -35,6 +35,9 @@ export const eventInput = z
     agenda: z
       .array(
         z.object({
+          block: z.string().max(200).optional(),
+          description: z.string().max(2000).optional(),
+          guest: z.string().max(200).optional(),
           title: z.string().min(1).max(200),
           speaker: z.string().max(200),
           start: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/),

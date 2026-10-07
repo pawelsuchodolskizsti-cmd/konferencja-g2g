@@ -1,3 +1,4 @@
+import { ConferenceProgram } from "@/components/conference-program";
 import { ConferenceShell } from "@/components/conference-shell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -59,26 +60,7 @@ export default async function Page({
             <span className="badge">{event.timezone}</span>
           </div>
           {event.agenda.length ? (
-            event.agenda.map((item, i) => (
-              <article className="agenda" key={i}>
-                <div style={{ color: "var(--brand)", fontWeight: 700 }}>
-                  {item.start}
-                  <br />
-                  <span
-                    className="muted"
-                    style={{ fontWeight: 400, fontSize: ".9rem" }}
-                  >
-                    do {item.end}
-                  </span>
-                </div>
-                <div>
-                  <h3>{item.title}</h3>
-                  <p className="muted" style={{ margin: 0 }}>
-                    {item.speaker}
-                  </p>
-                </div>
-              </article>
-            ))
+            <ConferenceProgram items={event.agenda} />
           ) : (
             <p className="muted">Szczegółowy program pojawi się wkrótce.</p>
           )}
