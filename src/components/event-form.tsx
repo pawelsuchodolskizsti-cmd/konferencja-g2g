@@ -134,7 +134,17 @@ export function EventForm({
       {agenda.map((item, index) => (
         <div className="card" key={index}>
           <div className="formgrid">
-            {(["start", "end", "title", "speaker"] as const).map((key) => (
+            {(
+              [
+                "start",
+                "end",
+                "title",
+                "speaker",
+                "block",
+                "guest",
+                "description",
+              ] as const
+            ).map((key) => (
               <label key={key}>
                 {
                   {
@@ -142,12 +152,15 @@ export function EventForm({
                     end: "Do",
                     title: "Temat / panel",
                     speaker: "Prowadzący / prelegent",
+                    block: "Nagłówek bloku (przy pierwszym wystąpieniu)",
+                    guest: "Gość specjalny",
+                    description: "Opis wystąpienia",
                   }[key]
                 }
                 <input
                   type={key === "start" || key === "end" ? "time" : "text"}
-                  required={key !== "speaker"}
-                  value={item[key]}
+                  required={key === "start" || key === "end" || key === "title"}
+                  value={item[key] ?? ""}
                   onChange={(e) =>
                     setAgenda(
                       agenda.map((old, i) =>
