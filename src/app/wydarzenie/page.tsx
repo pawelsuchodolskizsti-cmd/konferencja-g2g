@@ -1,3 +1,4 @@
+import { ConferenceShell } from "@/components/conference-shell";
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -18,47 +19,49 @@ export default async function Page() {
         .orderBy(desc(events.startsAt))
     : [];
   return (
-    <main className="public">
-      <div className="row spread">
-        <Link className="brand" href="/">
-          <span>K</span>Konferencje
-        </Link>
-        <Link className="button secondary" href="/uczestnik">
-          Strefa uczestnika
-        </Link>
-      </div>
-      <header className="publicheader">
-        <div className="eyebrow">Spotkajmy się</div>
-        <h1>Wydarzenia fundacji</h1>
-        <p className="muted">Wybierz konferencję i sprawdź program.</p>
-      </header>
-      {rows.length ? (
-        rows.map((event) => (
-          <Link
-            key={event.slug}
-            href={`/wydarzenie/${event.slug}`}
-            className="card"
-            style={{ display: "block", color: "inherit" }}
-          >
-            <h2>{event.name}</h2>
-            <p className="muted">
-              {new Intl.DateTimeFormat("pl-PL", {
-                dateStyle: "long",
-                timeZone: event.timezone,
-              }).format(event.startsAt)}{" "}
-              · {event.location}
-            </p>
-            <span style={{ color: "var(--brand)" }}>Zobacz program</span>
+    <ConferenceShell current="participant">
+      <div className="public">
+        <div className="row spread">
+          <Link className="brand" href="/">
+            <span>K</span>Konferencje
           </Link>
-        ))
-      ) : (
-        <section className="card">
-          <h2>Program pojawi się wkrótce</h2>
-          <p className="muted">
-            Organizator nie opublikował jeszcze żadnego wydarzenia.
-          </p>
-        </section>
-      )}
-    </main>
+          <Link className="button secondary" href="/uczestnik">
+            Strefa uczestnika
+          </Link>
+        </div>
+        <header className="publicheader">
+          <div className="eyebrow">Spotkajmy siÄ™</div>
+          <h1>Wydarzenia fundacji</h1>
+          <p className="muted">Wybierz konferencjÄ™ i sprawdĹş program.</p>
+        </header>
+        {rows.length ? (
+          rows.map((event) => (
+            <Link
+              key={event.slug}
+              href={`/wydarzenie/${event.slug}`}
+              className="card"
+              style={{ display: "block", color: "inherit" }}
+            >
+              <h2>{event.name}</h2>
+              <p className="muted">
+                {new Intl.DateTimeFormat("pl-PL", {
+                  dateStyle: "long",
+                  timeZone: event.timezone,
+                }).format(event.startsAt)}{" "}
+                Â· {event.location}
+              </p>
+              <span style={{ color: "var(--brand)" }}>Zobacz program</span>
+            </Link>
+          ))
+        ) : (
+          <section className="card">
+            <h2>Program pojawi siÄ™ wkrĂłtce</h2>
+            <p className="muted">
+              Organizator nie opublikowaĹ‚ jeszcze ĹĽadnego wydarzenia.
+            </p>
+          </section>
+        )}
+      </div>
+    </ConferenceShell>
   );
 }
