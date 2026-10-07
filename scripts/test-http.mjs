@@ -276,7 +276,7 @@ try {
         auth: pcookie,
         method: "POST",
         body: {},
-        expected: 403,
+        expected: 410,
       });
     } finally {
       await sql`UPDATE events SET certificate_unlock_at=${original[0].certificate_unlock_at} WHERE id=${eventId}`;
@@ -312,27 +312,26 @@ try {
       expected: 403,
     });
   });
-  await checked(
-    "kolejka 250 zaproszeń i brak powtórnego kolejkowania",
-    async () => {
-      const r = await (
-        await call(`${base}/mail`, { method: "POST", body: {} })
-      ).json();
-      assert([0, 250].includes(r.queued));
-      const again = await (
-        await call(`${base}/mail`, { method: "POST", body: {} })
-      ).json();
-      assert.equal(again.queued, 0);
-      const [{ count }] =
-        await sql`SELECT count(*)::int as count FROM email_logs e JOIN participants p ON p.id=e.participant_id WHERE p.event_id=${eventId} AND e.kind='INVITATION'`;
-      assert.equal(count, 250);
-      await call("/api/cron/mail", { auth: "", expected: 401 });
-    },
-  );
-  await checked("podgląd zaproszenia i eksport 250 rekordów", async () => {
-    const preview = await (await call(`${base}/mail-preview`)).json();
-    assert(preview.html.includes("data:image/png;base64,"));
-    assert(preview.html.includes("/uczestnik"));
+  await checked("wysyłka z panelu jest wyłączona", async () => {
+    await call(`${base}/mail`, { method: "POST", body: {}, expected: 410 });
+    await call(`${base}/mail-preview`, { expected: 410 });
+    await call("/api/cron/mail", { auth: "", expected: 401 });
+  });
+  await checked("eksport istniejących kodów 250 uczestników", async () => {
+    await call(`${base}/codes-export`, { auth: "", expected: 401 });
+    const response = await call(`${base}/codes-export`);
+    const book = XLSX.read(await response.arrayBuffer());
+    const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]);
+    assert.equal(rows.length, 250);
+    assert.equal(new Set(rows.map((row) => row.Kod)).size, 250);
+    assert(rows.every((row) => /^[A-Z0-9]{6}$/.test(row.Kod)));
+    const again = XLSX.read(
+      await (await call(`${base}/codes-export`)).arrayBuffer(),
+    );
+    assert.deepEqual(
+      XLSX.utils.sheet_to_json(again.Sheets[again.SheetNames[0]]),
+      rows,
+    );
     const csv = await (await call(`${base}/export`)).text();
     assert.equal(csv.trim().split("\r\n").length, 251);
   });
