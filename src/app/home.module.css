@@ -162,6 +162,13 @@
     transition: none;
   }
 }
+@media (min-width: 900px) {
+  .art,
+  .page[data-section="participant"] .art {
+    background-image: url("/branding/conference-desktop.webp");
+    background-size: cover;
+  }
+}
 
 .projectLogo {
   position: absolute;
