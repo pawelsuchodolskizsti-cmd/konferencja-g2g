@@ -27,12 +27,12 @@ Alternatywnie uruchom PostgreSQL przez `docker compose up -d`, skopiuj `.env.exa
 
 ## Obsługa wydarzenia
 
-1. Utwórz wydarzenie i ustaw daty, organizatora, lokalizację, nadawcę oraz treść zaproszenia.
+1. Ustaw daty, organizatora i lokalizację konferencji Głowa do Góry.
 2. Dodaj punkty programu i zaznacz publikację. Pobierz osobny QR programu z ustawień.
 3. Wgraj XLSX z kolumnami Imię, Nazwisko, Email. Sprawdź błędy i zatwierdź poprawne rekordy.
 4. Dodaj szkolenia. Dla kodów indywidualnych wgraj XLSX lub CSV z pierwszą kolumną Kod.
 5. W razie potrzeby dodaj materiały PDF w sekcji szkoleń. Są dostępne wyłącznie po obecności.
-6. W mailingu otwórz podgląd, a następnie zleć wysyłkę. Worker przetwarza kolejkę niezależnie od panelu.
+6. W sekcji Kody i eksport pobierz Excel z kodami oraz indywidualne bilety PDF do swojej korespondencji seryjnej.
 7. Przy wejściu uruchom skaner QR albo wyszukaj uczestnika i oznacz obecność ręcznie.
 8. Uczestnik loguje się kodem z zaproszenia. Obecność odblokowuje kursy, a zakończenie wydarzenia i ustawiony termin również certyfikat.
 9. Pobierz CSV obecności. Po terminie retencji można usunąć dane uczestników z ustawień.
@@ -54,24 +54,15 @@ Pliki uczestników: do 2 MB, maksymalnie 2000 wierszy w jednym imporcie. Materia
 
 Kod indywidualny jest przydzielany w transakcji. Przy usunięciu uczestnika wykorzystany kod zostaje wycofany z puli. Samo otwarcie adresu QR nigdy nie rejestruje obecności.
 
-## Mailing i harmonogram zewnętrzny
+## Kody i korespondencja seryjna
 
-Konfiguracja jest przygotowana dla Vercel Hobby. Plik `vercel.json` nie zawiera zadania uruchamianego co minutę, ponieważ Hobby tego nie obsługuje. Użyj zewnętrznego harmonogramu HTTP, np. cron-job.org, z następującymi ustawieniami:
+Panel nie wysyła wiadomości. Wgraj XLSX z nagłówkami Imię, Nazwisko, Email i zatwierdź podgląd. Każdy nowy uczestnik otrzymuje unikalny kod z sześciu wielkich liter i cyfr oraz niezależny token QR.
 
-| Ustawienie       | Wartość                                     |
-| ---------------- | ------------------------------------------- |
-| URL              | `https://twoja-domena/api/cron/mail`        |
-| Metoda           | GET                                         |
-| Częstotliwość    | Co minutę                                   |
-| Nagłówek         | `Authorization: Bearer WARTOŚĆ_CRON_SECRET` |
-| Limit czasu      | 60 sekund, jeśli dostawca pozwala           |
-| Zapis odpowiedzi | Tylko status i liczniki, bez sekretów       |
+Sekcja Kody i eksport udostępnia Excel i CSV z danymi, istniejącymi kodami, linkiem do strefy oraz nazwą biletu. Ponowny eksport nie zmienia kodów. Excel przechowuje kod jako tekst, zachowując początkowe zera. CSV należy importować z kolumną Kod ustawioną jako tekst.
 
-Wartość `CRON_SECRET` utwórz w ustawieniach środowiska Vercel. Wklej ją jako chroniony nagłówek w harmonogramie. Nie umieszczaj sekretu w URL, repozytorium ani treści zgłoszenia. Nie włączaj zadania dla preview. Jeśli dostawca przerywa żądania wcześniej, obniż limit czasu pracy i wielkość partii workera odpowiednio do jego limitu.
+Bilety PDF pobiera się w paczkach ZIP po maksymalnie 50 osób. Każda paczka zawiera też dopasowany Excel. Plik z kolumny Plik biletu należy przypisać jako indywidualny załącznik w narzędziu do korespondencji seryjnej. Nie należy załączać całej listy uczestników do wiadomości.
 
-Worker pobiera do 12 wiadomości na wywołanie, używa blokad SQL, lease i rosnących opóźnień. Status Wysłany oznacza przyjęcie przez Resend, a nie potwierdzenie doręczenia. Wysyłka jest możliwa tylko przy `APP_ENV=production`, `MAIL_ENABLED=true`, poprawnym kluczu Resend i produkcyjnym środowisku Vercel.
-
-Resend deduplikuje żądania przez 24 godziny. Po 23 godzinach niejednoznacznego wyniku system ustawia `REVIEW_REQUIRED`. Takiej wiadomości nie ponawia automatycznie. Operator musi sprawdzić wynik po kluczu `conference-ID_ZADANIA` w Resend, zanim zdecyduje o dalszym działaniu. Automatyczne ponowienia używają tego samego payloadu i klucza idempotencji. Zmiana szablonu dotyczy zadań, dla których payload nie został jeszcze zapisany.
+Przykładowy import: `public/przyklady/uczestnicy-testowi.xlsx`, pięć fikcyjnych osób. Dane eksportowe wymagają sesji administratora i przypisania do konferencji, mają nagłówki no-store i zapis audytowy. Endpoint harmonogramu wykonuje tylko porządkowanie wygasłych danych; nie przetwarza kolejki mailowej.
 
 ## Wdrożenie na GitHub i Vercel
 
@@ -81,9 +72,7 @@ Resend deduplikuje żądania przez 24 godziny. Po 23 godzinach niejednoznacznego
 4. Dodaj zmienne z `.env.example` do właściwych środowisk Vercel. `APP_URL` musi odpowiadać dokładnej domenie danego wdrożenia. Nigdy nie kopiuj produkcyjnych kluczy do developmentu.
 5. Wykonaj `pnpm db:migrate` na właściwej bazie ze skonfigurowanym `DATABASE_URL`. Migracje nie uruchamiają się automatycznie w każdym buildzie preview.
 6. Utwórz administratora przez `pnpm admin:create` w zaufanym środowisku z tymczasowymi zmiennymi `ADMIN_EMAIL` i `ADMIN_PASSWORD`. Usuń te zmienne po utworzeniu konta.
-7. W Resend zweryfikuj domenę nadawcy i ustaw `RESEND_API_KEY`. Ustaw zgodny adres nadawcy w wydarzeniu.
-8. Włącz harmonogram zewnętrzny dla produkcji i sprawdź autoryzowane wywołanie endpointu. Bez harmonogramu wiadomości pozostają w kolejce.
-9. Po próbnej wysyłce do kontrolowanych adresów ustaw `MAIL_ENABLED=true` i sprawdź cały przepływ wydarzenia.
+7. Pozostaw `MAIL_ENABLED=false`. Wysyłkę prowadzi organizator poza panelem. Sprawdź import testowy, eksport kodów i pobieranie biletów.
 
 Integracja GitHub z Vercel zapewnia preview pull requestów i wdrożenia z main. Workflow CI uruchamia lint, typy, testy, build, scenariusze HTTP oraz Playwright na oddzielnym PostgreSQL. Dla dynamicznych adresów preview ustaw `APP_URL` na konkretny adres wdrożenia lub przypisz stałą domenę preview; kontrola Origin celowo nie ufa dowolnemu nagłówkowi Host.
 
