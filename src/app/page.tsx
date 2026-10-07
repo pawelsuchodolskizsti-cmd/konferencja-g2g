@@ -22,51 +22,6 @@ export default async function Home() {
   return (
     <ConferenceShell>
       <div className={styles.homeLayout}>
-        <section className={styles.hero} aria-labelledby="conference-title">
-          <p className={styles.eyebrow}>Konferencja</p>
-          <h1 className={styles.title} id="conference-title">
-            <svg
-              viewBox="0 0 123 219"
-              role="img"
-              aria-label="Głowa do góry"
-              className={styles.originalTitle}
-            >
-              <defs>
-                <clipPath id="title-layout-crop">
-                  <rect x="60" y="16" width="172" height="54" />
-                  <rect x="19" y="72" width="217" height="65" />
-                </clipPath>
-                <filter
-                  id="title-white-alpha"
-                  colorInterpolationFilters="sRGB"
-                  x="0"
-                  y="0"
-                  width="100%"
-                  height="100%"
-                >
-                  <feColorMatrix
-                    type="matrix"
-                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  6.667 0 0 0 -3"
-                  />
-                  <feComponentTransfer>
-                    <feFuncA type="linear" slope="2" intercept="0" />
-                  </feComponentTransfer>
-                  <feMorphology operator="dilate" radius="0.65" />
-                </filter>
-              </defs>
-              <g transform="translate(0 219) rotate(-90) translate(-18 -15)">
-                <g clipPath="url(#title-layout-crop)">
-                  <image
-                    href="/branding/tytul-uklad.png"
-                    width="263"
-                    height="149"
-                    filter="url(#title-white-alpha)"
-                  />
-                </g>
-              </g>
-            </svg>
-          </h1>
-        </section>
         <div className={styles.homeSections}>
           {!!event?.agenda.length && (
             <section

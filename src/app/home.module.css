@@ -521,10 +521,7 @@
   padding: 8px 0 0;
 }
 .homeLayout {
-  display: grid;
-  grid-template-columns: clamp(60px, 9vw, 120px) minmax(0, 1fr);
-  gap: clamp(8px, 1.5vw, 24px);
-  padding: 24px 0 0 clamp(12px, 2vw, 28px);
+  padding-top: clamp(56px, 7vw, 88px);
 }
 .homeSections {
   min-width: 0;
