@@ -5,6 +5,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import {
   admins,
+  attendance,
   adminEvents,
   participants,
   rateLimits,
@@ -120,7 +121,20 @@ export async function requireParticipant() {
     .from(participants)
     .where(eq(participants.id, session.participantId));
   assert(person, 401, "Sesja wygasła.");
+  await requireAttendance(person.id);
   return person;
+}
+async function requireAttendance(participantId: string) {
+  const [present] = await db()
+    .select({ participantId: attendance.participantId })
+    .from(attendance)
+    .where(eq(attendance.participantId, participantId))
+    .limit(1);
+  assert(
+    present,
+    403,
+    "Panel jest dostępny po zeskanowaniu biletu i potwierdzeniu obecności. Zgłoś się do obsługi konferencji.",
+  );
 }
 export function requestOrigin(req: Request) {
   const expected = process.env.APP_URL;
@@ -162,6 +176,7 @@ export async function loginParticipant(code: string, ip: string) {
     .from(participants)
     .where(eq(participants.accessHash, hashToken(normalized)));
   assert(person, 401, "Nieprawidłowy kod uczestnika.");
+  await requireAttendance(person.id);
   await createSession({ participantId: person.id });
 }
 export async function logout(admin: boolean) {
