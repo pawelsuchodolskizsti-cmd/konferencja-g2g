@@ -12,6 +12,7 @@ import { certificateAvailable } from "@/server/attendance";
 import { participantCourses } from "@/server/training";
 import { AppError } from "@/server/errors";
 import {
+  CertificateRefresh,
   ParticipantActions,
   ParticipantLogout,
 } from "@/components/participant";
@@ -114,6 +115,9 @@ export default async function Page() {
             Otworzy się zaproszenie do grupy na WhatsApp.
           </p>
         </section>
+        {!!present && !ready && (
+          <CertificateRefresh unlockAt={unlockedAt.toISOString()} />
+        )}
         <nav
           className={styles.navigation}
           aria-label="Sekcje strefy uczestnika"
@@ -124,9 +128,11 @@ export default async function Page() {
           <a href="#szkolenia">
             <span>02</span>Szkolenia
           </a>
-          <a href="#certyfikat">
-            <span>03</span>Certyfikat
-          </a>
+          {ready && (
+            <a href="#certyfikat">
+              <span>03</span>Certyfikat
+            </a>
+          )}
         </nav>
 
         <section
@@ -227,46 +233,20 @@ export default async function Page() {
           )}
         </section>
 
-        <section
-          id="certyfikat"
-          className={styles.card}
-          aria-labelledby="certificate-title"
-        >
-          <div className={styles.sectionLabel}>
-            03 / Twój udział ma znaczenie
-          </div>
-          <h2 id="certificate-title">Certyfikat</h2>
-          {ready ? (
-            <>
-              <span className={styles.status}>✓ Gotowy do pobrania</span>
-              <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
-            </>
-          ) : (
-            <div className={styles.locked}>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              >
-                <rect x="5" y="10" width="14" height="11" rx="3" />
-                <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-              </svg>
-              <h3>
-                {new Date() < unlockedAt
-                  ? "Dostępny po konferencji"
-                  : "Oczekuje na potwierdzenie obecności"}
-              </h3>
-              <p>Odblokowanie: {dateTime.format(unlockedAt)}.</p>
-              <p>Certyfikat otrzymają osoby z potwierdzoną obecnością.</p>
-              <button disabled type="button">
-                Certyfikat zablokowany
-              </button>
+        {ready && (
+          <section
+            id="certyfikat"
+            className={styles.card}
+            aria-labelledby="certificate-title"
+          >
+            <div className={styles.sectionLabel}>
+              03 / Twój udział ma znaczenie
             </div>
-          )}
-          <ParticipantActions certificateReady={ready} />
-        </section>
+            <h2 id="certificate-title">Certyfikat</h2>
+            <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
+            <ParticipantActions certificateReady={ready} />
+          </section>
+        )}
       </div>
     </ConferenceShell>
   );
