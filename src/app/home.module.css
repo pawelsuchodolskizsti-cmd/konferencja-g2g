@@ -388,7 +388,7 @@
 }
 .programTitleArtwork {
   display: block;
-  width: clamp(54px, 16vw, 210px);
+  width: min(clamp(44px, 12vw, 160px), calc(16.8svh - 8px));
   height: auto;
   overflow: hidden;
 }
@@ -411,12 +411,7 @@
   padding-top: 48px;
   padding-bottom: 56px;
   margin-bottom: 56px;
-  background: url("/branding/program-tlo.png") top center / 100% auto repeat-y;
-}
-@media (max-width: 799px) {
-  .programSection {
-    background-size: auto 1400px;
-  }
+  background: url("/branding/program-tlo.png") top center / 100% 100% no-repeat;
 }
 .programContent > .eyebrow {
   font-size: 11px;
