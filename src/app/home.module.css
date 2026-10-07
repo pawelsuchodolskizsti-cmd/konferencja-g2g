@@ -354,3 +354,40 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.programSection {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(16px, 3vw, 48px);
+  width: min(100%, 1240px);
+}
+.programSection > .verticalProgramTitle {
+  position: sticky;
+  top: 24px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin: 0;
+  font-size: clamp(28px, 5.5vw, 72px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+.verticalProgramTitle span {
+  display: block;
+}
+.programContent {
+  min-width: 0;
+}
+@media (max-width: 599px) {
+  .programContent article {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .programContent h3,
+  .programContent h4,
+  .programContent p {
+    overflow-wrap: anywhere;
+  }
+}

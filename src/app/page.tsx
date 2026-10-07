@@ -35,10 +35,15 @@ export default async function Home() {
           className={styles.programSection}
           aria-labelledby="program-title"
         >
-          <p className={styles.eyebrow}>27 października 2026 · Warszawa</p>
-          <h2 id="program-title">Program konferencji</h2>
-          <p>Teatr Garnizon Sztuki</p>
-          <ConferenceProgram items={event.agenda} />
+          <h2 id="program-title" className={styles.verticalProgramTitle}>
+            <span>Program konferencji</span>
+            <span>Głowa do góry</span>
+          </h2>
+          <div className={styles.programContent}>
+            <p className={styles.eyebrow}>27 października 2026 · Warszawa</p>
+            <p>Teatr Garnizon Sztuki</p>
+            <ConferenceProgram items={event.agenda} />
+          </div>
         </section>
       )}
       <section
