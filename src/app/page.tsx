@@ -126,6 +126,28 @@ export default async function Home() {
         aria-labelledby="partners-title"
       >
         <h2 id="partners-title">Partnerzy projektu</h2>
+        <svg
+          width="0"
+          height="0"
+          aria-hidden="true"
+          className={styles.logoFilter}
+        >
+          <defs>
+            <filter
+              id="partner-white-alpha"
+              colorInterpolationFilters="sRGB"
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+            >
+              <feColorMatrix
+                type="matrix"
+                values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  8 0 0 0 -6"
+              />
+            </filter>
+          </defs>
+        </svg>
         <div className={styles.projectPartnerGrid}>
           {[
             {

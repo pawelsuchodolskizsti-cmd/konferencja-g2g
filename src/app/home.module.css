@@ -495,3 +495,11 @@
 .title:has(.originalTitle) {
   max-width: 484px;
 }
+
+.logoFilter {
+  position: absolute;
+  pointer-events: none;
+}
+.projectPartnerLogo img {
+  filter: url(#partner-white-alpha);
+}
