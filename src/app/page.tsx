@@ -46,12 +46,12 @@ export default async function Home() {
                 >
                   <feColorMatrix
                     type="matrix"
-                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.333 0 0 0 -2.333"
+                    values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  6.667 0 0 0 -3"
                   />
                   <feComponentTransfer>
                     <feFuncA type="linear" slope="2" intercept="0" />
                   </feComponentTransfer>
-                  <feMorphology operator="dilate" radius="0.35" />
+                  <feMorphology operator="dilate" radius="0.65" />
                 </filter>
               </defs>
               <g transform="translate(0 219) rotate(-90) translate(-18 -15)">
@@ -92,7 +92,7 @@ export default async function Home() {
                     >
                       <feColorMatrix
                         type="matrix"
-                        values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.333 0 0 0 -2.333"
+                        values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  6.667 0 0 0 -3"
                       />
                     </filter>
                   </defs>
