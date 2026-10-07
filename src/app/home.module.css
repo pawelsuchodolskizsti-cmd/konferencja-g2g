@@ -513,9 +513,35 @@
   margin-left: 0;
 }
 .hero:has(.originalTitle) {
-  max-width: none;
-  padding-left: clamp(20px, 3vw, 48px);
-  padding-bottom: 64px;
+  position: sticky;
+  top: 20px;
+  align-self: start;
+  width: 100%;
+  margin: 0;
+  padding: 8px 0 0;
+}
+.homeLayout {
+  display: grid;
+  grid-template-columns: clamp(60px, 9vw, 120px) minmax(0, 1fr);
+  gap: clamp(8px, 1.5vw, 24px);
+  padding: 24px 0 0 clamp(12px, 2vw, 28px);
+}
+.homeSections {
+  min-width: 0;
+}
+.homeLayout .title:has(.originalTitle) {
+  width: 100%;
+}
+.homeLayout .hero > .eyebrow {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+.homeSections .programSection {
+  padding-top: 24px;
+}
+.homeSections .organizers > h2 {
+  max-width: calc(100% + clamp(20px, 5vw, 48px));
 }
 
 .logoFilter {
