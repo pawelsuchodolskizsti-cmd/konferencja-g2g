@@ -254,3 +254,63 @@
     background-size: max(100%, 938px, 113svh) auto;
   }
 }
+
+.organizers {
+  position: relative;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  padding: 24px clamp(20px, 5vw, 48px) 80px;
+}
+.organizers > h2 {
+  margin: 0 0 28px;
+  font-size: clamp(28px, 6vw, 44px);
+  line-height: 1.2;
+}
+.organizerGrid {
+  display: grid;
+  gap: 16px;
+}
+.organizerCard {
+  padding: 24px 16px 8px;
+  background: #fff;
+  color: #123e59;
+  min-width: 0;
+}
+.organizerCard h3 {
+  margin: 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+.partnerLogo {
+  position: relative;
+  width: 100%;
+  max-width: 330px;
+  aspect-ratio: 330 / 200;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.partnerLogo img {
+  position: absolute;
+  width: 581.818182%;
+  max-width: none;
+  height: auto;
+  left: -315.151515%;
+}
+.oneDay img {
+  top: -305%;
+}
+.childRights img {
+  top: -402.5%;
+}
+.association img {
+  top: -510%;
+}
+@media (min-width: 800px) {
+  .organizerGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { events } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { ConferenceShell } from "@/components/conference-shell";
 import styles from "./home.module.css";
 
@@ -40,6 +41,45 @@ export default async function Home() {
           <ConferenceProgram items={event.agenda} />
         </section>
       )}
+      <section
+        id="organizatorzy"
+        className={styles.organizers}
+        aria-labelledby="organizers-title"
+      >
+        <h2 id="organizers-title">Organizator i partnerzy</h2>
+        <div className={styles.organizerGrid}>
+          {[
+            {
+              role: "Organizator",
+              name: "Fundacja One Day",
+              position: styles.oneDay,
+            },
+            {
+              role: "Patronat honorowy",
+              name: "Rzecznik Praw Dziecka",
+              position: styles.childRights,
+            },
+            {
+              role: "Partner współzapraszający",
+              name: "Ogólnopolskie Stowarzyszenie Placówek Opiekuńczo-Wychowawczych „Dla Naszych Dzieci”",
+              position: styles.association,
+            },
+          ].map((partner) => (
+            <article key={partner.role} className={styles.organizerCard}>
+              <h3>{partner.role}</h3>
+              <div className={`${styles.partnerLogo} ${partner.position}`}>
+                <Image
+                  src="/branding/organizatorzy-zrodlo.jpg"
+                  alt={partner.name}
+                  width={2858}
+                  height={1905}
+                  sizes="1920px"
+                />
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </ConferenceShell>
   );
 }
