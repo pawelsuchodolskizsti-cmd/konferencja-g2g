@@ -1,0 +1,87 @@
+.program {
+  margin-top: 24px;
+}
+.highlights {
+  display: grid;
+  gap: 14px;
+}
+.current,
+.next {
+  padding: 20px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.current {
+  background: #fff;
+  color: #123e59;
+}
+.next {
+  border: 1px solid #ffffff80;
+  color: #fff;
+}
+.program .label {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.program h3 {
+  margin: 8px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.program .time {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.program .speaker,
+.program .message {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.full {
+  margin-top: 20px;
+}
+.full > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 14px 18px;
+  background: #fff;
+  color: #123e59;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.full > summary::-webkit-details-marker {
+  display: none;
+}
+.full > summary:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+.collapse,
+.full[open] .expand {
+  display: none;
+}
+.full[open] .collapse {
+  display: inline;
+}
+.chevron {
+  font-size: 1.3rem;
+}
+.full[open] .chevron {
+  transform: rotate(180deg);
+}
+@media (min-width: 700px) {
+  .highlights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
