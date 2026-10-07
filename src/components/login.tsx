@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import styles from "@/app/uczestnik/participant-login.module.css";
+import styles from "./admin-login-layout.module.css";
 import adminStyles from "./admin-login.module.css";
 
 export function Login() {
