@@ -8,7 +8,7 @@ import { adminEventList, saveEvent } from "@/server/events";
 import { commitImport, previewImport } from "@/server/imports";
 import { checkIn } from "@/server/attendance";
 import { createCourse, importCodes, updateCourse } from "@/server/training";
-import { invitation, queueInvitations } from "@/server/mail";
+import { exportTickets } from "@/server/ticket-export";
 import {
   deleteEventData,
   deleteParticipant,
@@ -21,6 +21,7 @@ import { uploadMaterial } from "@/server/materials";
 import { AppError, assert } from "@/server/errors";
 type Context = { params: Promise<{ path: string[] }> };
 export const runtime = "nodejs";
+export const maxDuration = 60;
 async function handle(req: Request, ctx: Context) {
   try {
     const admin = await requireAdmin();
@@ -86,27 +87,23 @@ async function handle(req: Request, ctx: Context) {
         .parse(await jsonBody(req));
       return Response.json(await checkIn(eventId, admin.id, input));
     }
-    if (action === "mail" && req.method === "POST")
-      return Response.json(await queueInvitations(eventId, admin.id));
-    if (action === "mail-preview" && req.method === "GET") {
-      const [p] = await db()
-        .select()
-        .from(participants)
-        .where(eq(participants.eventId, eventId))
-        .limit(1);
-      const [e] = await db()
-        .select()
-        .from(events)
-        .where(eq(events.id, eventId));
-      assert(p && e, 400, "Najpierw dodaj uczestników.");
-      const mail = await invitation(p, e);
-      return Response.json({
-        subject: mail.subject,
-        html: mail.html.replace(
-          "cid:participant-qr",
-          `data:image/png;base64,${mail.attachments![0].content}`,
-        ),
-      });
+    if (action === "mail" || action === "mail-preview")
+      throw new AppError(
+        410,
+        "Wysyłka z panelu została wyłączona. Pobierz dane w sekcji Kody i eksport.",
+      );
+    if (action === "codes-export" && req.method === "GET") {
+      const url = new URL(req.url);
+      const format = z
+        .enum(["xlsx", "csv", "zip"])
+        .parse(url.searchParams.get("format") || "xlsx");
+      const offset = z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(1000000)
+        .parse(url.searchParams.get("offset") || 0);
+      return await exportTickets(eventId, admin.id, format, offset);
     }
     if (action === "materials" && req.method === "POST")
       return Response.json(
