@@ -31,8 +31,7 @@
     no-repeat;
 }
 .page[data-section="participant"] .art {
-  background-size: auto max(1250px, 150svh);
-  background-repeat: repeat-x;
+  background-size: max(100%, 938px, 113svh) auto;
 }
 .header {
   position: relative;
@@ -155,8 +154,7 @@
     margin-bottom: 30px;
   }
   .art {
-    background-size: 55% auto;
-    background-repeat: repeat;
+    background-size: cover;
   }
 }
 @media (prefers-reduced-motion: reduce) {
