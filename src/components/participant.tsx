@@ -1,6 +1,31 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { api } from "./api";
+export function CertificateRefresh({ unlockAt }: { unlockAt: string }) {
+  const router = useRouter();
+  useEffect(() => {
+    const unlockTime = new Date(unlockAt).getTime();
+    if (Date.now() >= unlockTime) {
+      router.refresh();
+      return;
+    }
+    const check = () => {
+      if (Date.now() >= unlockTime) {
+        window.clearInterval(timer);
+        document.removeEventListener("visibilitychange", check);
+        router.refresh();
+      }
+    };
+    const timer = window.setInterval(check, 1000);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [router, unlockAt]);
+  return null;
+}
 export function ParticipantActions({
   certificateReady,
 }: {
