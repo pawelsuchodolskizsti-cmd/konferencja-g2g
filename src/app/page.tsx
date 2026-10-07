@@ -151,7 +151,11 @@ export default async function Home() {
             },
           ].map((partner) => (
             <article key={partner.role} className={styles.organizerCard}>
-              <h3>{partner.role}</h3>
+              <h3>
+                <strong>{partner.role.split(" ")[0]}</strong>
+                {partner.role.includes(" ") &&
+                  ` ${partner.role.split(" ").slice(1).join(" ")}`}
+              </h3>
               <div className={`${styles.partnerLogo} ${partner.position}`}>
                 <Image
                   src="/branding/organizatorzy-zrodlo.jpg"
