@@ -277,6 +277,9 @@
   max-width: 1004px;
   margin-inline: auto;
 }
+.organizers > h2:has(+ .organizerGrid) {
+  margin-bottom: 48px;
+}
 .organizerGrid {
   display: grid;
   gap: 16px;
