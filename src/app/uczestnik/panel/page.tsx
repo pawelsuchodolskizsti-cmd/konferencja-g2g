@@ -23,7 +23,10 @@ export default async function Page() {
   try {
     person = await requireParticipant();
   } catch (error) {
-    if (error instanceof AppError && error.status === 401)
+    if (
+      error instanceof AppError &&
+      (error.status === 401 || error.status === 403)
+    )
       redirect("/uczestnik");
     throw error;
   }
