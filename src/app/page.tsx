@@ -33,8 +33,8 @@ export default async function Home() {
             >
               <defs>
                 <clipPath id="title-layout-crop">
-                  <rect x="59" y="15" width="174" height="56" />
-                  <rect x="18" y="71" width="219" height="67" />
+                  <rect x="60" y="16" width="172" height="54" />
+                  <rect x="19" y="72" width="217" height="65" />
                 </clipPath>
                 <filter
                   id="title-white-alpha"
