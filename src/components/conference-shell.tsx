@@ -13,7 +13,7 @@ export function ConferenceShell({
 }) {
   const styles = current === "admin" ? adminStyles : publicStyles;
   return (
-    <main className={styles.page}>
+    <main className={styles.page} data-section={current}>
       <div className={styles.art} aria-hidden="true">
         {current === "admin" && (
           <>
