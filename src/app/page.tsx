@@ -143,7 +143,7 @@ export default async function Home() {
             >
               <feColorMatrix
                 type="matrix"
-                values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  20 0 -20 0 4"
+                values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1 0 0 0 0"
               />
             </filter>
           </defs>
@@ -166,10 +166,10 @@ export default async function Home() {
               className={`${styles.projectPartnerLogo} ${partner.position}`}
             >
               <Image
-                src="/branding/organizatorzy-zrodlo.jpg"
+                src="/branding/partnerzy-biale-loga.png"
                 alt={partner.name}
-                width={2858}
-                height={1905}
+                width={1942}
+                height={809}
                 sizes="1920px"
               />
             </div>

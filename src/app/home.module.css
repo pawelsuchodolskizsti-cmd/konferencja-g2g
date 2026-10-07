@@ -503,3 +503,19 @@
 .projectPartnerLogo img {
   filter: url(#partner-white-alpha);
 }
+.projectPartnerLogo img {
+  width: 200%;
+  height: 200%;
+  left: 0;
+  top: 0;
+}
+.presidential img {
+  left: -100%;
+}
+.yummy img {
+  top: -100%;
+}
+.garnizon img {
+  left: -100%;
+  top: -100%;
+}
