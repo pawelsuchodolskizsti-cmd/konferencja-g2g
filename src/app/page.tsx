@@ -143,7 +143,7 @@ export default async function Home() {
             >
               <feColorMatrix
                 type="matrix"
-                values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  8 0 0 0 -6"
+                values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  6 0 -6 0 1"
               />
             </filter>
           </defs>
