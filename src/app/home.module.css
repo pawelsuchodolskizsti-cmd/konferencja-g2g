@@ -23,12 +23,16 @@
   font-family: "Conference Montserrat", Arial, sans-serif;
 }
 .art {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: url("/branding/conference-background.webp") center top / 100% auto
-    repeat-y;
+  background: url("/branding/conference-background.webp") center top / cover
+    no-repeat;
+}
+.page[data-section="participant"] .art {
+  background-size: auto max(1250px, 150svh);
+  background-repeat: repeat-x;
 }
 .header {
   position: relative;
