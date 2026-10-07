@@ -77,20 +77,42 @@ export default async function Page() {
           className={`${styles.card} ${styles.community}`}
           aria-labelledby="community-title"
         >
-          <div className={styles.sectionLabel}>Bądźmy w kontakcie</div>
+          <div className={styles.communityBadge}>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            >
+              <path d="M20.5 11.5a8.5 8.5 0 0 1-12.7 7.4L3 20l1.2-4.6a8.5 8.5 0 1 1 16.3-3.9Z" />
+              <path d="M8 7.5c-.9.8-.4 3.2 1.7 5.3s4.5 2.6 5.3 1.7l1-1-2.5-1.4-.9.8a7 7 0 0 1-2.5-2.5l.8-.9L9.5 7Z" />
+            </svg>
+            Nasza grupa na WhatsApp
+          </div>
           <h2 id="community-title">Dołącz do społeczności</h2>
           <p>
-            Spotkajmy się także na WhatsApp! W naszej grupie znajdziesz
-            ciekawostki i zdjęcia po konferencji.
+            Nie kończmy na konferencji! Dołącz do naszej grupy i bądźmy w
+            kontakcie także po wydarzeniu.
           </p>
+          <div className={styles.communityBenefits}>
+            <span>Zdjęcia z konferencji</span>
+            <span>Ciekawostki i inspiracje</span>
+          </div>
           <a
-            className={styles.action}
+            className={styles.communityAction}
             href="https://chat.whatsapp.com/JnhVyoBpCEi4N9bpuDds6D"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Dołącz do grupy WhatsApp <span aria-hidden="true">↗</span>
+            <span>Kliknij i dołącz do grupy</span>
+            <span className={styles.communityArrow} aria-hidden="true">
+              ↗
+            </span>
           </a>
+          <p className={styles.communityHint}>
+            Otworzy się zaproszenie do grupy na WhatsApp.
+          </p>
         </section>
         <nav
           className={styles.navigation}
