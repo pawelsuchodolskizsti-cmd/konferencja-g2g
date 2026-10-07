@@ -1,7 +1,6 @@
 import { requireParticipant, requestOrigin, limit } from "@/server/auth";
 import { participantCourses } from "@/server/training";
 import { generateCertificate } from "@/server/certificates";
-import { queueCertificate } from "@/server/mail";
 import { apiError } from "@/server/http";
 import { AppError } from "@/server/errors";
 export const runtime = "nodejs";
@@ -31,12 +30,13 @@ export async function GET(req: Request, ctx: Context) {
 export async function POST(req: Request, ctx: Context) {
   try {
     requestOrigin(req);
-    const person = await requireParticipant();
+    await requireParticipant();
     const { action } = await ctx.params;
-    if (action === "certificate-email") {
-      await limit(`certificate-email:${person.id}`, 3, 3600);
-      return Response.json(await queueCertificate(person.id));
-    }
+    if (action === "certificate-email")
+      throw new AppError(
+        410,
+        "Wysyłka e-mail jest wyłączona. Pobierz certyfikat PDF w swojej strefie.",
+      );
     throw new AppError(404, "Nie znaleziono.");
   } catch (error) {
     return apiError(error);
