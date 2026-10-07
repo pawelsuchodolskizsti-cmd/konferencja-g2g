@@ -21,8 +21,9 @@
 }
 .scanner-page h1 {
   font:
-    400 clamp(48px, 14vw, 66px)/1 Georgia,
-    serif;
+    700 clamp(44px, 12vw, 66px)/1.05 "Conference Montserrat",
+    Arial,
+    sans-serif;
   letter-spacing: -0.045em;
   margin: 18px 0;
 }
@@ -33,17 +34,17 @@
 .scanner-page .card {
   padding: 22px 18px;
   border: 1px solid #c0eeff99;
-  border-radius: 24px;
-  background: #125b8cdb;
+  border-radius: 0;
+  background: white;
+  color: #123e59;
   box-shadow: 0 10px 40px #07365322;
-  backdrop-filter: blur(18px);
 }
 .scanner-page h2 {
   font-size: 18px;
   font-weight: 400;
 }
 .scanner-page .muted {
-  color: #def2ff;
+  color: #35546a;
   font-size: 13px;
 }
 .scanner-page button {
@@ -52,7 +53,7 @@
   color: #124e78;
   background: #f4fbff;
   border: 1px solid #d3efff;
-  border-radius: 30px;
+  border-radius: 0;
   font-size: 14px;
 }
 .scanner-page #qr-reader {
@@ -105,9 +106,9 @@
 }
 .scanner-page input {
   font-size: 16px;
-  background: #064674;
+  background: #eaf4ff;
   border-color: #a7d9f7;
-  color: white;
+  color: #123e59;
   min-height: 50px;
 }
 .scanner-page label {

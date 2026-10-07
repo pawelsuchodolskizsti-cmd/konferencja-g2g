@@ -1,38 +1,87 @@
-@font-face {
-  font-family: "Conference Montserrat";
-  src: url("/branding/montserrat-regular.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Conference Montserrat";
-  src: url("/branding/montserrat-bold.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 600 900;
-  font-display: swap;
-}
 .page {
-  --conference-ink: #123e59;
   position: relative;
   isolation: isolate;
   min-height: 100svh;
   overflow: clip;
-  background: #389cda;
+  background: #167bb6;
   color: #fff;
-  font-family: "Conference Montserrat", Arial, sans-serif;
 }
 .art {
-  position: fixed;
+  position: absolute;
   inset: 0;
+  overflow: hidden;
   z-index: -1;
   pointer-events: none;
-  background: url("/branding/conference-background.webp") center top / cover
-    no-repeat;
 }
-.page[data-section="participant"] .art {
-  background-size: auto max(1250px, 150svh);
-  background-repeat: repeat-x;
+.halo {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 0% 4%, #429fd3 0, transparent 57%),
+    linear-gradient(135deg, transparent 30%, #05699f 100%);
+}
+.tiles {
+  position: absolute;
+  width: 100%;
+  height: 51%;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.tileOne {
+  background: linear-gradient(145deg, #4497c877, #80b4e388);
+  border-radius: 0 100% 0 0;
+}
+.tileTwo {
+  background: linear-gradient(150deg, #2b89c122, #70b7e15c);
+}
+.tileThree {
+  background: linear-gradient(135deg, #0d629765, #2888bd88);
+}
+.tileFour {
+  background: linear-gradient(160deg, #2a8bbba8, #8ebade99);
+  border-radius: 100% 0 0 0;
+}
+.orbit {
+  position: absolute;
+  width: 110vw;
+  height: 110vw;
+  left: -61vw;
+  bottom: -50vw;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 76% 22%,
+    #c7dff16b,
+    #61a9d15c 24%,
+    #106b9c 58%,
+    #53a1ce 83%
+  );
+  box-shadow:
+    inset -2px 2px 3px #d6eeff66,
+    10px -10px 50px #174f7522;
+  transform: rotate(-20deg);
+}
+.dots {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  right: -26px;
+  bottom: 7%;
+  width: 184px;
+  opacity: 0.54;
+  transform: rotate(0deg);
+}
+.dots span {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #c8e7f5b0, #b6ccef44);
+}
+.grain {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: soft-light;
 }
 .header {
   position: relative;
@@ -85,9 +134,10 @@
   min-width: 246px;
   padding: 12px;
   border: 1px solid #ffffff50;
-  border-radius: 0;
-  background: #fff;
+  border-radius: 16px;
+  background: #095985f5;
   box-shadow: 0 12px 40px #07355433;
+  backdrop-filter: blur(18px);
 }
 .menuPanel a {
   display: flex;
@@ -95,15 +145,12 @@
   justify-content: space-between;
   min-height: 48px;
   padding: 10px 14px;
-  color: var(--conference-ink);
-  border-radius: 0;
+  color: #fff;
+  border-radius: 8px;
   font-size: 15px;
 }
 .menuPanel a:hover {
-  background: #e9f3fc;
-}
-.menuPanel a:focus-visible {
-  outline-color: var(--conference-ink);
+  background: #ffffff17;
 }
 .page a:focus-visible,
 .menuButton:focus-visible {
@@ -125,20 +172,16 @@
   font-weight: 400;
 }
 .title {
-  max-width: 900px;
   margin: 0;
-  font-family: inherit;
-  font-weight: 700;
-  font-size: clamp(46px, 12.4vw, 104px);
-  line-height: 1.07;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(62px, 17vw, 104px);
+  line-height: 1.03;
   letter-spacing: -0.055em;
+  text-wrap: nowrap;
 }
-.title span {
-  display: block;
-}
-.title span + span {
-  margin-top: 16px;
-  padding-left: 27%;
+.period {
+  color: #bedff1;
 }
 @media (min-width: 700px) {
   .header {
@@ -148,15 +191,27 @@
     padding: 100px 8vw 260px;
   }
   .title {
-    font-size: clamp(90px, 9.6vw, 146px);
+    font-size: clamp(104px, 11vw, 170px);
   }
   .eyebrow {
     font-size: 14px;
     margin-bottom: 30px;
   }
-  .art {
-    background-size: 55% auto;
-    background-repeat: repeat;
+  .tiles {
+    left: 48%;
+    width: 52%;
+    height: 100%;
+  }
+  .orbit {
+    width: 60vw;
+    height: 60vw;
+    left: 30%;
+    bottom: -48vw;
+  }
+  .dots {
+    right: 5%;
+    bottom: 12%;
+    width: 210px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -180,54 +235,4 @@
   .projectLogo {
     top: 18px;
   }
-}
-
-.page :global(.public),
-.page :global(.auth) {
-  position: relative;
-  width: min(100%, 960px);
-  margin: 0 auto;
-  padding: 42px 24px 80px;
-}
-.page :global(.publicheader) {
-  margin-top: 24px;
-}
-.page :global(.publicheader h1) {
-  font-size: clamp(36px, 8vw, 72px);
-  line-height: 1.1;
-  font-weight: 700;
-}
-.page :global(.card) {
-  border-radius: 0;
-  background: #fff;
-  color: var(--conference-ink);
-  box-shadow: none;
-  border: 0;
-}
-.page :global(.card h1),
-.page :global(.card h2) {
-  font-family: inherit;
-  font-weight: 700;
-}
-.page :global(.card .muted) {
-  color: #35546a;
-}
-.page :global(.publicheader .muted) {
-  color: white;
-}
-.page :global(.card .button),
-.page :global(.card button) {
-  border-radius: 0;
-  background: #1a5e88;
-  color: white;
-}
-.page :global(.brand) {
-  color: white;
-}
-.page :global(.brand span) {
-  display: none;
-}
-
-.page .menuPanel a:focus-visible {
-  outline-color: var(--conference-ink);
 }

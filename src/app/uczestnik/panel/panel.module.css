@@ -23,7 +23,7 @@
 .topline button {
   color: #fff;
   border: 1px solid #ffffff66;
-  border-radius: 30px;
+  border-radius: 0;
   background: transparent;
   padding: 8px 14px;
   font-size: 12px;
@@ -37,17 +37,17 @@
 }
 .titleRow h1 {
   font:
-    400 clamp(60px, 16vw, 82px)/0.99 Georgia,
-    "Times New Roman",
-    serif;
+    700 clamp(50px, 13vw, 72px)/1.04 "Conference Montserrat",
+    Arial,
+    sans-serif;
   letter-spacing: -0.05em;
   margin: 26px 0 22px;
 }
 .titleRow h1 span {
-  color: #bedff1;
+  color: #fff;
 }
 .logo {
-  width: 90px;
+  width: clamp(54px, 17vw, 90px);
   height: 145px;
   object-fit: contain;
 }
@@ -61,7 +61,7 @@
   font-size: 12px;
   background: #0d52795e;
   border: 1px solid #a9e6ff77;
-  border-radius: 30px;
+  border-radius: 0;
   padding: 7px 13px;
 }
 .navigation {
@@ -69,12 +69,12 @@
   grid-template-columns: repeat(3, 1fr);
   margin: 0 0 28px;
   border: 1px solid #c0edff80;
-  border-radius: 18px;
-  background: #115a88a8;
+  border-radius: 0;
+  background: white;
   overflow: hidden;
 }
 .navigation a {
-  color: white;
+  color: #123e59;
   padding: 14px 8px;
   min-height: 70px;
   text-align: center;
@@ -91,25 +91,22 @@
   margin-bottom: 5px;
 }
 .navigation a:hover {
-  background: #ffffff15;
+  background: #eaf4ff;
 }
 .card {
   position: relative;
-  padding: 28px 24px;
+  padding: 26px 0;
   margin-bottom: 24px;
   scroll-margin-top: 24px;
-  border: 1.5px solid transparent;
-  border-radius: 26px;
-  background:
-    linear-gradient(145deg, #155a91ed, #176da2ed 65%, #3087b9ed) padding-box,
-    linear-gradient(130deg, #8aefff, #e3f2ff88 42%, #80c4ed88 70%, #76edff)
-      border-box;
-  box-shadow: 0 15px 40px #00365522;
-  backdrop-filter: blur(18px);
+  border: 0;
+  border-top: 1px solid #ffffff85;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .sectionLabel {
   text-transform: uppercase;
-  color: #cdeeff;
+  color: #fff;
   font-size: 10px;
   letter-spacing: 0.15em;
 }
@@ -118,7 +115,7 @@
 }
 .community p {
   margin: 0 0 22px;
-  color: #e4f5ff;
+  color: #fff;
 }
 .community a {
   min-height: 48px;
@@ -126,11 +123,14 @@
 }
 .card h2 {
   font:
-    400 clamp(29px, 8vw, 38px)/1.12 Georgia,
-    "Times New Roman",
-    serif;
+    700 clamp(24px, 6.5vw, 32px)/1.15 "Conference Montserrat",
+    Arial,
+    sans-serif;
   letter-spacing: -0.035em;
   margin: 14px 0 22px;
+  padding: 14px 16px;
+  background: white;
+  color: #123e59;
 }
 .card h3 {
   font-size: 17px;
@@ -147,14 +147,14 @@
   font-weight: 600;
 }
 .detail {
-  color: #d8efff;
+  color: #fff;
   margin-top: 0;
 }
 .notice {
-  background: #06476e55;
+  background: #ffffffeb;
   padding: 16px;
-  border-radius: 14px;
-  color: #e4f5ff;
+  border-radius: 0;
+  color: #fff;
 }
 .info {
   white-space: pre-line;
@@ -173,14 +173,14 @@
 }
 .agenda p {
   margin: 0;
-  color: #d8efff;
+  color: #fff;
 }
 .time {
   font-size: 15px;
 }
 .time small {
   display: block;
-  color: #c6e6fa;
+  color: #fff;
   font-size: 12px;
 }
 .course {
@@ -188,8 +188,9 @@
   min-width: 0;
   padding: 20px 16px;
   border: 1px solid #b3e8ff77;
-  border-radius: 20px;
-  background: linear-gradient(145deg, #237faf, #114e80);
+  border-radius: 0;
+  background: white;
+  color: #123e59;
   display: flex;
   flex-direction: column;
   overflow-wrap: anywhere;
@@ -221,16 +222,16 @@
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: #cdeeff;
+  color: #fff;
 }
 .course h3 {
   margin-top: 9px;
 }
 .code {
-  background: #083f6760;
+  background: #e8f3fc;
   border: 1px solid #b3e8ff55;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: 0;
   margin: 16px 0;
 }
 .code span {
@@ -253,10 +254,12 @@
   width: 100%;
   min-height: 50px;
   border: 1px solid #c8efff;
-  border-radius: 30px;
+  border-radius: 0;
   padding: 12px 16px;
   color: #fff;
-  background: linear-gradient(110deg, #126594, #194d80 60%, #307caf);
+  background: white;
+  color: #123e59;
+  font-weight: 700;
   font-size: 14px;
   font-weight: 400;
 }
@@ -283,7 +286,7 @@
 }
 .materials a span {
   flex-shrink: 0;
-  color: #c2eaff;
+  color: #fff;
   font-size: 11px;
 }
 .locked {
@@ -293,11 +296,11 @@
 .locked svg {
   width: 44px;
   height: 44px;
-  color: #c5ecff;
+  color: #fff;
   margin: 0 auto 16px;
 }
 .locked p {
-  color: #d4ecfa;
+  color: #fff;
   font-size: 13px;
 }
 .locked button {
@@ -305,9 +308,9 @@
   min-height: 50px;
   margin-top: 12px;
   border: 1px solid #b9e2f755;
-  border-radius: 30px;
-  background: #0c426650;
-  color: #cce3f0;
+  border-radius: 0;
+  background: #ffffffdf;
+  color: #35546a;
   font-size: 13px;
   cursor: not-allowed;
   opacity: 1;
@@ -326,5 +329,23 @@
   }
   .navigation a {
     font-size: 15px;
+  }
+}
+
+.navigation span,
+.course .platform,
+.code span {
+  color: #35546a;
+}
+.notice {
+  color: #123e59;
+}
+.course .action {
+  background: #1a5e88;
+  color: white;
+}
+@media (min-width: 700px) {
+  .card {
+    padding: 32px 0;
   }
 }

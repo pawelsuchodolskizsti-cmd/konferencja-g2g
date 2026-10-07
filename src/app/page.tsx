@@ -13,9 +13,8 @@ export default function Home() {
       <section className={styles.hero} aria-labelledby="conference-title">
         <p className={styles.eyebrow}>Konferencja</p>
         <h1 className={styles.title} id="conference-title">
-          Głowa
-          <br />
-          do Góry<span className={styles.period}>.</span>
+          <span>Głowa do</span>
+          <span>Góry</span>
         </h1>
       </section>
     </ConferenceShell>

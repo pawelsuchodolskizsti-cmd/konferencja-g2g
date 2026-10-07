@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ConferenceShell } from "@/components/conference-shell";
 import { Login } from "@/components/login";
-import styles from "@/app/uczestnik/participant-login.module.css";
+import styles from "@/components/admin-login-layout.module.css";
 
 export const metadata: Metadata = {
   title: "Strefa organizatora | Głowa do Góry",
