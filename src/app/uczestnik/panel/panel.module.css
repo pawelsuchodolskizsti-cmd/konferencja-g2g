@@ -221,9 +221,7 @@
   overscroll-behavior-x: contain;
   padding: 4px 0;
   scrollbar-width: none;
-  scroll-snap-type: x mandatory;
 }
-.course { scroll-snap-align: start; }
 .courseTrack::-webkit-scrollbar {
   display: none;
 }
