@@ -56,7 +56,7 @@ export const events = pgTable(
   (t) => [
     check(
       "event_dates",
-      sql`${t.endsAt} > ${t.startsAt} AND ${t.certificateUnlockAt} >= ${t.endsAt}`,
+      sql`${t.endsAt} > ${t.startsAt} AND ${t.certificateUnlockAt} >= ${t.startsAt}`,
     ),
   ],
 );
@@ -291,3 +291,4 @@ export const surveyResponses = pgTable("survey_responses", {
   answersEncrypted: text("answers_encrypted").notNull(),
   submittedAt: created("submitted_at"),
 });
+

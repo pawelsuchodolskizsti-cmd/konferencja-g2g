@@ -83,9 +83,7 @@ export default async function Page({
         .from(materials)
         .where(eq(materials.eventId, event.id))
     : [];
-  const unlockedAt = new Date(
-    Math.max(event.endsAt.getTime(), event.certificateUnlockAt.getTime()),
-  );
+  const unlockedAt = event.certificateUnlockAt;
   const dateTime = new Intl.DateTimeFormat("pl-PL", {
     dateStyle: "long",
     timeStyle: "short",

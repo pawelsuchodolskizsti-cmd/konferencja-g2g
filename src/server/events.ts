@@ -47,8 +47,8 @@ export const eventInput = z
       .max(60),
   })
   .refine(
-    (v) => v.endsAt > v.startsAt && v.certificateUnlockAt >= v.endsAt,
-    "Koniec musi następować po początku, a certyfikaty można odblokować najwcześniej po zakończeniu wydarzenia.",
+    (v) => v.endsAt > v.startsAt && v.certificateUnlockAt >= v.startsAt,
+    "Koniec musi następować po początku, a certyfikaty można odblokować najwcześniej po rozpoczęciu wydarzenia.",
   );
 export async function saveEvent(
   adminId: string,

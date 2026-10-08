@@ -77,5 +77,5 @@ export function certificateAvailable(
   event: { endsAt: Date; certificateUnlockAt: Date },
   now = new Date(),
 ) {
-  return now >= event.endsAt && now >= event.certificateUnlockAt;
+  return now >= event.certificateUnlockAt;
 }
