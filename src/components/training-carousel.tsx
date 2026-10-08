@@ -8,20 +8,6 @@ export function TrainingCarousel({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const element = track.current;
-    const first = element?.firstElementChild as HTMLElement | null;
-    const second = first?.nextElementSibling as HTMLElement | null;
-    if (element && first && second) {
-      element.scrollLeft =
-        (second.offsetLeft +
-          second.offsetWidth -
-          first.offsetLeft -
-          element.clientWidth) /
-        2;
-    }
-  }, []);
-
-  useEffect(() => {
-    const element = track.current;
     if (!element) return;
 
     function handleWheel(event: WheelEvent) {

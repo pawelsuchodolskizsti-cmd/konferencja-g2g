@@ -185,9 +185,9 @@
   font-size: 12px;
 }
 .course {
-  flex: 0 0 85%;
+  flex: 0 0 78%;
   min-width: 0;
-  padding: 20px 16px;
+  padding: 16px 14px;
   border: 1px solid #b3e8ff77;
   border-radius: 0;
   background: white;
@@ -206,12 +206,14 @@
 .courseTrack {
   position: relative;
   display: flex;
-  gap: 14px;
+  gap: 12px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   padding: 4px 0;
   scrollbar-width: none;
+  scroll-snap-type: x mandatory;
 }
+.course { scroll-snap-align: start; }
 .courseTrack::-webkit-scrollbar {
   display: none;
 }
