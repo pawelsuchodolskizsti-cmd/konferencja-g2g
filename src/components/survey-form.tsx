@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "./api";
 import styles from "@/app/ankieta/survey.module.css";
 export function SurveyForm({
@@ -15,6 +15,15 @@ export function SurveyForm({
   const [done, setDone] = useState(submitted);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState(() => questions.map(() => ""));
+  const input = useRef<HTMLTextAreaElement>(null);
+  const completed = answers.filter((answer) => answer.trim()).length;
+  const move = (next: number) => {
+    setStep(next);
+    setError("");
+    input.current?.focus();
+  };
   if (done)
     return (
       <div role="status">
@@ -29,11 +38,24 @@ export function SurveyForm({
     <form
       onSubmit={async (e) => {
         e.preventDefault();
+        if (!answers[step].trim()) {
+          setError("Wpisz odpowiedź, aby przejść dalej.");
+          input.current?.focus();
+          return;
+        }
+        if (step < questions.length - 1) {
+          move(step + 1);
+          return;
+        }
+        const missing = answers.findIndex((answer) => !answer.trim());
+        if (missing >= 0) {
+          move(missing);
+          return;
+        }
         if (preview) {
           setError("To podgląd testowy. Odpowiedzi nie są zapisywane.");
           return;
         }
-        const form = new FormData(e.currentTarget);
         setBusy(true);
         setError("");
         try {
@@ -41,7 +63,7 @@ export function SurveyForm({
             method: "POST",
             body: JSON.stringify({
               questions,
-              answers: questions.map((_, i) => form.get(`answer-${i}`)),
+              answers,
             }),
           });
           setDone(true);
@@ -68,23 +90,59 @@ export function SurveyForm({
       )}
       <fieldset disabled={busy} className={styles.fields}>
         <legend className={styles.legend}>Pytania konferencji</legend>
-        {questions.map((question, index) => (
-          <label className={styles.question} key={index}>
-            <span>
-              {index + 1}. {question}
-            </span>
-            <textarea
-              name={`answer-${index}`}
-              required
-              maxLength={5000}
-              rows={4}
-            />
-          </label>
-        ))}
+        <div className={styles.progressHeading} aria-live="polite">
+          <span>
+            Pytanie {step + 1} z {questions.length}
+          </span>
+          <span>
+            {completed} / {questions.length} odpowiedzi
+          </span>
+        </div>
+        <progress
+          className={styles.progress}
+          value={completed}
+          max={questions.length}
+          aria-label="Postęp wypełniania ankiety"
+        />
+        <label className={styles.question}>
+          <span>{questions[step]}</span>
+          <textarea
+            ref={input}
+            name={`answer-${step}`}
+            value={answers[step]}
+            onChange={(event) => {
+              const value = event.target.value;
+              setAnswers((previous) =>
+                previous.map((answer, index) =>
+                  index === step ? value : answer,
+                ),
+              );
+              setError("");
+            }}
+            required
+            maxLength={5000}
+            rows={5}
+          />
+        </label>
         {error && <p role="alert">{error}</p>}
-        <button className={styles.action} type="submit">
-          {busy ? "Wysyłanie..." : "Wyślij odpowiedzi"}
-        </button>
+        <div className={styles.navigation}>
+          {step > 0 && (
+            <button
+              className={`${styles.action} ${styles.back}`}
+              type="button"
+              onClick={() => move(step - 1)}
+            >
+              ← Wstecz
+            </button>
+          )}
+          <button className={styles.action} type="submit">
+            {busy
+              ? "Wysyłanie..."
+              : step < questions.length - 1
+                ? "Dalej →"
+                : "Wyślij odpowiedzi"}
+          </button>
+        </div>
       </fieldset>
     </form>
   );
