@@ -39,7 +39,7 @@ const answersList = z
   )
   .length(10);
 export function surveyUnlockAt(event: { endsAt: Date }) {
-  return new Date(event.endsAt.getTime() - 30 * 60 * 1000);
+  return new Date(event.endsAt.getTime() - 60 * 60 * 1000);
 }
 export async function surveyOverview(
   eventId: string,
@@ -142,7 +142,7 @@ export async function submitSurvey(
     assert(
       event && now >= surveyUnlockAt(event),
       403,
-      "Ankieta będzie dostępna od 17:30 w dniu konferencji.",
+      "Ankieta będzie dostępna od 17:00 w dniu konferencji.",
     );
     const [present] = await tx
       .select()
@@ -237,3 +237,4 @@ export async function exportSurvey(eventId: string, adminId: string) {
     },
   });
 }
+

@@ -19,8 +19,8 @@ const database = drizzle(pg);
 let eventId: string;
 let adminId: string;
 let person: { id: string; eventId: string };
-const beforeUnlock = new Date("2026-10-27T16:29:59Z");
-const atUnlock = new Date("2026-10-27T16:30:00Z");
+const beforeUnlock = new Date("2026-10-27T15:59:59Z");
+const atUnlock = new Date("2026-10-27T16:00:00Z");
 const input = {
   questions: defaultSurveyQuestions,
   answers: Array.from({ length: 10 }, (_, i) => `Odpowiedź ${i + 1}: ąęł`),
@@ -80,7 +80,7 @@ test("requires ten questions and explicit publication", async () => {
     published: true,
   });
 });
-test("server enforces Warsaw 17:30 boundary and confirmed attendance", async () => {
+test("server enforces Warsaw 17:00 boundary and confirmed attendance", async () => {
   expect((await participantSurvey(person, beforeUnlock)).available).toBe(false);
   await expect(submitSurvey(person, input, beforeUnlock)).rejects.toMatchObject(
     { status: 403 },
@@ -148,3 +148,4 @@ test("locks answered questions and exports ten answers with participant identity
   });
   expect((await participantSurvey(person, atUnlock)).available).toBe(false);
 });
+

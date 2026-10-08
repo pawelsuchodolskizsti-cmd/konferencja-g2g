@@ -125,7 +125,7 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
                 setSurvey({ ...survey, published: e.target.checked })
               }
             />{" "}
-            Udostępnij ankietę uczestnikom od 17:30
+            Udostępnij ankietę uczestnikom od 17:00
           </label>
           <button type="submit">
             {busy ? "Zapisywanie..." : "Zapisz ankietę"}
@@ -135,3 +135,4 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
     </section>
   );
 }
+

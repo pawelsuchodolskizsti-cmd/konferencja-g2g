@@ -56,7 +56,7 @@ export default async function Page({
           <>
             <p>
               {survey.published
-                ? "Ankieta będzie dostępna o 17:30 w dniu konferencji."
+                ? "Ankieta będzie dostępna o 17:00 w dniu konferencji."
                 : "Organizator przygotowuje ankietę."}
             </p>
             {survey.published && new Date() < new Date(survey.unlockAt) && (
@@ -68,3 +68,4 @@ export default async function Page({
     </ConferenceShell>
   );
 }
+
