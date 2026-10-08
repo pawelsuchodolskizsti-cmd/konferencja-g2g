@@ -247,12 +247,12 @@ export default async function Page({
                             </div>
                           )}
                           <a
-                            className={styles.action}
+                            className={styles.communityAction}
                             href={course.url}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Przejdź do kursu <span aria-hidden="true">↗</span>
+                            <span>Przejdź do kursu</span><span className={styles.communityArrow} aria-hidden="true">↗</span>
                           </a>
                         </>
                       ) : (
@@ -305,12 +305,11 @@ export default async function Page({
             </p>
             {(preview || !survey.submittedAt) && (
               <Link
-                className={styles.invitation}
+                className={styles.communityAction}
                 href={preview ? "/ankieta?podglad=1" : "/ankieta"}
               >
-                <span className={styles.invitationIcon} aria-hidden="true">✎</span>
-                <span><strong>Kliknij i podziel się opinią</strong><small>Wypełnij ankietę konferencji</small></span>
-                <span className={styles.invitationArrow} aria-hidden="true">→</span>
+                <span>Kliknij i podziel się opinią</span>
+                <span className={styles.communityArrow} aria-hidden="true">→</span>
               </Link>
             )}
           </section>
@@ -327,13 +326,12 @@ export default async function Page({
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
               <a
-                className={styles.invitation}
+                className={styles.communityAction}
                 href={preview ? "/przyklady/certyfikat-przykladowy.pdf" : "/api/participant/certificate"}
                 download
               >
-                <span className={styles.invitationIcon} aria-hidden="true">↓</span>
-                <span><strong>Kliknij i odbierz certyfikat</strong><small>Pobierz swój certyfikat w PDF</small></span>
-                <span className={styles.invitationArrow} aria-hidden="true">→</span>
+                <span>Kliknij i odbierz certyfikat</span>
+                <span className={styles.communityArrow} aria-hidden="true">↓</span>
               </a>
           </section>
         )}
