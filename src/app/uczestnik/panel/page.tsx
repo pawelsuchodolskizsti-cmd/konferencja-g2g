@@ -61,6 +61,14 @@ export default async function Page({
           code: "G2G-TEST-2026",
           available: true,
         },
+        {
+          id: "preview-2",
+          name: "Przykładowe szkolenie 2",
+          platform: "Platforma szkoleniowa",
+          url: "#szkolenia",
+          code: "G2G-TEST-02",
+          available: true,
+        },
       ]
     : present
       ? await participantCourses(person.id)
