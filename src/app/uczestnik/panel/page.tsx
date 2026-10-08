@@ -176,14 +176,14 @@ export default async function Page({
           <a href="#szkolenia">
             <span>02</span>Szkolenia
           </a>
-          {ready && (
-            <a href="#certyfikat">
-              <span>03</span>Certyfikat
-            </a>
-          )}
           {survey.available && (
             <a href="#ankieta">
-              <span>04</span>Ankieta
+              <span>03</span>Ankieta
+            </a>
+          )}
+          {ready && (
+            <a href="#certyfikat">
+              <span>04</span>Certyfikat
             </a>
           )}
         </nav>
@@ -293,7 +293,7 @@ export default async function Page({
             aria-labelledby="survey-title"
           >
             <div className={styles.sectionLabel}>
-              04 / Twoja opinia ma znaczenie
+              03 / Twoja opinia ma znaczenie
             </div>
             <h2 id="survey-title">Ankieta</h2>
             <p>
@@ -319,7 +319,7 @@ export default async function Page({
             aria-labelledby="certificate-title"
           >
             <div className={styles.sectionLabel}>
-              03 / Twój udział ma znaczenie
+              04 / Twój udział ma znaczenie
             </div>
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
