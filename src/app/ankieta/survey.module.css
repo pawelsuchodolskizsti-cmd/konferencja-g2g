@@ -1,0 +1,75 @@
+.page {
+  max-width: 760px;
+  margin: auto;
+  padding: 40px 24px 80px;
+  position: relative;
+  z-index: 1;
+}
+.page h1 {
+  background: white;
+  color: #123e59;
+  padding: 14px 16px;
+  font-size: 32px;
+  margin: 24px 0;
+}
+.page p {
+  line-height: 1.6;
+}
+.fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.question {
+  display: block;
+  margin: 28px 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.question span {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.question textarea {
+  display: block;
+  width: 100%;
+  background: #fff;
+  color: #123e59;
+  padding: 14px;
+  border: 2px solid #fff;
+  border-radius: 0;
+  font:
+    16px/1.5 Arial,
+    sans-serif;
+  resize: vertical;
+}
+.question textarea:focus-visible {
+  outline: 3px solid #123e59;
+  outline-offset: 3px;
+}
+.action {
+  display: inline-block;
+  padding: 16px 22px;
+  border: 2px solid #fff;
+  border-radius: 0;
+  background: white;
+  color: #123e59;
+  font:
+    700 18px/1.4 "Conference Montserrat",
+    Arial,
+    sans-serif;
+  cursor: pointer;
+  text-align: center;
+}
+.action:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}

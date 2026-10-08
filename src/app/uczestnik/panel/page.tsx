@@ -1,5 +1,7 @@
 import { ParticipantProgram } from "@/components/participant-program";
 import Image from "next/image";
+import Link from "next/link";
+import { participantSurvey } from "@/server/surveys";
 import { TrainingCarousel } from "@/components/training-carousel";
 import { ConferenceShell } from "@/components/conference-shell";
 import styles from "./panel.module.css";
@@ -38,6 +40,7 @@ export default async function Page() {
       .where(eq(attendance.participantId, person.id)),
   ]);
   const courses = present ? await participantCourses(person.id) : [];
+  const survey = await participantSurvey(person);
   const ready = !!present && certificateAvailable(event);
   const files = present
     ? await db()
@@ -121,6 +124,9 @@ export default async function Page() {
         {!!present && !ready && (
           <CertificateRefresh unlockAt={unlockedAt.toISOString()} />
         )}
+        {survey.published && !survey.available && (
+          <CertificateRefresh unlockAt={survey.unlockAt} />
+        )}
         <nav
           className={styles.navigation}
           aria-label="Sekcje strefy uczestnika"
@@ -134,6 +140,11 @@ export default async function Page() {
           {ready && (
             <a href="#certyfikat">
               <span>03</span>Certyfikat
+            </a>
+          )}
+          {survey.available && (
+            <a href="#ankieta">
+              <span>04</span>Ankieta
             </a>
           )}
         </nav>
@@ -236,6 +247,28 @@ export default async function Page() {
           )}
         </section>
 
+        {survey.available && (
+          <section
+            id="ankieta"
+            className={styles.card}
+            aria-labelledby="survey-title"
+          >
+            <div className={styles.sectionLabel}>
+              04 / Twoja opinia ma znaczenie
+            </div>
+            <h2 id="survey-title">Ankieta</h2>
+            <p>
+              {survey.submittedAt
+                ? "Dziękujemy! Twoje odpowiedzi zostały zapisane."
+                : "Podziel się swoją opinią i pomóż nam przygotować kolejne spotkania."}
+            </p>
+            {!survey.submittedAt && (
+              <Link className={styles.action} href="/ankieta">
+                Wypełnij ankietę →
+              </Link>
+            )}
+          </section>
+        )}
         {ready && (
           <section
             id="certyfikat"

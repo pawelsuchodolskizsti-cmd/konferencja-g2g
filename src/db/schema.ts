@@ -270,3 +270,24 @@ export const materials = pgTable("materials", {
   encryptedContent: text("encrypted_content").notNull(),
   createdAt: created(),
 });
+export const surveys = pgTable("surveys", {
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
+  questions: jsonb("questions").$type<string[]>().notNull(),
+  published: boolean("published").notNull().default(false),
+  updatedAt: created("updated_at"),
+});
+export const surveyResponses = pgTable("survey_responses", {
+  id: id(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  participantId: uuid("participant_id")
+    .notNull()
+    .unique()
+    .references(() => participants.id, { onDelete: "cascade" }),
+  questions: jsonb("questions").$type<string[]>().notNull(),
+  answersEncrypted: text("answers_encrypted").notNull(),
+  submittedAt: created("submitted_at"),
+});

@@ -19,6 +19,7 @@ import {
 import { apiError, jsonBody, uploadBody } from "@/server/http";
 import { uploadMaterial } from "@/server/materials";
 import { AppError, assert } from "@/server/errors";
+import { surveyOverview, saveSurvey, exportSurvey } from "@/server/surveys";
 type Context = { params: Promise<{ path: string[] }> };
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -43,6 +44,16 @@ async function handle(req: Request, ctx: Context) {
     const eventId = z.uuid().parse(path[1]);
     await requireEvent(admin.id, eventId);
     const action = path[2];
+    if (action === "survey" && req.method === "GET")
+      return Response.json(await surveyOverview(eventId), {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    if (action === "survey" && req.method === "POST")
+      return Response.json(
+        await saveSurvey(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "survey-export" && req.method === "GET")
+      return await exportSurvey(eventId, admin.id);
     if (!action && req.method === "GET")
       return Response.json(await eventOverview(eventId));
     if (!action && req.method === "PATCH")

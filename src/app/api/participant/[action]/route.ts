@@ -3,12 +3,18 @@ import { participantCourses } from "@/server/training";
 import { generateCertificate } from "@/server/certificates";
 import { apiError } from "@/server/http";
 import { AppError } from "@/server/errors";
+import { participantSurvey, submitSurvey } from "@/server/surveys";
+import { jsonBody } from "@/server/http";
 export const runtime = "nodejs";
 type Context = { params: Promise<{ action: string }> };
 export async function GET(req: Request, ctx: Context) {
   try {
     const person = await requireParticipant();
     const { action } = await ctx.params;
+    if (action === "survey")
+      return Response.json(await participantSurvey(person), {
+        headers: { "Cache-Control": "private, no-store" },
+      });
     if (action === "courses")
       return Response.json(await participantCourses(person.id));
     if (action === "certificate") {
@@ -30,8 +36,12 @@ export async function GET(req: Request, ctx: Context) {
 export async function POST(req: Request, ctx: Context) {
   try {
     requestOrigin(req);
-    await requireParticipant();
+    const person = await requireParticipant();
     const { action } = await ctx.params;
+    if (action === "survey") {
+      await limit(`survey:${person.id}`, 10, 60);
+      return Response.json(await submitSurvey(person, await jsonBody(req)));
+    }
     if (action === "certificate-email")
       throw new AppError(
         410,

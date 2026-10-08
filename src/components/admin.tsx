@@ -7,6 +7,7 @@ import { api, dateTime, type Overview, type Person } from "./api";
 import { EventForm } from "./event-form";
 import { ImportPanel } from "./import-panel";
 import { Scanner } from "./scanner";
+import { AdminSurvey } from "./admin-survey";
 const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
@@ -15,6 +16,7 @@ const sections = [
   ["checkin", "Check-in"],
   ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
+  ["survey", "Ankieta"],
   ["settings", "Ustawienia konferencji"],
 ] as const;
 type EventOption = { id: string; name: string; slug: string };
@@ -435,6 +437,9 @@ export function Admin({
                     <PeopleTable people={people.filter((p) => p.checkedInAt)} />
                   </section>
                 </>
+              )}
+              {section === "survey" && (
+                <AdminSurvey key={eventId} eventId={eventId} />
               )}
               {section === "settings" && (
                 <>
@@ -973,6 +978,7 @@ function AdminIcon({ name }: { name: string }) {
     courses: "m2 8 10-5 10 5-10 5L2 8m4 3v6l6 3 6-3v-6M22 8v8",
     certificates: "M5 3h14v13H5zM8 16v5l4-2 4 2v-5M8 7h8M8 11h5",
     settings: "M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M10 15v6",
+    survey: "M5 3h14v18H5zM8 7h8M8 12h8M8 17h5",
   };
   return (
     <svg
