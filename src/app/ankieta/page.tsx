@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isDemoParticipant } from "@/server/demo-participant";
 import { redirect } from "next/navigation";
 import { ConferenceShell } from "@/components/conference-shell";
 import { SurveyForm } from "@/components/survey-form";
@@ -17,7 +18,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ podglad?: string }>;
 }) {
-  const preview = (await searchParams).podglad === "1";
+  const requestedPreview = (await searchParams).podglad === "1";
   let person;
   try {
     person = await requireParticipant();
@@ -29,7 +30,9 @@ export default async function Page({
       redirect("/uczestnik");
     throw error;
   }
-  if (preview) {
+  const demo = isDemoParticipant(person);
+  const preview = demo || requestedPreview;
+  if (requestedPreview && !demo) {
     const admin = await requireAdmin();
     await requireEvent(admin.id, person.eventId);
   }
