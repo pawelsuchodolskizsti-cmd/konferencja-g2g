@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ConferenceShell } from "@/components/conference-shell";
 import { SurveyForm } from "@/components/survey-form";
 import { CertificateRefresh } from "@/components/participant";
-import { requireParticipant } from "@/server/auth";
+import { requireAdmin, requireEvent, requireParticipant } from "@/server/auth";
 import { AppError } from "@/server/errors";
 import { participantSurvey } from "@/server/surveys";
 import styles from "./survey.module.css";
@@ -12,7 +12,12 @@ export const metadata = {
   title: "Ankieta | Głowa do Góry",
   robots: { index: false, follow: false },
 };
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ podglad?: string }>;
+}) {
+  const preview = (await searchParams).podglad === "1";
   let person;
   try {
     person = await requireParticipant();
@@ -24,16 +29,25 @@ export default async function Page() {
       redirect("/uczestnik");
     throw error;
   }
+  if (preview) {
+    const admin = await requireAdmin();
+    await requireEvent(admin.id, person.eventId);
+  }
   const survey = await participantSurvey(person);
   return (
     <ConferenceShell current="participant">
       <div className={styles.page}>
-        <Link href="/uczestnik/panel">← Wróć do swojej strefy</Link>
+        <Link
+          href={preview ? "/uczestnik/panel?podglad=1" : "/uczestnik/panel"}
+        >
+          ← Wróć do swojej strefy
+        </Link>
         <h1>Ankieta</h1>
-        {survey.available || survey.submittedAt ? (
+        {preview || survey.available || survey.submittedAt ? (
           <SurveyForm
             questions={survey.questions}
-            submitted={!!survey.submittedAt}
+            submitted={!preview && !!survey.submittedAt}
+            preview={preview}
           />
         ) : (
           <>

@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attendance, events, materials } from "@/db/schema";
-import { requireParticipant } from "@/server/auth";
+import { requireAdmin, requireEvent, requireParticipant } from "@/server/auth";
 import { certificateAvailable } from "@/server/attendance";
 import { participantCourses } from "@/server/training";
 import { AppError } from "@/server/errors";
@@ -20,7 +20,12 @@ import {
 } from "@/components/participant";
 export const metadata = { title: "Twoja strefa | Głowa do Góry" };
 export const dynamic = "force-dynamic";
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ podglad?: string }>;
+}) {
+  const preview = (await searchParams).podglad === "1";
   let person;
   try {
     person = await requireParticipant();
@@ -32,6 +37,10 @@ export default async function Page() {
       redirect("/uczestnik");
     throw error;
   }
+  if (preview) {
+    const admin = await requireAdmin();
+    await requireEvent(admin.id, person.eventId);
+  }
   const [[event], [present]] = await Promise.all([
     db().select().from(events).where(eq(events.id, person.eventId)),
     db()
@@ -39,9 +48,25 @@ export default async function Page() {
       .from(attendance)
       .where(eq(attendance.participantId, person.id)),
   ]);
-  const courses = present ? await participantCourses(person.id) : [];
+  const courses = preview
+    ? [
+        {
+          id: "preview",
+          name: "Przykładowe szkolenie",
+          platform: "Platforma szkoleniowa",
+          url: "#szkolenia",
+          code: "G2G-TEST-2026",
+          available: true,
+        },
+      ]
+    : present
+      ? await participantCourses(person.id)
+      : [];
   const survey = await participantSurvey(person);
-  const ready = !!present && certificateAvailable(event);
+  if (preview) {
+    survey.available = true;
+  }
+  const ready = preview || (!!present && certificateAvailable(event));
   const files = present
     ? await db()
         .select({ id: materials.id, title: materials.title })
@@ -79,6 +104,12 @@ export default async function Page() {
             />
           </div>
           <p className={styles.greeting}>Cześć, {person.firstName}!</p>
+          {preview && (
+            <p role="status">
+              Podgląd testowy: wszystkie sekcje są widoczne. Kody i certyfikat
+              są przykładowe.
+            </p>
+          )}
         </header>
         <section
           className={`${styles.card} ${styles.community}`}
@@ -258,12 +289,15 @@ export default async function Page() {
             </div>
             <h2 id="survey-title">Ankieta</h2>
             <p>
-              {survey.submittedAt
+              {!preview && survey.submittedAt
                 ? "Dziękujemy! Twoje odpowiedzi zostały zapisane."
                 : "Podziel się swoją opinią i pomóż nam przygotować kolejne spotkania."}
             </p>
-            {!survey.submittedAt && (
-              <Link className={styles.action} href="/ankieta">
+            {(preview || !survey.submittedAt) && (
+              <Link
+                className={styles.action}
+                href={preview ? "/ankieta?podglad=1" : "/ankieta"}
+              >
                 Wypełnij ankietę →
               </Link>
             )}
@@ -280,7 +314,18 @@ export default async function Page() {
             </div>
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
-            <ParticipantActions certificateReady={ready} />
+            {preview ? (
+              <a
+                className={styles.action}
+                href="/przyklady/certyfikat-przykladowy.pdf"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Pobierz certyfikat PDF
+              </a>
+            ) : (
+              <ParticipantActions certificateReady={ready} />
+            )}
           </section>
         )}
       </div>

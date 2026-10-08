@@ -6,9 +6,11 @@ import styles from "@/app/ankieta/survey.module.css";
 export function SurveyForm({
   questions,
   submitted,
+  preview = false,
 }: {
   questions: string[];
   submitted: boolean;
+  preview?: boolean;
 }) {
   const [done, setDone] = useState(submitted);
   const [busy, setBusy] = useState(false);
@@ -27,6 +29,10 @@ export function SurveyForm({
     <form
       onSubmit={async (e) => {
         e.preventDefault();
+        if (preview) {
+          setError("To podgląd testowy. Odpowiedzi nie są zapisywane.");
+          return;
+        }
         const form = new FormData(e.currentTarget);
         setBusy(true);
         setError("");
@@ -54,6 +60,12 @@ export function SurveyForm({
         Twoje odpowiedzi pomogą nam przygotować kolejne spotkania. Ankieta jest
         imienna. Odpowiedz na wszystkie 10 pytań.
       </p>
+      {preview && (
+        <p role="status">
+          Podgląd ankiety. Możesz sprawdzić formularz bez zapisywania
+          odpowiedzi.
+        </p>
+      )}
       <fieldset disabled={busy} className={styles.fields}>
         <legend className={styles.legend}>Pytania konferencji</legend>
         {questions.map((question, index) => (
