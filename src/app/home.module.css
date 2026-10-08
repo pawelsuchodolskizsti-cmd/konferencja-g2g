@@ -48,14 +48,13 @@
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 8px 14px;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 10px;
   border: 2px solid #fff;
-  background: #123e59;
+  background: transparent;
   cursor: pointer;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 14px;
   letter-spacing: 0.035em;
   user-select: none;
 }
@@ -64,22 +63,22 @@
 }
 .menuIcon {
   display: flex;
-  width: 28px;
+  width: 23px;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 .menuIcon span {
   display: block;
-  height: 3px;
-  width: 28px;
+  height: 1px;
+  width: 23px;
   background: currentColor;
   transition: transform 0.2s;
 }
 .menu[open] .menuIcon span:first-child {
-  transform: translateY(5px) rotate(45deg);
+  transform: translateY(3.5px) rotate(45deg);
 }
 .menu[open] .menuIcon span:last-child {
-  transform: translateY(-5px) rotate(-45deg);
+  transform: translateY(-3.5px) rotate(-45deg);
 }
 .menuPanel {
   position: absolute;
@@ -176,7 +175,7 @@
 
 .projectLogo {
   position: absolute;
-  left: calc(50% + 50px);
+  left: 50%;
   top: max(10px, env(safe-area-inset-top));
   transform: translateX(-50%);
   display: block;
