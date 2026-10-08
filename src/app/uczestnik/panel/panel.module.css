@@ -445,3 +445,30 @@
     font-size: 14px;
   }
 }
+.invitation {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 20px;
+  background: white;
+  color: #123e59;
+  border: 2px solid white;
+  box-shadow: 0 6px 0 rgb(18 62 89 / 25%);
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.invitation strong { display: block; font-size: 20px; line-height: 1.35; }
+.invitation small { display: block; margin-top: 5px; font-size: 14px; }
+.invitationIcon { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border: 2px solid #123e59; font-size: 30px; }
+.invitationArrow { margin-left: auto; font-size: 28px; }
+.invitation:hover { transform: translateY(-2px); box-shadow: 0 8px 0 rgb(18 62 89 / 25%); }
+.invitation:active { transform: translateY(3px); box-shadow: none; }
+.invitation:focus-visible { outline: 3px solid #123e59; outline-offset: 4px; }
+@media (max-width: 420px) {
+  .invitation { gap: 10px; padding: 16px 12px; }
+  .invitation strong { font-size: 18px; }
+  .invitationIcon { flex-basis: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { .invitation { transition: none; } }

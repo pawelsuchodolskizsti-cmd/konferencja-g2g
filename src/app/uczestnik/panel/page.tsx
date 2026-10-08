@@ -16,7 +16,6 @@ import { participantCourses } from "@/server/training";
 import { AppError } from "@/server/errors";
 import {
   CertificateRefresh,
-  ParticipantActions,
   ParticipantLogout,
 } from "@/components/participant";
 export const metadata = { title: "Twoja strefa | Głowa do Góry" };
@@ -306,10 +305,12 @@ export default async function Page({
             </p>
             {(preview || !survey.submittedAt) && (
               <Link
-                className={styles.action}
+                className={styles.invitation}
                 href={preview ? "/ankieta?podglad=1" : "/ankieta"}
               >
-                Wypełnij ankietę →
+                <span className={styles.invitationIcon} aria-hidden="true">✎</span>
+                <span><strong>Kliknij i podziel się opinią</strong><small>Wypełnij ankietę konferencji</small></span>
+                <span className={styles.invitationArrow} aria-hidden="true">→</span>
               </Link>
             )}
           </section>
@@ -325,18 +326,15 @@ export default async function Page({
             </div>
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
-            {preview ? (
               <a
-                className={styles.action}
-                href="/przyklady/certyfikat-przykladowy.pdf"
-                target="_blank"
-                rel="noreferrer"
+                className={styles.invitation}
+                href={preview ? "/przyklady/certyfikat-przykladowy.pdf" : "/api/participant/certificate"}
+                download
               >
-                Pobierz certyfikat PDF
+                <span className={styles.invitationIcon} aria-hidden="true">↓</span>
+                <span><strong>Kliknij i odbierz certyfikat</strong><small>Pobierz swój certyfikat w PDF</small></span>
+                <span className={styles.invitationArrow} aria-hidden="true">→</span>
               </a>
-            ) : (
-              <ParticipantActions certificateReady={ready} />
-            )}
           </section>
         )}
       </div>
