@@ -6,6 +6,15 @@
   margin: auto;
   color: #fff;
 }
+.panel::before {
+  content: "";
+  position: fixed;
+  inset: 10vh 0 5vh;
+  z-index: -1;
+  background: url("/branding/g2g-vertical.png") center / contain no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+}
 .welcome {
   padding: 0 4px 28px;
 }
