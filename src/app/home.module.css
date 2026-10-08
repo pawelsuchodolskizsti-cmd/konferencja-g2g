@@ -48,10 +48,14 @@
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 48px;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 2px solid #fff;
+  background: #123e59;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: 0.035em;
   user-select: none;
 }
@@ -60,27 +64,27 @@
 }
 .menuIcon {
   display: flex;
-  width: 23px;
+  width: 28px;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 .menuIcon span {
   display: block;
-  height: 1px;
-  width: 23px;
+  height: 3px;
+  width: 28px;
   background: currentColor;
   transition: transform 0.2s;
 }
 .menu[open] .menuIcon span:first-child {
-  transform: translateY(3.5px) rotate(45deg);
+  transform: translateY(5px) rotate(45deg);
 }
 .menu[open] .menuIcon span:last-child {
-  transform: translateY(-3.5px) rotate(-45deg);
+  transform: translateY(-5px) rotate(-45deg);
 }
 .menuPanel {
   position: absolute;
   left: 0;
-  top: 62px;
+  top: calc(100% + 10px);
   min-width: 246px;
   padding: 12px;
   border: 1px solid #ffffff50;
@@ -172,7 +176,7 @@
 
 .projectLogo {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 50px);
   top: max(10px, env(safe-area-inset-top));
   transform: translateX(-50%);
   display: block;
@@ -183,6 +187,7 @@
 }
 @media (min-width: 700px) {
   .projectLogo {
+    left: 50%;
     top: 18px;
   }
 }
