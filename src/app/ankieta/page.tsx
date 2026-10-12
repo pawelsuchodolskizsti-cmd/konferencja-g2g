@@ -46,10 +46,10 @@ export default async function Page({
           ← Wróć do swojej strefy
         </Link>
         <h1>Głowa do Góry - ankieta</h1>
-        {preview || survey.available || survey.submittedAt ? (
+        {preview || survey.available || survey.submitted ? (
           <SurveyForm
             questions={survey.questions}
-            submitted={!preview && !!survey.submittedAt}
+            submitted={!preview && !!survey.submitted}
             preview={preview}
           />
         ) : (

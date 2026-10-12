@@ -250,7 +250,13 @@ export default async function Page({
                             target="_blank"
                             rel="noreferrer"
                           >
-                            <span>Przejdź do kursu</span><span className={styles.communityArrow} aria-hidden="true">↗</span>
+                            <span>Przejdź do kursu</span>
+                            <span
+                              className={styles.communityArrow}
+                              aria-hidden="true"
+                            >
+                              ↗
+                            </span>
                           </a>
                         </>
                       ) : (
@@ -297,17 +303,19 @@ export default async function Page({
             </div>
             <h2 id="survey-title">Ankieta</h2>
             <p>
-              {!preview && survey.submittedAt
+              {!preview && survey.submitted
                 ? "Dziękujemy! Twoje odpowiedzi zostały zapisane."
                 : "Podziel się swoją opinią i pomóż nam przygotować kolejne spotkania."}
             </p>
-            {(preview || !survey.submittedAt) && (
+            {(preview || !survey.submitted) && (
               <Link
                 className={styles.communityAction}
                 href={preview ? "/ankieta?podglad=1" : "/ankieta"}
               >
                 <span>Kliknij i podziel się opinią</span>
-                <span className={styles.communityArrow} aria-hidden="true">→</span>
+                <span className={styles.communityArrow} aria-hidden="true">
+                  →
+                </span>
               </Link>
             )}
           </section>
@@ -323,14 +331,20 @@ export default async function Page({
             </div>
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
-              <a
-                className={styles.communityAction}
-                href={preview ? "/przyklady/certyfikat-przykladowy.pdf" : "/api/participant/certificate"}
-                download
-              >
-                <span>Kliknij i odbierz certyfikat</span>
-                <span className={styles.communityArrow} aria-hidden="true">↓</span>
-              </a>
+            <a
+              className={styles.communityAction}
+              href={
+                preview
+                  ? "/przyklady/certyfikat-przykladowy.pdf"
+                  : "/api/participant/certificate"
+              }
+              download
+            >
+              <span>Kliknij i odbierz certyfikat</span>
+              <span className={styles.communityArrow} aria-hidden="true">
+                ↓
+              </span>
+            </a>
           </section>
         )}
       </div>

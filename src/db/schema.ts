@@ -283,12 +283,12 @@ export const surveyResponses = pgTable("survey_responses", {
   eventId: uuid("event_id")
     .notNull()
     .references(() => events.id, { onDelete: "cascade" }),
-  participantId: uuid("participant_id")
-    .notNull()
-    .unique()
-    .references(() => participants.id, { onDelete: "cascade" }),
   questions: jsonb("questions").$type<string[]>().notNull(),
   answersEncrypted: text("answers_encrypted").notNull(),
-  submittedAt: created("submitted_at"),
 });
-
+// Oddzielny znacznik zapobiega ponownemu wysłaniu, bez powiązania z odpowiedzią.
+export const surveyCompletions = pgTable("survey_completions", {
+  participantId: uuid("participant_id")
+    .primaryKey()
+    .references(() => participants.id, { onDelete: "cascade" }),
+});

@@ -59,6 +59,7 @@ export function ConferenceShell({
             alt="Logo projektu g2g"
             width={5022}
             height={2370}
+            sizes="230px"
             priority
           />
         )}

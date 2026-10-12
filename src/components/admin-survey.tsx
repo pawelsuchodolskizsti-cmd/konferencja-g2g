@@ -47,8 +47,8 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
         Otrzymane ankiety: <strong>{survey.responseCount}</strong>
       </p>
       <p>
-        Odpowiedzi są przypisane do uczestników. Każdy obecny uczestnik może
-        wysłać ankietę jeden raz.
+        Ankieta jest anonimowa. Eksport zawiera wyłącznie odpowiedzi. Każdy
+        obecny uczestnik może wysłać ankietę jeden raz.
       </p>
       <a
         className="button secondary"

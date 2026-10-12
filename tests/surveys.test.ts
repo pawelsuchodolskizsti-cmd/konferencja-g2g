@@ -32,7 +32,13 @@ beforeAll(async () => {
   state.database = database;
   process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
   process.env.TOKEN_PEPPER = "survey-test-".repeat(8);
-  for (const file of ["0000_initial", "0001_schema", "0002_schema"])
+  for (const file of [
+    "0000_initial",
+    "0001_schema",
+    "0002_schema",
+    "0003_schema",
+    "0004_anonymous_survey",
+  ])
     await pg.exec(await readFile(`drizzle/${file}.sql`, "utf8"));
   const [admin] = await database
     .insert(schema.admins)
@@ -121,12 +127,21 @@ test("validates all answers and stale questions, encrypts and prevents duplicate
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   const responses = await database.select().from(schema.surveyResponses);
   expect(responses).toHaveLength(1);
+  expect(Object.keys(responses[0]).sort()).toEqual([
+    "answersEncrypted",
+    "eventId",
+    "id",
+    "questions",
+  ]);
+  expect((await participantSurvey(person, atUnlock)).submitted).toBe(true);
+  const flags = await database.select().from(schema.surveyCompletions);
+  expect(flags).toEqual([{ participantId: person.id }]);
   expect(responses[0].answersEncrypted).not.toContain("Odpowiedź");
   expect(JSON.parse(decrypt(responses[0].answersEncrypted))).toEqual(
     input.answers,
   );
 });
-test("locks answered questions and exports ten answers with participant identity", async () => {
+test("locks answered questions and exports ten answers without participant identity", async () => {
   await expect(
     saveSurvey(eventId, adminId, {
       questions: defaultSurveyQuestions.map((q) => q + "!"),
@@ -142,9 +157,9 @@ test("locks answered questions and exports ten answers with participant identity
     book.Sheets[book.SheetNames[0]],
     { header: 1 },
   );
-  expect(rows[0].slice(4)).toEqual(defaultSurveyQuestions);
-  expect(rows[1].slice(0, 3)).toEqual(["Anna", "Testowa", "anna@example.org"]);
-  expect(rows[1].slice(4)).toEqual(input.answers);
+  expect(rows[0]).toEqual(defaultSurveyQuestions);
+  expect(JSON.stringify(rows)).not.toContain("anna@example.org");
+  expect(rows[1]).toEqual(input.answers);
   await saveSurvey(eventId, adminId, {
     questions: defaultSurveyQuestions,
     published: false,
@@ -223,10 +238,10 @@ test("mixed survey stores readable choices and ratings, validates hotel branches
     book.Sheets[book.SheetNames[0]],
     { header: 1 },
   );
-  expect(rows[0]).toHaveLength(15);
-  expect(rows[1][6]).toBe(formatAnswer(surveyDefinition[2], answers[2]));
-  expect(rows[1][12]).toBe("");
-  expect(rows[1][14]).toBe("Nie dotyczy");
+  expect(rows[0]).toHaveLength(11);
+  expect(rows[1][2]).toBe(formatAnswer(surveyDefinition[2], answers[2]));
+  expect(rows[1][8]).toBe("");
+  expect(rows[1][10]).toBe("Nie dotyczy");
   const [other] = await database
     .insert(schema.participants)
     .values({

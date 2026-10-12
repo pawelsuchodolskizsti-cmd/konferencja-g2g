@@ -1,12 +1,12 @@
 import "server-only";
-import { and, asc, eq, count } from "drizzle-orm";
+import { asc, eq, count } from "drizzle-orm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { db, type Database } from "@/db";
 import {
   attendance,
   events,
-  participants,
+  surveyCompletions,
   surveys,
   surveyResponses,
   auditLogs,
@@ -112,13 +112,13 @@ export async function participantSurvey(
 ) {
   const info = await surveyOverview(person.eventId, database);
   const [response] = await database
-    .select({ submittedAt: surveyResponses.submittedAt })
-    .from(surveyResponses)
-    .where(eq(surveyResponses.participantId, person.id));
+    .select({ id: surveyCompletions.participantId })
+    .from(surveyCompletions)
+    .where(eq(surveyCompletions.participantId, person.id));
   return {
     ...info,
     available: info.published && now >= new Date(info.unlockAt),
-    submittedAt: response?.submittedAt.toISOString() ?? null,
+    submitted: !!response,
   };
 }
 export async function submitSurvey(
@@ -200,72 +200,33 @@ export async function submitSurvey(
       );
       formatted = data.answers as string[];
     }
-    const [saved] = await tx
-      .insert(surveyResponses)
-      .values({
-        eventId: person.eventId,
-        participantId: person.id,
-        questions: survey.questions,
-        answersEncrypted: encrypt(JSON.stringify(formatted)),
-        submittedAt: now,
-      })
-      .onConflictDoNothing({ target: surveyResponses.participantId })
-      .returning({ id: surveyResponses.id });
-    assert(saved, 409, "Twoja ankieta została już wysłana.");
+    const [completed] = await tx
+      .insert(surveyCompletions)
+      .values({ participantId: person.id })
+      .onConflictDoNothing()
+      .returning({ id: surveyCompletions.participantId });
+    assert(completed, 409, "Twoja ankieta została już wysłana.");
+    await tx.insert(surveyResponses).values({
+      eventId: person.eventId,
+      questions: survey.questions,
+      answersEncrypted: encrypt(JSON.stringify(formatted)),
+    });
     return { saved: true };
   });
 }
 export async function exportSurvey(eventId: string, adminId: string) {
   const responses = await db()
-    .select({
-      firstName: participants.firstName,
-      lastName: participants.lastName,
-      email: participants.email,
-      submittedAt: surveyResponses.submittedAt,
-      questions: surveyResponses.questions,
-      answersEncrypted: surveyResponses.answersEncrypted,
-    })
+    .select({ answersEncrypted: surveyResponses.answersEncrypted })
     .from(surveyResponses)
-    .innerJoin(
-      participants,
-      and(
-        eq(participants.id, surveyResponses.participantId),
-        eq(participants.eventId, eventId),
-      ),
-    )
     .where(eq(surveyResponses.eventId, eventId))
-    .orderBy(asc(surveyResponses.submittedAt));
+    .orderBy(asc(surveyResponses.id));
   const info = await surveyOverview(eventId);
   const rows = [
-    [
-      "Imię",
-      "Nazwisko",
-      "E-mail",
-      "Data wysłania (Europe/Warsaw)",
-      ...info.questions,
-    ],
-    ...responses.map((r) => [
-      r.firstName,
-      r.lastName,
-      r.email,
-      new Intl.DateTimeFormat("pl-PL", {
-        dateStyle: "short",
-        timeStyle: "medium",
-        timeZone: "Europe/Warsaw",
-      }).format(r.submittedAt),
-      ...JSON.parse(decrypt(r.answersEncrypted)),
-    ]),
+    info.questions,
+    ...responses.map((r) => JSON.parse(decrypt(r.answersEncrypted))),
   ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet["!cols"] = [
-    22,
-    28,
-    40,
-    28,
-    ...Array(info.questions.length).fill(60),
-  ].map((wch) => ({
-    wch,
-  }));
+  sheet["!cols"] = info.questions.map(() => ({ wch: 60 }));
   sheet["!autofilter"] = { ref: sheet["!ref"]! };
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, "Odpowiedzi ankiety");

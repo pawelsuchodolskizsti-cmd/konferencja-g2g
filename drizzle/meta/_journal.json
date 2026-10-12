@@ -29,6 +29,13 @@
       "when": 1791461560259,
       "tag": "0003_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791800000000,
+      "tag": "0004_anonymous_survey",
+      "breakpoints": true
     }
   ]
 }
