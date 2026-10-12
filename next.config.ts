@@ -7,7 +7,12 @@ const config: NextConfig = {
     cpus: 2,
   },
   serverExternalPackages: ["postgres", "@pdf-lib/fontkit"],
-  outputFileTracingIncludes: { "/*": ["./assets/*", "./public/branding/*"] },
+  outputFileTracingIncludes: {
+    "/*": [
+      "./assets/NotoSans-Regular.ttf",
+      "./public/branding/g2g-horizontal.png",
+    ],
+  },
   async headers() {
     return [
       {
@@ -21,6 +26,21 @@ const config: NextConfig = {
             value: "camera=(self), microphone=(), geolocation=()",
           },
           { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      {
+        source: "/branding/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        ],
+      },
+      {
+        source: "/branding/perf/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
         ],
       },
     ];

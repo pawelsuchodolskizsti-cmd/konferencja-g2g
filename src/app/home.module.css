@@ -1,13 +1,14 @@
 @font-face {
   font-family: "Conference Montserrat";
-  src: url("/branding/montserrat-regular.ttf") format("truetype");
+  src: url("/branding/perf/montserrat-regular.ece69bfb9aeb.woff2")
+    format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "Conference Montserrat";
-  src: url("/branding/montserrat-bold.ttf") format("truetype");
+  src: url("/branding/perf/montserrat-bold.d7f010374486.woff2") format("woff2");
   font-style: normal;
   font-weight: 600 900;
   font-display: swap;
@@ -27,8 +28,8 @@
   inset: -2px;
   z-index: -1;
   pointer-events: none;
-  background: url("/branding/conference-background-clean.webp") center top /
-    cover no-repeat;
+  background: url("/branding/perf/conference-background-clean.296b8ef01b71.webp")
+    center top / cover no-repeat;
 }
 .page[data-section="participant"] .art {
   background-size: max(100%, 938px, 113svh) auto;
@@ -168,7 +169,7 @@
 @media (min-width: 900px) {
   .art,
   .page[data-section="participant"] .art {
-    background-image: url("/branding/conference-desktop-clean.webp");
+    background-image: url("/branding/perf/conference-desktop-clean.484eb31843c9.webp");
     background-size: cover;
   }
 }
@@ -424,8 +425,8 @@
   padding-top: 48px;
   padding-bottom: 56px;
   margin-bottom: 56px;
-  background: url("/branding/program-tlo-lossless.webp") top center / 100% 100%
-    no-repeat;
+  background: url("/branding/perf/program-tlo-lossless.81ccc0a1da72.webp") top
+    center / 100% 100% no-repeat;
 }
 .programContent > .eyebrow {
   font-size: 11px;

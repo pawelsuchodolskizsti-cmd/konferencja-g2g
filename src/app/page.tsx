@@ -52,9 +52,12 @@ export default async function Home() {
                     </filter>
                   </defs>
                   <image
-                    href="/branding/program-oryginal.jpg"
-                    width="1365"
-                    height="1824"
+                    href="/branding/perf/program-title.3bb95386882d.webp"
+                    x={76.8517561983471}
+                    y={62.04777892561985}
+                    width={251.0020661157025}
+                    height={1455.9529958677685}
+                    preserveAspectRatio="none"
                     filter="url(#program-title-alpha)"
                   />
                 </svg>
@@ -190,10 +193,11 @@ export default async function Home() {
                 >
                   <Image
                     src="/branding/partnerzy-biale-loga.png"
+                    loading="lazy"
                     alt={partner.name}
                     width={1942}
                     height={809}
-                    sizes="1920px"
+                    sizes="(min-width: 1000px) 502px, (min-width: 600px) 100vw, 200vw"
                   />
                 </div>
               ))}
