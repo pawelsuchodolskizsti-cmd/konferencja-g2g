@@ -112,3 +112,48 @@
   background: transparent;
   color: white;
 }
+.questionTitle {
+  margin: 28px 0 16px;
+  font-size: 22px;
+  line-height: 1.4;
+}
+.choiceGroup {
+  border: 0;
+  padding: 0;
+  margin: 24px 0;
+  min-width: 0;
+}
+.choiceGroup legend {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin: 8px 0;
+  background: white;
+  color: #123e59;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.option:has(input:checked) {
+  border-color: #123e59;
+  background: #e4f2ff;
+}
+.option:focus-within {
+  outline: 3px solid #123e59;
+  outline-offset: 2px;
+}
+.option input {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin: 2px 0 0;
+  accent-color: #123e59;
+}

@@ -27,7 +27,7 @@
   inset: -2px;
   z-index: -1;
   pointer-events: none;
-  background: url("/branding/conference-background.webp") center top / cover
+  background: url("/branding/conference-background-clean.webp") center top / cover
     no-repeat;
 }
 .page[data-section="participant"] .art {
@@ -168,7 +168,7 @@
 @media (min-width: 900px) {
   .art,
   .page[data-section="participant"] .art {
-    background-image: url("/branding/conference-desktop.webp");
+    background-image: url("/branding/conference-desktop-clean.webp");
     background-size: cover;
   }
 }
@@ -568,3 +568,4 @@
   left: -100%;
   top: -100%;
 }
+

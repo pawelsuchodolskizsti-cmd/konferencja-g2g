@@ -8,12 +8,15 @@ import { newCredentials, decrypt } from "../src/server/crypto";
 const state = vi.hoisted(() => ({ database: undefined as unknown }));
 vi.mock("@/db", () => ({ db: () => state.database }));
 import {
-  defaultSurveyQuestions,
   saveSurvey,
   submitSurvey,
   participantSurvey,
   exportSurvey,
 } from "../src/server/surveys";
+const defaultSurveyQuestions = Array.from(
+  { length: 10 },
+  (_, i) => `Pytanie ${i + 1}`,
+);
 const pg = new PGlite();
 const database = drizzle(pg);
 let eventId: string;
@@ -149,3 +152,105 @@ test("locks answered questions and exports ten answers with participant identity
   expect((await participantSurvey(person, atUnlock)).available).toBe(false);
 });
 
+test("mixed survey stores readable choices and ratings, validates hotel branches and exports", async () => {
+  const { surveyDefinition, emptyAnswer, formatAnswer } =
+    await import("../src/lib/survey-definition");
+  const questions = surveyDefinition.map((q) => q.title);
+  const [source] = await database.select().from(schema.events);
+  const [event] = await database
+    .insert(schema.events)
+    .values({ ...source, id: undefined, slug: "mixed-survey" })
+    .returning();
+  await saveSurvey(event.id, adminId, { questions, published: true });
+  const answers = surveyDefinition.map((q) => ({
+    ...emptyAnswer(),
+    ...(q.kind === "text"
+      ? { text: q.optional ? "" : "Wykorzystam ćwiczenia" }
+      : q.kind === "matrix"
+        ? { ratings: q.rows!.map(() => q.options![4]) }
+        : { selected: [q.options![0]] }),
+  }));
+  answers[10] = emptyAnswer();
+  const [p] = await database
+    .insert(schema.participants)
+    .values({
+      eventId: event.id,
+      firstName: "Test",
+      lastName: "Hotel",
+      email: "mixed@example.org",
+      ...newCredentials(),
+    })
+    .returning();
+  await database
+    .insert(schema.attendance)
+    .values({ participantId: p.id, method: "QR" });
+  const body = { questions, answers, hotel: "yes" };
+  await expect(
+    submitSurvey(p, { ...body, hotel: undefined }, atUnlock),
+  ).rejects.toMatchObject({ status: 400 });
+  await expect(
+    submitSurvey(
+      p,
+      {
+        ...body,
+        answers: answers.map((a, i) =>
+          i === 3
+            ? { ...a, selected: surveyDefinition[3].options!.slice(0, 3) }
+            : a,
+        ),
+      },
+      atUnlock,
+    ),
+  ).rejects.toThrow();
+  await expect(
+    submitSurvey(
+      p,
+      {
+        ...body,
+        answers: answers.map((a, i) =>
+          i === 10 ? { ...a, selected: [surveyDefinition[10].options![0]] } : a,
+        ),
+      },
+      atUnlock,
+    ),
+  ).rejects.toMatchObject({ status: 400 });
+  await submitSurvey(p, body, atUnlock);
+  const exported = await exportSurvey(event.id, adminId);
+  const book = XLSX.read(Buffer.from(await exported.arrayBuffer()), {
+    type: "buffer",
+  });
+  const rows = XLSX.utils.sheet_to_json<string[]>(
+    book.Sheets[book.SheetNames[0]],
+    { header: 1 },
+  );
+  expect(rows[0]).toHaveLength(15);
+  expect(rows[1][6]).toBe(formatAnswer(surveyDefinition[2], answers[2]));
+  expect(rows[1][12]).toBe("");
+  expect(rows[1][14]).toBe("Nie dotyczy");
+  const [other] = await database
+    .insert(schema.participants)
+    .values({
+      eventId: event.id,
+      firstName: "Test",
+      lastName: "Bez hotelu",
+      email: "nohotel@example.org",
+      ...newCredentials(),
+    })
+    .returning();
+  await database
+    .insert(schema.attendance)
+    .values({ participantId: other.id, method: "QR" });
+  const noHotel = answers.map((a, i) =>
+    i === 9
+      ? emptyAnswer()
+      : i === 10
+        ? {
+            ...emptyAnswer(),
+            selected: surveyDefinition[10].options!.slice(0, 2),
+          }
+        : a,
+  );
+  await expect(
+    submitSurvey(other, { questions, answers: noHotel, hotel: "no" }, atUnlock),
+  ).resolves.toEqual({ saved: true });
+});

@@ -55,10 +55,10 @@ export function ConferenceShell({
         {current === "home" && (
           <Image
             className={styles.projectLogo}
-            src="/branding/g2g-horizontal.png"
+            src="/branding/glowa-do-gory-logotyp.png"
             alt="Logo projektu g2g"
-            width={2106}
-            height={747}
+            width={5022}
+            height={2370}
             priority
           />
         )}

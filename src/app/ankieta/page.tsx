@@ -45,7 +45,7 @@ export default async function Page({
         >
           ← Wróć do swojej strefy
         </Link>
-        <h1>Ankieta</h1>
+        <h1>Głowa do Góry - ankieta</h1>
         {preview || survey.available || survey.submittedAt ? (
           <SurveyForm
             questions={survey.questions}
@@ -68,4 +68,3 @@ export default async function Page({
     </ConferenceShell>
   );
 }
-

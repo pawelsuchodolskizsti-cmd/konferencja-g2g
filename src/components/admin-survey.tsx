@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, dateTime } from "./api";
+import { definitionFor } from "@/lib/survey-definition";
 type Survey = {
   questions: string[];
   published: boolean;
@@ -39,7 +40,7 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
     <section className="card">
       <h2>Ankieta konferencji</h2>
       <p>
-        10 pytań otwartych. Link w profilu uczestnika pojawi się{" "}
+        {survey.questions.length} pytań. Link w profilu uczestnika pojawi się{" "}
         {dateTime(survey.unlockAt)} po udostępnieniu ankiety.
       </p>
       <p>
@@ -100,6 +101,16 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
           {survey.questions.map((question, index) => (
             <label key={index}>
               Pytanie {index + 1}
+              <small>
+                {
+                  {
+                    text: "Odpowiedź otwarta",
+                    single: "Jeden wybór",
+                    multiple: "Maksymalnie dwa wybory",
+                    matrix: "Ocena każdego obszaru",
+                  }[definitionFor(survey.questions)[index].kind]
+                }
+              </small>
               <textarea
                 value={question}
                 required
@@ -115,6 +126,11 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
                   })
                 }
               />
+              {definitionFor(survey.questions)[index].options && (
+                <small>
+                  {definitionFor(survey.questions)[index].options!.join(" • ")}
+                </small>
+              )}
             </label>
           ))}
           <label>
@@ -135,4 +151,3 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
     </section>
   );
 }
-

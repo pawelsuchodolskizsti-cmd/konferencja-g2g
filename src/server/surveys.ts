@@ -14,30 +14,27 @@ import {
 import { encrypt, decrypt } from "./crypto";
 import { assert } from "./errors";
 
-export const defaultSurveyQuestions = [
-  "Co było dla Ciebie najbardziej wartościowe podczas konferencji?",
-  "Które wystąpienie szczególnie zapadło Ci w pamięć i dlaczego?",
-  "Jakie pomysły lub narzędzia zamierzasz wykorzystać w swojej pracy?",
-  "Jak oceniasz dobór tematów do swoich potrzeb?",
-  "Czego zabrakło Ci w programie konferencji?",
-  "Co możemy poprawić w organizacji kolejnego wydarzenia?",
-  "Jak oceniasz atmosferę i możliwość wymiany doświadczeń?",
-  "Jakie tematy chciałabyś lub chciałbyś omówić na kolejnej konferencji?",
-  "Jakiego wsparcia potrzebujesz w swojej codziennej pracy?",
-  "Jakie dodatkowe uwagi lub sugestie chcesz nam przekazać?",
-];
+import {
+  surveyDefinition,
+  definitionFor,
+  answerError,
+  formatAnswer,
+} from "@/lib/survey-definition";
+export const defaultSurveyQuestions = surveyDefinition.map((q) => q.title);
 const questionList = z
-  .array(z.string().trim().min(1, "Wpisz treść każdego pytania.").max(500))
-  .length(10);
-const answersList = z
-  .array(
-    z
-      .string()
-      .trim()
-      .min(1, "Odpowiedz na wszystkie pytania.")
-      .max(5000, "Odpowiedź może mieć najwyżej 5000 znaków."),
-  )
-  .length(10);
+  .array(z.string().trim().min(1).max(500))
+  .refine((q) => q.length === 10 || q.length === 11);
+const answerSchema = z
+  .object({
+    text: z.string().max(5000),
+    selected: z.array(z.string().max(500)).max(2),
+    ratings: z.array(z.string().max(100)).max(8),
+  })
+  .strict();
+const answersList = z.union([
+  z.array(z.string().trim().max(5000)).length(10),
+  z.array(answerSchema).length(11),
+]);
 export function surveyUnlockAt(event: { endsAt: Date }) {
   return new Date(event.endsAt.getTime() - 60 * 60 * 1000);
 }
@@ -131,7 +128,11 @@ export async function submitSurvey(
   database: Database = db(),
 ) {
   const data = z
-    .object({ answers: answersList, questions: questionList })
+    .object({
+      answers: answersList,
+      questions: questionList,
+      hotel: z.enum(["yes", "no"]).optional(),
+    })
     .parse(input);
   return database.transaction(async (tx) => {
     const [event] = await tx
@@ -159,13 +160,53 @@ export async function submitSurvey(
       409,
       "Pytania zostały zmienione. Odśwież stronę przed wysłaniem odpowiedzi.",
     );
+    let formatted: string[];
+    if (survey.questions.length === 11) {
+      assert(
+        data.hotel,
+        400,
+        "Wskaż, czy korzystałeś/aś z proponowanego hotelu.",
+      );
+      assert(
+        data.answers.length === 11 &&
+          data.answers.every((a) => typeof a !== "string"),
+        400,
+        "Nieprawidłowy format odpowiedzi.",
+      );
+      const definitions = definitionFor(survey.questions);
+      formatted = definitions.map((q, i) => {
+        const skipped =
+          (i === 9 && data.hotel === "no") ||
+          (i === 10 && data.hotel === "yes");
+        const answer = answerSchema.parse(data.answers[i]);
+        if (skipped) {
+          assert(
+            !answer.text && !answer.selected.length && !answer.ratings.length,
+            400,
+            "Odpowiedz tylko na właściwe pytanie o hotel.",
+          );
+          return "Nie dotyczy";
+        }
+        const error = answerError(q, answer);
+        assert(!error, 400, `Pytanie ${i + 1}: ${error}`);
+        return formatAnswer(q, answer);
+      });
+    } else {
+      assert(
+        data.answers.length === 10 &&
+          data.answers.every((a) => typeof a === "string" && a.trim()),
+        400,
+        "Odpowiedz na wszystkie pytania.",
+      );
+      formatted = data.answers as string[];
+    }
     const [saved] = await tx
       .insert(surveyResponses)
       .values({
         eventId: person.eventId,
         participantId: person.id,
         questions: survey.questions,
-        answersEncrypted: encrypt(JSON.stringify(data.answers)),
+        answersEncrypted: encrypt(JSON.stringify(formatted)),
         submittedAt: now,
       })
       .onConflictDoNothing({ target: surveyResponses.participantId })
@@ -203,22 +244,26 @@ export async function exportSurvey(eventId: string, adminId: string) {
       "Data wysłania (Europe/Warsaw)",
       ...info.questions,
     ],
-    ...responses.map((r) =>
-      [
-        r.firstName,
-        r.lastName,
-        r.email,
-        new Intl.DateTimeFormat("pl-PL", {
-          dateStyle: "short",
-          timeStyle: "medium",
-          timeZone: "Europe/Warsaw",
-        }).format(r.submittedAt),
-        ...JSON.parse(decrypt(r.answersEncrypted)),
-      ],
-    ),
+    ...responses.map((r) => [
+      r.firstName,
+      r.lastName,
+      r.email,
+      new Intl.DateTimeFormat("pl-PL", {
+        dateStyle: "short",
+        timeStyle: "medium",
+        timeZone: "Europe/Warsaw",
+      }).format(r.submittedAt),
+      ...JSON.parse(decrypt(r.answersEncrypted)),
+    ]),
   ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet["!cols"] = [22, 28, 40, 28, ...Array(10).fill(60)].map((wch) => ({
+  sheet["!cols"] = [
+    22,
+    28,
+    40,
+    28,
+    ...Array(info.questions.length).fill(60),
+  ].map((wch) => ({
     wch,
   }));
   sheet["!autofilter"] = { ref: sheet["!ref"]! };
@@ -237,4 +282,3 @@ export async function exportSurvey(eventId: string, adminId: string) {
     },
   });
 }
-
