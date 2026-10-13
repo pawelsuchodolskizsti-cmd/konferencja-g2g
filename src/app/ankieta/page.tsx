@@ -45,7 +45,6 @@ export default async function Page({
         >
           ← Wróć do swojej strefy
         </Link>
-        <h1>Głowa do Góry - ankieta</h1>
         {preview || survey.available || survey.submitted ? (
           <SurveyForm
             questions={survey.questions}
@@ -54,6 +53,7 @@ export default async function Page({
           />
         ) : (
           <>
+            <h1>Głowa do Góry - ankieta</h1>
             <p>
               {survey.published
                 ? "Ankieta będzie dostępna o 17:00 w dniu konferencji."

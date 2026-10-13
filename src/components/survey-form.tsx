@@ -23,6 +23,7 @@ export function SurveyForm({
   const definitions = definitionFor(questions);
   const modern = questions.length === 11;
   const [done, setDone] = useState(submitted);
+  const [started, setStarted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState(0);
@@ -31,9 +32,13 @@ export function SurveyForm({
     questions.map(emptyAnswer),
   );
   const heading = useRef<HTMLHeadingElement>(null);
+  const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    if (step > 0) heading.current?.focus();
-  }, [step]);
+    if (started) {
+      heading.current?.focus({ preventScroll: true });
+      form.current?.scrollIntoView({ block: "start" });
+    }
+  }, [step, started]);
   const hotelStep = modern && step === 9;
   const index = hotelStep ? (hotel === "no" ? 10 : 9) : step;
   const q = definitions[index];
@@ -52,6 +57,7 @@ export function SurveyForm({
   if (done)
     return (
       <div role="status">
+        <h1>Głowa do Góry - ankieta</h1>
         <h2>{surveyThanks}</h2>
         <p>
           {preview
@@ -66,8 +72,31 @@ export function SurveyForm({
         </Link>
       </div>
     );
+  if (!started)
+    return (
+      <div>
+        <h1>Głowa do Góry - ankieta</h1>
+        <p>{surveyIntro}</p>
+        <p>
+          Ankieta jest anonimowa. Odpowiedzi nie są łączone z Twoim profilem. W
+          odpowiedziach otwartych nie podawaj imienia, nazwiska ani innych
+          danych osobowych.
+        </p>
+        {preview && (
+          <p role="status">Podgląd ankiety. Odpowiedzi nie są zapisywane.</p>
+        )}
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => setStarted(true)}
+        >
+          Start →
+        </button>
+      </div>
+    );
   return (
     <form
+      ref={form}
       onSubmit={async (e) => {
         e.preventDefault();
         if (hotelStep && !hotel) {
@@ -123,15 +152,7 @@ export function SurveyForm({
         }
       }}
     >
-      <p>{surveyIntro}</p>
-      <p>
-        Ankieta jest anonimowa. Odpowiedzi nie są łączone z Twoim profilem. W
-        odpowiedziach otwartych nie podawaj imienia, nazwiska ani innych danych
-        osobowych.
-      </p>
-      {preview && (
-        <p role="status">Podgląd ankiety. Odpowiedzi nie są zapisywane.</p>
-      )}
+      <h1 className={styles.legend}>Głowa do Góry - ankieta</h1>
       <fieldset disabled={busy} className={styles.fields}>
         <legend className={styles.legend}>Pytania konferencji</legend>
         <div className={styles.progressHeading} aria-live="polite">
