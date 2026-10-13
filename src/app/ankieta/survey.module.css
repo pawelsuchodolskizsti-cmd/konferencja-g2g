@@ -157,3 +157,91 @@
   margin: 2px 0 0;
   accent-color: #123e59;
 }
+
+.ratings {
+  margin: 20px 0 28px;
+}
+.ratingCard {
+  display: grid;
+  gap: 10px 24px;
+  margin: 12px 0;
+  padding: 16px;
+  background: white;
+  color: #123e59;
+  border-radius: 8px;
+}
+.ratingLabel {
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+.ratingControls {
+  min-width: 0;
+}
+.ratingValue {
+  display: block;
+  min-height: 22px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.ratingSlider {
+  display: block;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: #123e59;
+}
+.ratingScale {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.ratingScale button {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #b4c9d8;
+  border-radius: 6px;
+  color: #123e59;
+  background: white;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ratingScale button[aria-pressed="true"] {
+  background: #123e59;
+  color: white;
+  border-color: #123e59;
+}
+.ratingSkip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.ratingSkip input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin: 0;
+  accent-color: #123e59;
+}
+.ratingSlider:focus-visible,
+.ratingScale button:focus-visible,
+.ratingSkip input:focus-visible {
+  outline: 3px solid #123e59;
+  outline-offset: 3px;
+}
+@media (min-width: 600px) {
+  .ratingCard {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    align-items: start;
+  }
+}

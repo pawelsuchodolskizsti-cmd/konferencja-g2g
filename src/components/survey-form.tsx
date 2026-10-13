@@ -254,29 +254,94 @@ export function SurveyForm({
                 />
               </label>
             )}
-            {q.kind === "matrix" &&
-              q.rows!.map((row, rowIndex) => (
-                <fieldset className={styles.choiceGroup} key={row}>
-                  <legend>{row}</legend>
-                  {q.options!.map((option) => (
-                    <label className={styles.option} key={option}>
-                      <input
-                        type="radio"
-                        name={`rating-${rowIndex}`}
-                        checked={a.ratings[rowIndex] === option}
-                        onChange={() =>
-                          update({
-                            ratings: q.rows!.map((_, i) =>
-                              i === rowIndex ? option : a.ratings[i] || "",
-                            ),
-                          })
-                        }
-                      />
-                      <span>{option}</span>
-                    </label>
-                  ))}
-                </fieldset>
-              ))}
+            {q.kind === "matrix" && (
+              <div className={styles.ratings}>
+                <p>Przesuń suwak lub kliknij ocenę od 1 do 5.</p>
+                {q.rows!.map((row, rowIndex) => {
+                  const rating = a.ratings[rowIndex] || "";
+                  const options = q.options!.slice(0, 5);
+                  const notApplicable = q.options![5];
+                  const selected = options.indexOf(rating);
+                  const value = selected >= 0 ? selected + 1 : 3;
+                  const setRating = (option: string) =>
+                    update({
+                      ratings: q.rows!.map((_, i) =>
+                        i === rowIndex ? option : a.ratings[i] || "",
+                      ),
+                    });
+                  const labelId = `rating-label-${rowIndex}`;
+                  const statusId = `rating-status-${rowIndex}`;
+                  return (
+                    <div className={styles.ratingCard} key={row}>
+                      <label
+                        id={labelId}
+                        htmlFor={`rating-${rowIndex}`}
+                        className={styles.ratingLabel}
+                      >
+                        {row}
+                      </label>
+                      <div className={styles.ratingControls}>
+                        <output
+                          id={statusId}
+                          className={styles.ratingValue}
+                          htmlFor={`rating-${rowIndex}`}
+                          aria-live="polite"
+                        >
+                          {rating || "Wybierz ocenę"}
+                        </output>
+                        <input
+                          id={`rating-${rowIndex}`}
+                          className={styles.ratingSlider}
+                          type="range"
+                          min={1}
+                          max={5}
+                          step={1}
+                          value={value}
+                          aria-labelledby={labelId}
+                          aria-describedby={statusId}
+                          aria-valuetext={rating || "Nie wybrano oceny"}
+                          onChange={(e) =>
+                            setRating(options[Number(e.target.value) - 1])
+                          }
+                          onPointerUp={(e) =>
+                            setRating(
+                              options[Number(e.currentTarget.value) - 1],
+                            )
+                          }
+                        />
+                        <div
+                          className={styles.ratingScale}
+                          role="group"
+                          aria-label={`Ocena: ${row}`}
+                        >
+                          {options.map((option, i) => (
+                            <button
+                              key={option}
+                              type="button"
+                              aria-label={option}
+                              aria-pressed={rating === option}
+                              onClick={() => setRating(option)}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <label className={styles.ratingSkip}>
+                          <input
+                            type="checkbox"
+                            checked={rating === notApplicable}
+                            onChange={(e) =>
+                              setRating(e.target.checked ? notApplicable : "")
+                            }
+                          />
+                          {notApplicable}
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
         {error && <p role="alert">{error}</p>}
