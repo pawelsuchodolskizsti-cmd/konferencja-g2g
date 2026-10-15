@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/db";
 import { events } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -205,6 +206,11 @@ export default async function Home() {
           </section>
         </div>
       </div>
+      <footer className={styles.privacyFooter}>
+        <Link href="/uczestnik/klauzula">
+          Informacja o przetwarzaniu danych
+        </Link>
+      </footer>
     </ConferenceShell>
   );
 }
