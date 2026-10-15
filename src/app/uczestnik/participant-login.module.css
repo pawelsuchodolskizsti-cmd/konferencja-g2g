@@ -172,21 +172,21 @@
 }
 
 .privacy {
-  margin: 0 0 24px;
-  padding: 18px;
+  margin: 0 0 18px;
+  padding: 14px;
   background: #fff;
   color: #123e59;
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .privacy h2 {
-  font-size: 18px;
-  line-height: 1.4;
-  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.35;
+  margin: 0 0 8px;
 }
 .privacy p {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
 }
 .privacyLink {
   display: inline-block;
