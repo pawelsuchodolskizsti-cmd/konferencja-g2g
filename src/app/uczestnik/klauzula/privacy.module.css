@@ -1,0 +1,36 @@
+.content {
+  position: relative;
+  z-index: 1;
+  width: min(860px, calc(100% - 32px));
+  margin: 40px auto;
+  padding: clamp(20px, 5vw, 48px);
+  background: white;
+  color: #123e59;
+  font-size: 17px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.content h1 {
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.2;
+  margin: 24px 0 12px;
+}
+.content h2 {
+  font-size: 21px;
+  margin: 0 0 28px;
+}
+.content p {
+  margin: 0 0 20px;
+}
+.back {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.back:focus-visible {
+  outline: 2px solid #123e59;
+  outline-offset: 4px;
+}

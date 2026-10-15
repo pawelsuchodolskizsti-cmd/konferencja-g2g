@@ -3,8 +3,8 @@
 import {
   PARTICIPANT_PRIVACY_VERSION,
   participantPrivacySummary,
-  participantPrivacyParagraphs,
 } from "@/lib/participant-privacy";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/uczestnik/participant-login.module.css";
@@ -86,14 +86,15 @@ export function ParticipantLogin() {
       <section className={styles.privacy} aria-labelledby="privacy-title">
         <h2 id="privacy-title">Twoje dane w Strefie Uczestnika</h2>
         <p>{participantPrivacySummary}</p>
-        <details className={styles.privacyDetails}>
-          <summary>Przeczytaj pełną klauzulę informacyjną</summary>
-          <div>
-            {participantPrivacyParagraphs.map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
-            ))}
-          </div>
-        </details>
+        <Link
+          className={styles.privacyLink}
+          href="/uczestnik/klauzula"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Przeczytaj pełną klauzulę informacyjną
+          <span className={styles.linkHint}>Otwiera się w nowej karcie</span>
+        </Link>
       </section>
       <label className={styles.privacyCheck}>
         <input
