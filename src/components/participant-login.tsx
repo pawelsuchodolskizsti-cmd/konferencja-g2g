@@ -93,7 +93,6 @@ export function ParticipantLogin() {
           rel="noopener noreferrer"
         >
           Przeczytaj pełną klauzulę informacyjną
-          <span className={styles.linkHint}>Otwiera się w nowej karcie</span>
         </Link>
       </section>
       <label className={styles.privacyCheck}>
