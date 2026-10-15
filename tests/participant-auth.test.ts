@@ -20,6 +20,10 @@ vi.mock("next/headers", () => ({
 }));
 import { loginParticipant, requireParticipant } from "../src/server/auth";
 
+import {
+  PARTICIPANT_PRIVACY_VERSION,
+  PARTICIPANT_PRIVACY_ACTION,
+} from "../src/lib/participant-privacy";
 const pg = new PGlite();
 const database = drizzle(pg);
 let participantId: string;
@@ -58,7 +62,9 @@ beforeAll(async () => {
 afterAll(async () => pg.close());
 
 test("valid code cannot create a session before attendance is confirmed", async () => {
-  await expect(loginParticipant("ABC123", "absent")).rejects.toMatchObject({
+  await expect(
+    loginParticipant("ABC123", "absent", true, PARTICIPANT_PRIVACY_VERSION),
+  ).rejects.toMatchObject({
     status: 403,
   });
   expect(state.set).not.toHaveBeenCalled();
@@ -67,21 +73,36 @@ test("valid code cannot create a session before attendance is confirmed", async 
 
 test("an existing session is rejected until check-in and after attendance removal", async () => {
   state.token = "a".repeat(43);
-  await database
-    .insert(schema.sessions)
-    .values({
-      participantId,
-      tokenHash: hashToken(state.token),
-      expiresAt: new Date(Date.now() + 3600000),
-    });
+  await database.insert(schema.sessions).values({
+    participantId,
+    tokenHash: hashToken(state.token),
+    expiresAt: new Date(Date.now() + 3600000),
+  });
   await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
   await database
     .insert(schema.attendance)
     .values({ participantId, method: "QR" });
+  await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
+  await expect(loginParticipant("ABC123", "missing")).rejects.toMatchObject({
+    status: 400,
+  });
+  await expect(
+    loginParticipant("ABC123", "old", true, "old-version"),
+  ).rejects.toMatchObject({ status: 400 });
+  expect(await database.select().from(schema.auditLogs)).toHaveLength(0);
+  await expect(
+    loginParticipant("ABC123", "present", true, PARTICIPANT_PRIVACY_VERSION),
+  ).resolves.toBeUndefined();
+  const records = await database.select().from(schema.auditLogs);
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({
+    targetId: participantId,
+    action: PARTICIPANT_PRIVACY_ACTION,
+  });
   await expect(requireParticipant()).resolves.toMatchObject({
     id: participantId,
   });
-  await expect(loginParticipant("ABC123", "present")).resolves.toBeUndefined();
+
   expect(state.set).toHaveBeenCalledWith(
     "participant_session",
     expect.any(String),

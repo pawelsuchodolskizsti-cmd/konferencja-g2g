@@ -1,9 +1,14 @@
 import "server-only";
+import {
+  PARTICIPANT_PRIVACY_VERSION,
+  PARTICIPANT_PRIVACY_ACTION,
+} from "@/lib/participant-privacy";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import {
+  auditLogs,
   admins,
   attendance,
   adminEvents,
@@ -122,6 +127,21 @@ export async function requireParticipant() {
     .where(eq(participants.id, session.participantId));
   assert(person, 401, "Sesja wygasła.");
   await requireAttendance(person.id);
+  const [acknowledged] = await db()
+    .select({ id: auditLogs.id })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.targetId, person.id),
+        eq(auditLogs.action, PARTICIPANT_PRIVACY_ACTION),
+      ),
+    )
+    .limit(1);
+  assert(
+    acknowledged,
+    403,
+    "Przed wejściem do strefy zaloguj się ponownie i potwierdź zapoznanie się z klauzulą informacyjną.",
+  );
   return person;
 }
 async function requireAttendance(participantId: string) {
@@ -163,7 +183,18 @@ export async function loginAdmin(email: string, password: string, ip: string) {
   assert(valid && admin?.active, 401, "Nieprawidłowy e-mail lub hasło.");
   await createSession({ adminId: admin.id });
 }
-export async function loginParticipant(code: string, ip: string) {
+export async function loginParticipant(
+  code: string,
+  ip: string,
+  privacyAcknowledged = false,
+  privacyVersion = "",
+) {
+  assert(
+    privacyAcknowledged === true &&
+      privacyVersion === PARTICIPANT_PRIVACY_VERSION,
+    400,
+    "Potwierdź zapoznanie się z aktualną klauzulą informacyjną.",
+  );
   await limit(`participant-ip:${ip}`, 20, 900);
   const normalized = normalizeCode(code);
   assert(
@@ -172,11 +203,18 @@ export async function loginParticipant(code: string, ip: string) {
     "Nieprawidłowy kod uczestnika.",
   );
   const [person] = await db()
-    .select({ id: participants.id })
+    .select({ id: participants.id, eventId: participants.eventId })
     .from(participants)
     .where(eq(participants.accessHash, hashToken(normalized)));
   assert(person, 401, "Nieprawidłowy kod uczestnika.");
   await requireAttendance(person.id);
+  await db()
+    .insert(auditLogs)
+    .values({
+      eventId: person.eventId,
+      targetId: person.id,
+      action: PARTICIPANT_PRIVACY_ACTION,
+    });
   await createSession({ participantId: person.id });
 }
 export async function logout(admin: boolean) {

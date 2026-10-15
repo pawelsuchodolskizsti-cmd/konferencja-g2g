@@ -170,3 +170,53 @@
     width: 58px;
   }
 }
+
+.privacy {
+  margin: 0 0 24px;
+  padding: 18px;
+  background: #fff;
+  color: #123e59;
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.privacy h2 {
+  font-size: 18px;
+  line-height: 1.4;
+  margin: 0 0 12px;
+}
+.privacy p {
+  margin: 0 0 16px;
+}
+.privacyDetails summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.privacyDetails summary:focus-visible {
+  outline: 2px solid #123e59;
+  outline-offset: 4px;
+}
+.privacyDetails[open] summary {
+  margin-bottom: 16px;
+}
+.form .privacyCheck {
+  margin: 0 0 24px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 16px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.form .privacyCheck input {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: #123e59;
+}

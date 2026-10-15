@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  PARTICIPANT_PRIVACY_VERSION,
+  participantPrivacySummary,
+  participantPrivacyParagraphs,
+} from "@/lib/participant-privacy";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/uczestnik/participant-login.module.css";
@@ -8,6 +13,7 @@ export function ParticipantLogin() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
 
   return (
     <form
@@ -23,7 +29,11 @@ export function ParticipantLogin() {
           const response = await fetch("/api/auth/participant", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: data.get("code") }),
+            body: JSON.stringify({
+              code: data.get("code"),
+              privacyAcknowledged: acknowledged,
+              privacyVersion: PARTICIPANT_PRIVACY_VERSION,
+            }),
           });
           const result = await response.json();
           if (!response.ok)
@@ -73,12 +83,37 @@ export function ParticipantLogin() {
       <p id="code-hint" className={styles.hint}>
         6 znaków: wielkie litery i cyfry. Kod znajdziesz w zaproszeniu.
       </p>
+      <section className={styles.privacy} aria-labelledby="privacy-title">
+        <h2 id="privacy-title">Twoje dane w Strefie Uczestnika</h2>
+        <p>{participantPrivacySummary}</p>
+        <details className={styles.privacyDetails}>
+          <summary>Przeczytaj pełną klauzulę informacyjną</summary>
+          <div>
+            {participantPrivacyParagraphs.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </details>
+      </section>
+      <label className={styles.privacyCheck}>
+        <input
+          type="checkbox"
+          name="privacyAcknowledged"
+          required
+          checked={acknowledged}
+          onChange={(event) => setAcknowledged(event.target.checked)}
+        />
+        <span>
+          Potwierdzam zapoznanie się z klauzulą informacyjną dotyczącą
+          przetwarzania moich danych w Strefie Uczestnika.
+        </span>
+      </label>
       {error && (
         <p id="code-error" role="alert" className={styles.error}>
           {error}
         </p>
       )}
-      <button type="submit" disabled={busy}>
+      <button type="submit" disabled={busy || !acknowledged}>
         <span>{busy ? "Otwieranie strefy…" : "Wejdź do strefy"}</span>
       </button>
     </form>

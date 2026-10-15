@@ -29,8 +29,19 @@ export async function POST(
         .parse(data);
       await loginAdmin(input.email, input.password, clientKey(req));
     } else if (action === "participant") {
-      const input = z.object({ code: z.string().min(1).max(100) }).parse(data);
-      await loginParticipant(input.code, clientKey(req));
+      const input = z
+        .object({
+          code: z.string().min(1).max(100),
+          privacyAcknowledged: z.boolean().default(false),
+          privacyVersion: z.string().max(100).default(""),
+        })
+        .parse(data);
+      await loginParticipant(
+        input.code,
+        clientKey(req),
+        input.privacyAcknowledged,
+        input.privacyVersion,
+      );
     } else throw new AppError(404, "Nie znaleziono.");
     return Response.json({ ok: true });
   } catch (error) {
