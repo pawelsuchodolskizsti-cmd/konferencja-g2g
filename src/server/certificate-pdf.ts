@@ -40,10 +40,9 @@ export async function renderCertificate(input: {
     availableWidth / font.widthOfTextAtSize(name, 1),
     (field.height - 8) / (top - bottom),
   );
-  const textWidth = font.widthOfTextAtSize(name, size);
   const textHeight = (top - bottom) * size;
   page.drawText(name, {
-    x: field.x + (field.width - textWidth) / 2,
+    x: field.x + padding,
     y: field.y + (field.height - textHeight) / 2 - bottom * size,
     size,
     font,
