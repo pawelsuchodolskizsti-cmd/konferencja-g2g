@@ -1,3 +1,4 @@
+import { pdfStream } from "@/server/incremental-pdf";
 import { requireParticipant, requestOrigin, limit } from "@/server/auth";
 import { participantCourses } from "@/server/training";
 import { generateCertificate } from "@/server/certificates";
@@ -6,6 +7,7 @@ import { AppError } from "@/server/errors";
 import { participantSurvey, submitSurvey } from "@/server/surveys";
 import { jsonBody } from "@/server/http";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 type Context = { params: Promise<{ action: string }> };
 export async function GET(req: Request, ctx: Context) {
   try {
@@ -19,21 +21,8 @@ export async function GET(req: Request, ctx: Context) {
       return Response.json(await participantCourses(person.id));
     if (action === "certificate") {
       await limit(`pdf:${person.id}`, 10, 60);
-      const { pdf } = await generateCertificate(person.id);
-      // The unchanged print-quality template is larger than a buffered
-      // serverless response. Deliver bounded chunks without altering the PDF.
-      let offset = 0;
-      const body = new ReadableStream<Uint8Array>({
-        pull(controller) {
-          if (offset >= pdf.length) {
-            controller.close();
-            return;
-          }
-          const end = Math.min(offset + 64 * 1024, pdf.length);
-          controller.enqueue(pdf.subarray(offset, end));
-          offset = end;
-        },
-      });
+      const { parts } = await generateCertificate(person.id);
+      const body = pdfStream(parts);
       return new Response(body, {
         headers: {
           "Content-Type": "application/pdf",

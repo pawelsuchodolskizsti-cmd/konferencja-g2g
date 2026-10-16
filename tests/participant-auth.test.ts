@@ -115,3 +115,66 @@ test("an existing session is rejected until check-in and after attendance remova
     .where(eq(schema.attendance.participantId, participantId));
   await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
 });
+
+test("250 distinct participants can log in through one shared Wi-Fi IP", async () => {
+  const [original] = await database
+    .select()
+    .from(schema.participants)
+    .where(eq(schema.participants.id, participantId));
+  const codes = Array.from(
+    { length: 250 },
+    (_, i) => `W${String(i).padStart(5, "0")}`,
+  );
+  const people = await database
+    .insert(schema.participants)
+    .values(
+      codes.map((code, i) => ({
+        ...newCredentials(),
+        accessHash: hashToken(code),
+        eventId: original.eventId,
+        firstName: "Test",
+        lastName: `WiFi ${i}`,
+        email: `wifi-${i}@example.test`,
+      })),
+    )
+    .returning({ id: schema.participants.id });
+  await database
+    .insert(schema.attendance)
+    .values(
+      people.map((p) => ({ participantId: p.id, method: "QR" as const })),
+    );
+  const results = await Promise.allSettled(
+    codes.map((code) =>
+      loginParticipant(code, "shared-wifi", true, PARTICIPANT_PRIVACY_VERSION),
+    ),
+  );
+  expect(results.filter((r) => r.status === "rejected")).toEqual([]);
+}, 20000);
+
+test("repeated code guesses remain limited independently of other users", async () => {
+  for (let i = 0; i < 8; i++)
+    await expect(
+      loginParticipant(
+        "ZZZZZZ",
+        "guessing-ip",
+        true,
+        PARTICIPANT_PRIVACY_VERSION,
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+  await expect(
+    loginParticipant(
+      "ZZZZZZ",
+      "guessing-ip",
+      true,
+      PARTICIPANT_PRIVACY_VERSION,
+    ),
+  ).rejects.toMatchObject({ status: 429 });
+  await expect(
+    loginParticipant(
+      "W00000",
+      "guessing-ip",
+      true,
+      PARTICIPANT_PRIVACY_VERSION,
+    ),
+  ).resolves.toBeUndefined();
+});

@@ -2,8 +2,28 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import { prepareIncrementalPdf, appendPdfRevision } from "./incremental-pdf";
+let assets:
+  | Promise<{
+      base: Awaited<ReturnType<typeof prepareIncrementalPdf>>;
+      font: Buffer;
+    }>
+  | undefined;
+function certificateAssets() {
+  return (assets ??= Promise.all([
+    readFile(path.join(process.cwd(), "assets/certificate-template.pdf")).then(
+      prepareIncrementalPdf,
+    ),
+    readFile(path.join(process.cwd(), "assets/ClashDisplay-Semibold.ttf")),
+  ])
+    .then(([base, font]) => ({ base, font }))
+    .catch((error) => {
+      assets = undefined;
+      throw error;
+    }));
+}
 
-export async function renderCertificate(input: {
+export async function renderCertificateParts(input: {
   name: string;
   eventName: string;
   organizer: string;
@@ -12,13 +32,9 @@ export async function renderCertificate(input: {
 }) {
   // Keep the supplied artwork, colour profile and page dimensions intact.
   // Only the participant's name is added; the certificate number stays in the DB.
-  const pdf = await PDFDocument.load(
-    await readFile(path.join(process.cwd(), "assets/certificate-template.pdf")),
-  );
+  const { base, font: fontBytes } = await certificateAssets();
+  const pdf = await PDFDocument.load(base.skeleton, { updateMetadata: false });
   pdf.registerFontkit(fontkit);
-  const fontBytes = await readFile(
-    path.join(process.cwd(), "assets/ClashDisplay-Semibold.ttf"),
-  );
   const font = await pdf.embedFont(fontBytes, { subset: true });
   const page = pdf.getPage(0);
   // Coordinates in PDF points, measured on the original 612.24 × 858.96 page.
@@ -50,5 +66,11 @@ export async function renderCertificate(input: {
   });
   pdf.setTitle("Certyfikat uczestnictwa");
   pdf.setAuthor(input.organizer);
-  return Buffer.from(await pdf.save());
+  return appendPdfRevision(base, pdf);
+}
+
+export async function renderCertificate(
+  input: Parameters<typeof renderCertificateParts>[0],
+) {
+  return Buffer.concat(await renderCertificateParts(input));
 }

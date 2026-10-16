@@ -8,9 +8,9 @@ import * as s from "../src/db/schema";
 import { newCredentials } from "../src/server/crypto";
 import { updateParticipant } from "../src/server/admin-data";
 import { generateCertificate } from "../src/server/certificates";
-import { renderCertificate } from "../src/server/certificate-pdf";
+import { renderCertificateParts } from "../src/server/certificate-pdf";
 vi.mock("../src/server/certificate-pdf", () => ({
-  renderCertificate: vi.fn(async () => Buffer.from("%PDF-test")),
+  renderCertificateParts: vi.fn(async () => [Buffer.from("%PDF-test")]),
 }));
 const pg = new PGlite();
 const database = drizzle(pg);
@@ -68,7 +68,7 @@ const input = () => ({
 
 test("admin correction persists, wins on repeat downloads and can be cleared", async () => {
   const original = await generateCertificate(person.id, db);
-  expect(renderCertificate).toHaveBeenLastCalledWith(
+  expect(renderCertificateParts).toHaveBeenLastCalledWith(
     expect.objectContaining({ name: "Żanety Łąckiej-Świętochowskiej" }),
   );
   await updateParticipant(
@@ -87,12 +87,12 @@ test("admin correction persists, wins on repeat downloads and can be cleared", a
   expect(saved.lastName).toBe(person.lastName);
   const corrected = await generateCertificate(person.id, db);
   expect(corrected.number).toBe(original.number);
-  expect(renderCertificate).toHaveBeenLastCalledWith(
+  expect(renderCertificateParts).toHaveBeenLastCalledWith(
     expect.objectContaining({ name: "Żanety Testowej" }),
   );
   await updateParticipant(eventId, adminId, person.id, input(), db);
   await generateCertificate(person.id, db);
-  expect(renderCertificate).toHaveBeenLastCalledWith(
+  expect(renderCertificateParts).toHaveBeenLastCalledWith(
     expect.objectContaining({ name: "Żanety Testowej" }),
   );
   await updateParticipant(
@@ -103,7 +103,7 @@ test("admin correction persists, wins on repeat downloads and can be cleared", a
     db,
   );
   await generateCertificate(person.id, db);
-  expect(renderCertificate).toHaveBeenLastCalledWith(
+  expect(renderCertificateParts).toHaveBeenLastCalledWith(
     expect.objectContaining({ name: "Żanety Łąckiej-Świętochowskiej" }),
   );
   expect(await database.select().from(s.certificates)).toHaveLength(1);
@@ -166,6 +166,26 @@ test("manual correction does not bypass certificate unlock or attendance", async
   await database
     .delete(s.attendance)
     .where(eq(s.attendance.participantId, person.id));
+  await expect(generateCertificate(person.id, db)).rejects.toMatchObject({
+    status: 403,
+  });
+});
+
+test("attendance revoked during rendering is rechecked before issuing", async () => {
+  await database
+    .insert(s.attendance)
+    .values({ participantId: person.id, method: "MANUAL" })
+    .onConflictDoNothing();
+  await database
+    .update(s.events)
+    .set({ certificateUnlockAt: new Date("2020-01-02") })
+    .where(eq(s.events.id, eventId));
+  vi.mocked(renderCertificateParts).mockImplementationOnce(async () => {
+    await database
+      .delete(s.attendance)
+      .where(eq(s.attendance.participantId, person.id));
+    return [Buffer.from("%PDF-test")];
+  });
   await expect(generateCertificate(person.id, db)).rejects.toMatchObject({
     status: 403,
   });

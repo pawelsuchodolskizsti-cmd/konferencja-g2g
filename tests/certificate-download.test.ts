@@ -25,7 +25,11 @@ test("large certificate streams all bytes for the authenticated participant", as
     id: "current-person",
   } as Awaited<ReturnType<typeof requireParticipant>>);
   const pdf = randomBytes(6 * 1024 * 1024 + 123);
-  vi.mocked(generateCertificate).mockResolvedValue({ pdf, number: "test" });
+  vi.mocked(generateCertificate).mockResolvedValue({
+    pdf,
+    parts: [pdf.subarray(0, 100), pdf.subarray(100)],
+    number: "test",
+  });
   const response = await GET(
     new Request(
       "http://localhost/api/participant/certificate?participantId=other-person",

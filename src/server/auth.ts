@@ -204,8 +204,10 @@ export async function loginParticipant(
     400,
     "Potwierdź zapoznanie się z aktualną klauzulą informacyjną.",
   );
-  await limit(`participant-ip:${ip}`, 20, 900);
+  // Shared venue Wi-Fi: a network budget plus a separate budget per code.
+  await limit(`participant-network:${ip}`, 1500, 900);
   const normalized = normalizeCode(code);
+  await limit(`participant-code:${ip}:${normalized}`, 8, 900);
   assert(
     /^(?:[A-Z0-9]{6}|[A-F0-9]{32})$/.test(normalized),
     401,
