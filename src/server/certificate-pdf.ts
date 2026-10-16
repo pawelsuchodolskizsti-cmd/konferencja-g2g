@@ -17,7 +17,7 @@ export async function renderCertificate(input: {
   );
   pdf.registerFontkit(fontkit);
   const fontBytes = await readFile(
-    path.join(process.cwd(), "public/branding/montserrat-bold.ttf"),
+    path.join(process.cwd(), "assets/ClashDisplay-Semibold.ttf"),
   );
   const font = await pdf.embedFont(fontBytes, { subset: true });
   const page = pdf.getPage(0);

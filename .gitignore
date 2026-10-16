@@ -12,3 +12,6 @@ next-env.d.ts
 *.csv
 *.log
 .local/
+
+# Downloaded from the official Fontshare CDN during builds.
+/assets/ClashDisplay-Semibold.ttf

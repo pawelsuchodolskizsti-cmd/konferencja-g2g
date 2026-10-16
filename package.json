@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "node scripts/prepare-certificate-font.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --configLoader native",
+    "test": "node scripts/prepare-certificate-font.mjs && vitest run --configLoader native",
     "db:generate": "node scripts/generate-migration.mjs",
     "db:migrate": "tsx scripts/migrate.ts",
     "admin:create": "tsx scripts/create-admin.ts",
