@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Database } from "@/db";
 import {
@@ -305,7 +305,7 @@ export async function privacyOverview(eventId: string) {
       .from(auditLogs)
       .where(
         and(
-          eq(auditLogs.eventId, eventId),
+          or(eq(auditLogs.eventId, eventId), isNull(auditLogs.eventId)),
           sql`${auditLogs.action} LIKE 'EPHEMERAL_CLEANUP%'`,
         ),
       )
@@ -699,14 +699,12 @@ export async function removeTeamMember(
       .returning();
     assert(removed.length, 404, "Brak członka zespołu.");
     await tx.delete(sessions).where(eq(sessions.adminId, id));
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "ADMIN_ACCESS_REMOVED",
-        targetId: id,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "ADMIN_ACCESS_REMOVED",
+      targetId: id,
+    });
     return { saved: true };
   });
 }
