@@ -417,3 +417,47 @@
     font-size: 16px;
   }
 }
+
+/* Native compact selection controls must not inherit text-field dimensions. */
+.admin-theme input[type="checkbox"],
+.admin-theme input[type="radio"] {
+  appearance: auto;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  margin: 0 6px 0 0;
+  border-radius: 0;
+  vertical-align: middle;
+  accent-color: #8b8bff;
+  flex: 0 0 12px;
+  cursor: pointer;
+}
+.admin-theme .participant-editor {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid #333345;
+  border-radius: 12px;
+  background: #11111b;
+  color: #ececf5;
+  overflow-y: auto;
+}
+.admin-theme .participant-editor::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+.admin-theme .participant-editor .card {
+  margin-bottom: 16px;
+}
+.admin-theme .participant-editor-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.admin-theme .participant-editor-heading h2 {
+  margin: 0;
+}

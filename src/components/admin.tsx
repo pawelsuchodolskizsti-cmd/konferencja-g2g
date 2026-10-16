@@ -11,7 +11,7 @@ import {
 } from "./admin-tools";
 import { filterParticipants } from "@/lib/participant-filter";
 import { certificateName } from "@/lib/certificate-name";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./admin-theme.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -387,6 +387,7 @@ export function Admin({
                   eventId={eventId}
                   busy={busy}
                   action={action}
+                  error={error}
                 />
               )}
               {section === "import" && (
@@ -644,16 +645,26 @@ function Participants({
   busy,
   action,
   compact = false,
+  error = "",
 }: {
   people: Person[];
   eventId: string;
   busy: boolean;
   action: Action;
   compact?: boolean;
+  error?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState<Person | null>(null);
+  const editor = useRef<HTMLDialogElement>(null);
+  const [saveStatus, setSaveStatus] = useState("");
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const editingId = editing?.id;
+  useEffect(() => {
+    if (editingId && editor.current && !editor.current.open)
+      editor.current.showModal();
+  }, [editingId]);
   const filtered = filterParticipants(people, { q: query, filter });
   const exportQuery = new URLSearchParams({ q: query, filter }).toString();
   const currentPerson = editing
@@ -707,7 +718,14 @@ function Participants({
                 </button>
               )}
               {!compact && (
-                <button className="secondary" onClick={() => setEditing(p)}>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setSaveStatus("");
+                    setSaveAttempted(false);
+                    setEditing(p);
+                  }}
+                >
                   Edytuj
                 </button>
               )}
@@ -715,137 +733,168 @@ function Participants({
           )}
         />
       </div>
-      {currentPerson && (
-        <ParticipantActions
-          person={currentPerson}
-          eventId={eventId}
-          action={action}
-          busy={busy}
-        />
-      )}
       {editing && (
-        <form
-          key={editing.id}
-          className="card"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const value = Object.fromEntries(new FormData(e.currentTarget));
-            if (await action(`participants/${editing.id}`, value, "PATCH"))
-              setEditing(null);
-          }}
+        <dialog
+          ref={editor}
+          className="participant-editor"
+          aria-labelledby="participant-editor-title"
+          onCancel={() => setEditing(null)}
         >
-          <h2>Edytuj uczestnika</h2>
-          <div className="formgrid">
-            <label>
-              Imię
-              <input
-                name="firstName"
-                value={editing.firstName}
-                onChange={(e) =>
-                  setEditing({ ...editing, firstName: e.target.value })
-                }
-                maxLength={100}
-                required
-              />
-            </label>
-            <label>
-              Nazwisko
-              <input
-                name="lastName"
-                value={editing.lastName}
-                onChange={(e) =>
-                  setEditing({ ...editing, lastName: e.target.value })
-                }
-                maxLength={100}
-                required
-              />
-            </label>
-            <label className="wide">
-              E-mail
-              <input
-                name="email"
-                type="email"
-                defaultValue={editing.email}
-                required
-              />
-            </label>
-            <div className="wide">
-              <h3>Imię i nazwisko na certyfikacie</h3>
-              <p>
-                Automatyczna odmiana: dla{" "}
-                <strong>
-                  {
-                    certificateName({
-                      ...editing,
-                      certificateNameOverride: null,
-                    }).automatic
-                  }
-                </strong>
-              </p>
-              {certificateName(editing).needsReview && (
-                <p role="status">
-                  Ta odmiana wymaga sprawdzenia. Nierozpoznane człony pozostały
-                  w formie podstawowej. W razie potrzeby wpisz poniżej poprawną
-                  formę.
-                </p>
-              )}
+          <form
+            key={editing.id}
+            className="card"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const value = Object.fromEntries(new FormData(e.currentTarget));
+              setSaveStatus("");
+              setSaveAttempted(true);
+              if (await action(`participants/${editing.id}`, value, "PATCH"))
+                setSaveStatus("Dane uczestnika zostały zapisane.");
+            }}
+          >
+            <div className="participant-editor-heading">
+              <h2 id="participant-editor-title">Edytuj uczestnika</h2>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setEditing(null)}
+                aria-label="Zamknij edycję"
+              >
+                ×
+              </button>
+            </div>
+            <div className="formgrid">
               <label>
-                Ręczna korekta imienia i nazwiska na certyfikacie
+                Imię
                 <input
-                  name="certificateNameOverride"
-                  value={editing.certificateNameOverride || ""}
+                  name="firstName"
+                  value={editing.firstName}
                   onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      certificateNameOverride: e.target.value,
-                    })
+                    setEditing({ ...editing, firstName: e.target.value })
                   }
-                  maxLength={240}
-                  placeholder="np. Żanety Łąckiej-Świętochowskiej"
-                  aria-describedby="certificate-name-help"
+                  maxLength={100}
+                  required
                 />
               </label>
-              <p id="certificate-name-help">
-                Wpisz pełne imię i nazwisko po odmianie, bez słowa „dla”. Puste
-                pole przywraca automatyczną odmianę. Zmiana będzie widoczna przy
-                kolejnym pobraniu certyfikatu.
-              </p>
-              <p aria-live="polite">
-                Na certyfikacie: dla{" "}
-                <strong>{certificateName(editing).value}</strong>
-              </p>
+              <label>
+                Nazwisko
+                <input
+                  name="lastName"
+                  value={editing.lastName}
+                  onChange={(e) =>
+                    setEditing({ ...editing, lastName: e.target.value })
+                  }
+                  maxLength={100}
+                  required
+                />
+              </label>
+              <label className="wide">
+                E-mail
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={editing.email}
+                  required
+                />
+              </label>
+              <div className="wide">
+                <h3>Imię i nazwisko na certyfikacie</h3>
+                <p>
+                  Automatyczna odmiana: dla{" "}
+                  <strong>
+                    {
+                      certificateName({
+                        ...editing,
+                        certificateNameOverride: null,
+                      }).automatic
+                    }
+                  </strong>
+                </p>
+                {certificateName(editing).needsReview && (
+                  <p role="status">
+                    Ta odmiana wymaga sprawdzenia. Nierozpoznane człony
+                    pozostały w formie podstawowej. W razie potrzeby wpisz
+                    poniżej poprawną formę.
+                  </p>
+                )}
+                <label>
+                  Ręczna korekta imienia i nazwiska na certyfikacie
+                  <input
+                    name="certificateNameOverride"
+                    value={editing.certificateNameOverride || ""}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        certificateNameOverride: e.target.value,
+                      })
+                    }
+                    maxLength={240}
+                    placeholder="np. Żanety Łąckiej-Świętochowskiej"
+                    aria-describedby="certificate-name-help"
+                  />
+                </label>
+                <p id="certificate-name-help">
+                  Wpisz pełne imię i nazwisko po odmianie, bez słowa „dla”.
+                  Puste pole przywraca automatyczną odmianę. Zmiana będzie
+                  widoczna przy kolejnym pobraniu certyfikatu.
+                </p>
+                <p aria-live="polite">
+                  Na certyfikacie: dla{" "}
+                  <strong>{certificateName(editing).value}</strong>
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="actions">
-            <button disabled={busy}>Zapisz</button>
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => setEditing(null)}
-            >
-              Anuluj
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={async () => {
-                if (
-                  window.confirm(
-                    "Usunąć uczestnika wraz z obecnością, sesjami i certyfikatem?",
-                  ) &&
-                  (await action(
-                    `participants/${editing.id}`,
-                    undefined,
-                    "DELETE",
-                  ))
-                )
-                  setEditing(null);
-              }}
-            >
-              Usuń uczestnika
-            </button>
-          </div>
-        </form>
+            {saveAttempted && error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {saveStatus && (
+              <p className="notice" role="status">
+                {saveStatus}
+              </p>
+            )}
+            <div className="actions">
+              <button disabled={busy}>
+                {busy ? "Zapisywanie…" : "Zapisz"}
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      "Usunąć uczestnika wraz z obecnością, sesjami i certyfikatem?",
+                    ) &&
+                    (await action(
+                      `participants/${editing.id}`,
+                      undefined,
+                      "DELETE",
+                    ))
+                  )
+                    setEditing(null);
+                }}
+              >
+                Usuń uczestnika
+              </button>
+            </div>
+          </form>
+          {currentPerson && (
+            <ParticipantActions
+              person={currentPerson}
+              eventId={eventId}
+              action={action}
+              busy={busy}
+            />
+          )}
+        </dialog>
       )}
     </>
   );
