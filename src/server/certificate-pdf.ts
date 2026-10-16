@@ -43,7 +43,7 @@ export async function renderCertificate(input: {
   const textHeight = (top - bottom) * size;
   page.drawText(displayName, {
     x: field.x + padding,
-    y: field.y + (field.height - textHeight) / 2 - bottom * size,
+    y: field.y + (field.height - textHeight) / 2 - bottom * size - 1,
     size,
     font,
     color: rgb(0, 0, 0),
