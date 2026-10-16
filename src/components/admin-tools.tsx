@@ -912,11 +912,17 @@ export function TeamPanel({ eventId }: { eventId: string }) {
       <h2>Zespół i uprawnienia</h2>
       <p>
         Administrator zarządza konferencją. Obsługa wejścia ma dostęp wyłącznie
-        do skanowania i potwierdzania obecności.
+        do skanowania i potwierdzania obecności. Kontroler danych może
+        weryfikować dane i pobierać raporty, ale nie może ich zmieniać.
       </p>
       {rows.map((r) => (
         <p key={r.id}>
-          {r.email} — {r.role === "ADMIN" ? "Administrator" : "Obsługa wejścia"}{" "}
+          {r.email} —{" "}
+          {r.role === "ADMIN"
+            ? "Administrator"
+            : r.role === "CONTROLLER"
+              ? "Kontroler danych"
+              : "Obsługa wejścia"}{" "}
           <button
             type="button"
             className="danger"
@@ -976,6 +982,9 @@ export function TeamPanel({ eventId }: { eventId: string }) {
           <select name="role">
             <option value="CHECKIN">Obsługa wejścia</option>
             <option value="ADMIN">Administrator</option>
+            <option value="CONTROLLER">
+              Kontroler danych — podgląd i raporty
+            </option>
           </select>
         </label>
         <label>

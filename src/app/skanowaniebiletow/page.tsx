@@ -28,6 +28,7 @@ export default async function Page({
     searchParams,
   ]);
   const event = events[0];
+  if (event?.role === "CONTROLLER") redirect("/admin");
   return (
     <ConferenceShell current="participant">
       <div className="scanner-page">

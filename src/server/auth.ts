@@ -109,7 +109,7 @@ export async function requireEvent(
   adminId: string,
   eventId: string,
   database: Database = db(),
-  permission: "ADMIN" | "CHECKIN" = "ADMIN",
+  permission: "ADMIN" | "CHECKIN" | "READ" = "ADMIN",
 ) {
   const [access] = await database
     .select()
@@ -119,7 +119,9 @@ export async function requireEvent(
     );
   assert(access, 403, "Brak dostępu do tego wydarzenia.");
   assert(
-    permission === "CHECKIN" || access.role === "ADMIN",
+    access.role === "ADMIN" ||
+      (permission === "CHECKIN" && access.role === "CHECKIN") ||
+      (permission === "READ" && access.role === "CONTROLLER"),
     403,
     "Ta operacja wymaga administratora konferencji.",
   );

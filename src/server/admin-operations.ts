@@ -534,7 +534,7 @@ export async function saveTeamMember(
   const data = z
     .object({
       email: z.email().transform((v) => v.toLowerCase()),
-      role: z.enum(["ADMIN", "CHECKIN"]),
+      role: z.enum(["ADMIN", "CHECKIN", "CONTROLLER"]),
       password: z.string().min(14).max(200).optional(),
     })
     .parse(input);

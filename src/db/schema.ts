@@ -71,7 +71,7 @@ export const adminEvents = pgTable(
   "admin_events",
   {
     id: id(),
-    role: text("role", { enum: ["ADMIN", "CHECKIN"] })
+    role: text("role", { enum: ["ADMIN", "CHECKIN", "CONTROLLER"] })
       .notNull()
       .default("ADMIN"),
     adminId: uuid("admin_id")

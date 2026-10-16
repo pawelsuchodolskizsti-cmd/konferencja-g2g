@@ -1,3 +1,4 @@
+import { DataController } from "@/components/data-controller";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/server/auth";
 import { adminEventList } from "@/server/events";
@@ -35,6 +36,8 @@ export default async function Page({
     searchParams,
   ]);
   if (events[0]?.role === "CHECKIN") redirect("/skanowaniebiletow");
+  if (events[0]?.role === "CONTROLLER")
+    return <DataController eventId={events[0].id} email={admin.email} />;
   return (
     <Admin
       initialEvents={events}

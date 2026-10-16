@@ -1,3 +1,4 @@
+import { adminPermission } from "@/lib/admin-permissions";
 import {
   audit,
   cleanupData,
@@ -60,17 +61,24 @@ async function handle(req: Request, ctx: Context) {
         "Panel obsługuje jedną konferencję. Użyj jej ustawień.",
       );
     }
-    if (path.length === 2 && path[1] === "setup" && req.method === "POST")
+    if (path.length === 2 && path[1] === "setup" && req.method === "POST") {
+      const memberships = await adminEventList(admin.id);
+      assert(
+        !memberships.length || memberships.some((e) => e.role === "ADMIN"),
+        403,
+        "Ta operacja wymaga administratora konferencji.",
+      );
       return Response.json(await saveEvent(admin.id, await jsonBody(req)), {
         status: 201,
       });
+    }
     const eventId = z.uuid().parse(path[1]);
     const action = path[2];
     await requireEvent(
       admin.id,
       eventId,
       db(),
-      ["checkin", "checkin-people"].includes(action) ? "CHECKIN" : "ADMIN",
+      adminPermission(req.method, path),
     );
     const url = new URL(req.url);
     const exportAction = ["export", "codes-export", "reports"].includes(action);

@@ -297,3 +297,27 @@ test("cleanup deletes expired imports only and keeps active imports", async () =
   expect((await cleanupData(eventId, adminId)).imports).toBe(1);
   expect(await database.select().from(s.importBatches)).toHaveLength(1);
 });
+
+test("controller can read data but cannot administer or check in", async () => {
+  await saveTeamMember(eventId, adminId, {
+    email: "controller@example.test",
+    password: "test-controller-password",
+    role: "CONTROLLER",
+  });
+  const [controller] = await database
+    .select()
+    .from(s.admins)
+    .where(eq(s.admins.email, "controller@example.test"));
+  await expect(
+    requireEvent(controller.id, eventId, db, "READ"),
+  ).resolves.toMatchObject({ role: "CONTROLLER" });
+  await expect(
+    requireEvent(controller.id, eventId, db, "ADMIN"),
+  ).rejects.toMatchObject({ status: 403 });
+  await expect(
+    requireEvent(controller.id, eventId, db, "CHECKIN"),
+  ).rejects.toMatchObject({ status: 403 });
+  await expect(
+    requireEvent(controller.id, otherEventId, db, "READ"),
+  ).rejects.toMatchObject({ status: 403 });
+});
