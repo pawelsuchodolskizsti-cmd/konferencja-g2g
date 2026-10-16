@@ -181,8 +181,9 @@
   overflow-wrap: anywhere;
 }
 .privacy h2 {
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
   margin: 0 0 8px;
 }
 .privacy p {
@@ -206,12 +207,15 @@
   outline-offset: 4px;
 }
 .form .privacyCheck {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  font-size: 16px;
-  line-height: 1.55;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
   cursor: pointer;
 }
 .form .privacyCheck input {
