@@ -1,0 +1,1 @@
+ALTER TABLE "participants" ADD COLUMN "certificate_name_override" text;

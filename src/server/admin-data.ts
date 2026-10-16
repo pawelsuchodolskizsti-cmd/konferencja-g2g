@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { db, type Database } from "@/db";
 import {
   attendance,
   auditLogs,
@@ -22,6 +22,7 @@ export async function participantList(eventId: string) {
       id: participants.id,
       firstName: participants.firstName,
       lastName: participants.lastName,
+      certificateNameOverride: participants.certificateNameOverride,
       email: participants.email,
       checkedInAt: attendance.checkedInAt,
       method: attendance.method,
@@ -128,15 +129,35 @@ export async function updateParticipant(
   adminId: string,
   id: string,
   input: unknown,
+  database: Database = db(),
 ) {
   const value = z
     .object({
       firstName: z.string().trim().min(1).max(100),
       lastName: z.string().trim().min(1).max(100),
       email: z.email().transform((v) => v.toLowerCase()),
+      certificateNameOverride: z
+        .string()
+        .max(240)
+        .regex(
+          /^[\p{L}\p{M} .’'\-‐‑–]*$/u,
+          "Wpisz imię i nazwisko w jednym wierszu.",
+        )
+        .transform((v) => v.normalize("NFC").replace(/ +/g, " ").trim())
+        .refine(
+          (v) => !/^dla(?: |$)/iu.test(v),
+          "Wpisz samą odmienioną formę, bez słowa „dla”.",
+        )
+        .refine(
+          (v) => !v || /\p{L}/u.test(v),
+          "Korekta musi zawierać imię i nazwisko.",
+        )
+        .transform((v) => v || null)
+        .nullable()
+        .optional(),
     })
     .parse(input);
-  return db().transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [current] = await tx
       .select()
       .from(participants)
@@ -161,14 +182,12 @@ export async function updateParticipant(
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
       .returning({ id: participants.id });
     assert(p, 404, "Brak uczestnika.");
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "PARTICIPANT_UPDATED",
-        targetId: id,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "PARTICIPANT_UPDATED",
+      targetId: id,
+    });
     return p;
   });
 }
@@ -192,14 +211,12 @@ export async function deleteParticipant(
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
       .returning({ id: participants.id });
     assert(rows.length, 404, "Brak uczestnika.");
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "PARTICIPANT_DELETED",
-        targetId: id,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "PARTICIPANT_DELETED",
+      targetId: id,
+    });
     return { deleted: rows.length };
   });
 }
@@ -235,14 +252,12 @@ export async function deleteEventData(
       .delete(participants)
       .where(eq(participants.eventId, eventId))
       .returning({ id: participants.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "EVENT_PERSONAL_DATA_DELETED",
-        targetId: eventId,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "EVENT_PERSONAL_DATA_DELETED",
+      targetId: eventId,
+    });
     return { deleted: rows.length };
   });
 }

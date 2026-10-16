@@ -21,6 +21,7 @@ beforeAll(async () => {
   process.env.TOKEN_PEPPER = "pepper".repeat(10);
   await pg.exec(await readFile("drizzle/0000_initial.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   const [a] = await database
     .insert(s.admins)
     .values({ email: "test@example.org", passwordHash: "unused" })

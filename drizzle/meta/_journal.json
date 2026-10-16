@@ -36,6 +36,13 @@
       "when": 1791800000000,
       "tag": "0004_anonymous_survey",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792148891089,
+      "tag": "0005_schema",
+      "breakpoints": true
     }
   ]
 }

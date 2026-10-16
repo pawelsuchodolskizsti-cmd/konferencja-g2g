@@ -110,3 +110,11 @@ Do potwierdzenia po podłączeniu usług: rzeczywiste doręczenie Resend, zewnę
 - [Idempotencja Resend](https://resend.com/docs/dashboard/emails/idempotency-keys)
 - [PGlite Socket](https://pglite.dev/docs/pglite-socket)
 - [Dystrybucja SheetJS](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/)
+
+### Odmiana danych na certyfikacie
+
+Generator wpisuje po słowie „dla” imię i nazwisko w dopełniaczu (np. „Żanety Łąckiej-Świętochowskiej”). Reguły obsługują rozpoznane polskie imiona, nazwiska i człony rozdzielone łącznikiem. Nierozpoznane lub niejednoznaczne człony pozostają w formie podstawowej i pojawiają się pod filtrem **Odmiana do sprawdzenia** w zakładce **Uczestnicy**.
+
+W **Uczestnicy → Edytuj → Ręczna korekta imienia i nazwiska na certyfikacie** administrator może wpisać pełną formę po odmianie, bez słowa „dla”. Podgląd pokazuje tekst używany na dokumencie. Korekta ma pierwszeństwo przed automatyczną odmianą; wyczyszczenie pola przywraca automat. Zmiana obowiązuje przy kolejnym pobraniu PDF, również dla wcześniej wystawionego certyfikatu. Numer dokumentu, podstawowe dane uczestnika i warunki dostępu pozostają zachowane.
+
+Przed uruchomieniem tej wersji należy zastosować migracje (`pnpm db:migrate`), w tym `0005_schema`, która dodaje opcjonalne pole `participants.certificate_name_override`. Nie zmienia ona istniejących imion ani nazwisk.

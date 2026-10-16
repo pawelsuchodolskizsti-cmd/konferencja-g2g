@@ -47,6 +47,7 @@ export type Person = {
   id: string;
   firstName: string;
   lastName: string;
+  certificateNameOverride: string | null;
   email: string;
   checkedInAt: string | null;
   method: string | null;
