@@ -26,22 +26,22 @@ export async function renderCertificate(input: {
   const padding = 12;
   const name = input.name.normalize("NFC").replace(/\s+/gu, " ").trim();
   if (!name) throw new Error("Imię i nazwisko uczestnika są wymagane.");
+  const displayName = name.replace(/ /g, "  ");
   const availableWidth = field.width - 2 * padding;
   const face = fontkit.create(fontBytes);
   const glyphs = face
-    .layout(name)
+    .layout(displayName)
     .glyphs.filter((glyph) => glyph.bbox.height > 0);
   const top =
     Math.max(...glyphs.map((glyph) => glyph.bbox.maxY)) / face.unitsPerEm;
   const bottom =
     Math.min(...glyphs.map((glyph) => glyph.bbox.minY)) / face.unitsPerEm;
   const size = Math.min(
-    24,
-    availableWidth / font.widthOfTextAtSize(name, 1),
-    (field.height - 8) / (top - bottom),
+    availableWidth / font.widthOfTextAtSize(displayName, 1),
+    (field.height - 4) / (top - bottom),
   );
   const textHeight = (top - bottom) * size;
-  page.drawText(name, {
+  page.drawText(displayName, {
     x: field.x + padding,
     y: field.y + (field.height - textHeight) / 2 - bottom * size,
     size,
