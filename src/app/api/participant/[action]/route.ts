@@ -20,7 +20,21 @@ export async function GET(req: Request, ctx: Context) {
     if (action === "certificate") {
       await limit(`pdf:${person.id}`, 10, 60);
       const { pdf } = await generateCertificate(person.id);
-      return new Response(new Uint8Array(pdf), {
+      // The unchanged print-quality template is larger than a buffered
+      // serverless response. Deliver bounded chunks without altering the PDF.
+      let offset = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (offset >= pdf.length) {
+            controller.close();
+            return;
+          }
+          const end = Math.min(offset + 64 * 1024, pdf.length);
+          controller.enqueue(pdf.subarray(offset, end));
+          offset = end;
+        },
+      });
+      return new Response(body, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": 'attachment; filename="certyfikat.pdf"',

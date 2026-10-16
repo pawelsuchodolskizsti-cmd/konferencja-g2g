@@ -1,3 +1,4 @@
+import { certificateName } from "@/lib/certificate-name";
 import { eq } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { auditLogs, certificates } from "@/db/schema";
@@ -25,7 +26,7 @@ export async function generateCertificate(
     existing?.number ||
     `CONF-${event.startsAt.getUTCFullYear()}-${person.id.toUpperCase()}`;
   const pdf = await renderCertificate({
-    name: `${person.firstName} ${person.lastName}`,
+    name: certificateName(person).value,
     eventName: event.name,
     organizer: event.organizer,
     date: new Intl.DateTimeFormat("pl-PL", {

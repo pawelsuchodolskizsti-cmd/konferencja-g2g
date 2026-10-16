@@ -1,4 +1,5 @@
 "use client";
+import { certificateName } from "@/lib/certificate-name";
 import { useEffect, useState } from "react";
 import "./admin-theme.css";
 import Link from "next/link";
@@ -626,7 +627,8 @@ function Participants({
       (filter === "all" ||
         (filter === "present" && p.checkedInAt) ||
         (filter === "absent" && !p.checkedInAt) ||
-        (filter === "certificate" && p.certificateGeneratedAt)),
+        (filter === "certificate" && p.certificateGeneratedAt) ||
+        (filter === "name-review" && certificateName(p).needsReview)),
   );
   return (
     <>
@@ -649,6 +651,7 @@ function Participants({
             <option value="present">Obecni</option>
             <option value="absent">Nieobecni</option>
             <option value="certificate">Certyfikat wygenerowany</option>
+            <option value="name-review">Odmiana do sprawdzenia</option>
           </select>
           {!compact && (
             <a
@@ -684,6 +687,7 @@ function Participants({
       </div>
       {editing && (
         <form
+          key={editing.id}
           className="card"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -698,13 +702,25 @@ function Participants({
               Imię
               <input
                 name="firstName"
-                defaultValue={editing.firstName}
+                value={editing.firstName}
+                onChange={(e) =>
+                  setEditing({ ...editing, firstName: e.target.value })
+                }
+                maxLength={100}
                 required
               />
             </label>
             <label>
               Nazwisko
-              <input name="lastName" defaultValue={editing.lastName} required />
+              <input
+                name="lastName"
+                value={editing.lastName}
+                onChange={(e) =>
+                  setEditing({ ...editing, lastName: e.target.value })
+                }
+                maxLength={100}
+                required
+              />
             </label>
             <label className="wide">
               E-mail
@@ -715,6 +731,52 @@ function Participants({
                 required
               />
             </label>
+            <div className="wide">
+              <h3>Imię i nazwisko na certyfikacie</h3>
+              <p>
+                Automatyczna odmiana: dla{" "}
+                <strong>
+                  {
+                    certificateName({
+                      ...editing,
+                      certificateNameOverride: null,
+                    }).automatic
+                  }
+                </strong>
+              </p>
+              {certificateName(editing).needsReview && (
+                <p role="status">
+                  Ta odmiana wymaga sprawdzenia. Nierozpoznane człony pozostały
+                  w formie podstawowej. W razie potrzeby wpisz poniżej poprawną
+                  formę.
+                </p>
+              )}
+              <label>
+                Ręczna korekta imienia i nazwiska na certyfikacie
+                <input
+                  name="certificateNameOverride"
+                  value={editing.certificateNameOverride || ""}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      certificateNameOverride: e.target.value,
+                    })
+                  }
+                  maxLength={240}
+                  placeholder="np. Żanety Łąckiej-Świętochowskiej"
+                  aria-describedby="certificate-name-help"
+                />
+              </label>
+              <p id="certificate-name-help">
+                Wpisz pełne imię i nazwisko po odmianie, bez słowa „dla”. Puste
+                pole przywraca automatyczną odmianę. Zmiana będzie widoczna przy
+                kolejnym pobraniu certyfikatu.
+              </p>
+              <p aria-live="polite">
+                Na certyfikacie: dla{" "}
+                <strong>{certificateName(editing).value}</strong>
+              </p>
+            </div>
           </div>
           <div className="actions">
             <button disabled={busy}>Zapisz</button>

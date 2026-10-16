@@ -89,6 +89,7 @@ export const participants = pgTable(
       .references(() => events.id, { onDelete: "cascade" }),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
+    certificateNameOverride: text("certificate_name_override"),
     email: text("email").notNull(),
     accessHash: text("access_hash").notNull().unique(),
     qrHash: text("qr_hash").notNull().unique(),
