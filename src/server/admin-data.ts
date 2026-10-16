@@ -4,6 +4,7 @@ import { db, type Database } from "@/db";
 import {
   attendance,
   auditLogs,
+  dataArchives,
   certificates,
   emailLogs,
   events,
@@ -272,6 +273,7 @@ export async function deleteEventData(
         sql`${trainingCodes.id} IN (SELECT a.code_id FROM participant_training_access a JOIN participants p ON p.id = a.participant_id WHERE p.event_id = ${eventId})`,
       );
     await tx.delete(importBatches).where(eq(importBatches.eventId, eventId));
+    await tx.delete(dataArchives).where(eq(dataArchives.eventId, eventId));
     await tx
       .delete(privacyRequests)
       .where(eq(privacyRequests.eventId, eventId));

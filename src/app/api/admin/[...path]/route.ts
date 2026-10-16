@@ -1,3 +1,11 @@
+import {
+  listArchives,
+  createArchive,
+  downloadArchive,
+  removeArchive,
+  cleanupPreview,
+  clearSelectedParticipants,
+} from "@/server/data-archives";
 import { adminPermission } from "@/lib/admin-permissions";
 import {
   audit,
@@ -80,6 +88,45 @@ async function handle(req: Request, ctx: Context) {
       db(),
       adminPermission(req.method, path),
     );
+    if (action === "archives") {
+      if (path.length === 3 && req.method === "GET")
+        return Response.json(await listArchives(eventId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      if (path.length === 3 && req.method === "POST")
+        return Response.json(await createArchive(eventId, admin.id), {
+          status: 201,
+        });
+      if (path.length === 4 && req.method === "GET")
+        return await downloadArchive(
+          eventId,
+          admin.id,
+          z.uuid().parse(path[3]),
+        );
+      if (path.length === 4 && req.method === "DELETE")
+        return Response.json(
+          await removeArchive(
+            eventId,
+            admin.id,
+            z.uuid().parse(path[3]),
+            await jsonBody(req),
+          ),
+        );
+    }
+    if (action === "data-cleanup" && req.method === "POST") {
+      if (path.length === 4 && path[3] === "preview")
+        return Response.json(
+          await cleanupPreview(eventId, await jsonBody(req)),
+        );
+      if (path.length === 3)
+        return Response.json(
+          await clearSelectedParticipants(
+            eventId,
+            admin.id,
+            await jsonBody(req),
+          ),
+        );
+    }
     const url = new URL(req.url);
     const exportAction = ["export", "codes-export", "reports"].includes(action);
     if (exportAction && req.method === "POST") {

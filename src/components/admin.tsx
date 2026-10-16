@@ -1,4 +1,5 @@
 "use client";
+import { DataPanel } from "./data-panel";
 import {
   AddParticipant,
   DownloadButton,
@@ -24,6 +25,7 @@ const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
   ["import", "Import"],
+  ["data", "Dane"],
   ["mail", "Eksporty"],
   ["invitations", "Zaproszenia"],
   ["materials", "Materiały"],
@@ -425,6 +427,13 @@ export function Admin({
               )}
               {section === "materials" && (
                 <MaterialsManager data={overview} action={action} busy={busy} />
+              )}
+              {section === "data" && (
+                <DataPanel
+                  eventId={eventId}
+                  people={overview.people}
+                  onChanged={reload}
+                />
               )}
               {section === "privacy" && <PrivacyPanel eventId={eventId} />}
               {section === "history" && <HistoryPanel eventId={eventId} />}

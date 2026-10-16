@@ -326,3 +326,23 @@ export const invitationSettings = pgTable("invitation_settings", {
     .default("Zapraszamy do udziału w konferencji."),
   updatedAt: created("updated_at"),
 });
+
+export const dataArchives = pgTable(
+  "data_archives",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    adminId: uuid("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    participantCount: integer("participant_count").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    files: jsonb("files").$type<string[]>().notNull(),
+    payload: text("payload").notNull(),
+    createdAt: created(),
+  },
+  (t) => [index("data_archives_event").on(t.eventId)],
+);

@@ -1,4 +1,5 @@
 "use client";
+import { DataPanel } from "./data-panel";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, dateTime, type Overview } from "./api";
@@ -77,6 +78,7 @@ export function DataController({
           {[
             ["people", "Weryfikacja uczestników"],
             ["reports", "Raporty i eksporty"],
+            ["data", "Dane — archiwa"],
             ["privacy", "RODO — podgląd"],
             ["resources", "Konferencja i materiały"],
             ["history", "Historia działań"],
@@ -127,6 +129,7 @@ export function DataController({
           {!data && !error && <p>Ładowanie danych…</p>}
           {data && (
             <>
+              {section === "data" && <DataPanel eventId={eventId} readOnly />}
               {section === "people" && (
                 <section className="card">
                   <h2>Uczestnicy</h2>

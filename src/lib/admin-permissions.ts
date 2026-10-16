@@ -13,6 +13,7 @@ export function adminPermission(
   )
     return "READ";
   if (method === "GET") {
+    if (action === "archives" && [3, 4].includes(path.length)) return "READ";
     if (path.length === 2) return "READ";
     if (
       path.length === 3 &&
