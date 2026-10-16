@@ -95,7 +95,12 @@ export async function saveEvent(
 }
 export async function adminEventList(adminId: string) {
   return db()
-    .select({ id: events.id, name: events.name, slug: events.slug })
+    .select({
+      id: events.id,
+      name: events.name,
+      slug: events.slug,
+      role: adminEvents.role,
+    })
     .from(events)
     .innerJoin(
       adminEvents,

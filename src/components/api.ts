@@ -44,6 +44,7 @@ export type EventData = {
   agenda: AgendaItem[];
 };
 export type Person = {
+  accessCode: string;
   id: string;
   firstName: string;
   lastName: string;
@@ -76,5 +77,5 @@ export type Overview = {
     createdAt: string;
   }[];
   mailEnabled: boolean;
-  materials: { id: string; title: string }[];
+  materials: { id: string; title: string; published: boolean }[];
 };

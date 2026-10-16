@@ -1,14 +1,14 @@
 import { certificateName } from "@/lib/certificate-name";
 import { eq } from "drizzle-orm";
 import { db, type Database } from "@/db";
-import { auditLogs, certificates } from "@/db/schema";
+import { auditLogs, certificates, participants } from "@/db/schema";
 import { certificateAvailable, presentParticipant } from "./attendance";
 import { assert } from "./errors";
 import { renderCertificate } from "./certificate-pdf";
 
 export { renderCertificate } from "./certificate-pdf";
 
-export async function generateCertificate(
+async function generateUnlocked(
   participantId: string,
   database: Database = db(),
 ) {
@@ -50,4 +50,19 @@ export async function generateCertificate(
         });
     });
   return { pdf, number };
+}
+
+// Serialize issuance with attendance corrections without changing eligibility.
+export async function generateCertificate(
+  participantId: string,
+  database: Database = db(),
+) {
+  return database.transaction(async (tx) => {
+    await tx
+      .select({ id: participants.id })
+      .from(participants)
+      .where(eq(participants.id, participantId))
+      .for("update");
+    return generateUnlocked(participantId, tx as unknown as Database);
+  });
 }

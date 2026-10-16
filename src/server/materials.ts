@@ -33,14 +33,12 @@ export async function uploadMaterial(
         encryptedContent: encrypt(content.toString("base64")),
       })
       .returning({ id: materials.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "MATERIAL_UPLOADED",
-        targetId: item.id,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "MATERIAL_UPLOADED",
+      targetId: item.id,
+    });
     return item;
   });
 }
@@ -54,7 +52,11 @@ export async function downloadMaterial(
     .select()
     .from(materials)
     .where(
-      and(eq(materials.id, materialId), eq(materials.eventId, person.eventId)),
+      and(
+        eq(materials.id, materialId),
+        eq(materials.eventId, person.eventId),
+        eq(materials.published, true),
+      ),
     );
   assert(item, 404, "Nie znaleziono materiału.");
   return new Response(

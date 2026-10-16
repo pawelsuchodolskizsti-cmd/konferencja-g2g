@@ -1,4 +1,5 @@
 import "server-only";
+import { safeCsv } from "./imports";
 import { asc, eq, count } from "drizzle-orm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
@@ -143,7 +144,7 @@ export async function submitSurvey(
     assert(
       event && now >= surveyUnlockAt(event),
       403,
-      "Ankieta będzie dostępna od 17:00 w dniu konferencji.",
+      "Ankieta jest dostępna od godziny przed zakończeniem konferencji.",
     );
     const [present] = await tx
       .select()
@@ -214,7 +215,11 @@ export async function submitSurvey(
     return { saved: true };
   });
 }
-export async function exportSurvey(eventId: string, adminId: string) {
+export async function exportSurvey(
+  eventId: string,
+  adminId: string,
+  format: "xlsx" | "csv" = "xlsx",
+) {
   const responses = await db()
     .select({ answersEncrypted: surveyResponses.answersEncrypted })
     .from(surveyResponses)
@@ -225,6 +230,22 @@ export async function exportSurvey(eventId: string, adminId: string) {
     info.questions,
     ...responses.map((r) => JSON.parse(decrypt(r.answersEncrypted))),
   ];
+  if (format === "csv") {
+    await db()
+      .insert(auditLogs)
+      .values({ eventId, adminId, action: "SURVEY_EXPORTED_CSV" });
+    return new Response(
+      "\uFEFF" + rows.map((row) => row.map(safeCsv).join(";")).join("\r\n"),
+      {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="odpowiedzi-ankiety.csv"',
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
+  }
   const sheet = XLSX.utils.aoa_to_sheet(rows);
   sheet["!cols"] = info.questions.map(() => ({ wch: 60 }));
   sheet["!autofilter"] = { ref: sheet["!ref"]! };
@@ -242,4 +263,30 @@ export async function exportSurvey(eventId: string, adminId: string) {
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+export async function surveySummary(eventId: string) {
+  const responses = await db()
+    .select({ answers: surveyResponses.answersEncrypted })
+    .from(surveyResponses)
+    .where(eq(surveyResponses.eventId, eventId));
+  const info = await surveyOverview(eventId);
+  const definitions = definitionFor(info.questions);
+  const answers = responses.map(
+    (r) => JSON.parse(decrypt(r.answers)) as string[],
+  );
+  return {
+    count: answers.length,
+    questions: info.questions.map((title, i) => ({
+      title,
+      kind: definitions[i].kind,
+      values: Object.entries(
+        answers.reduce<Record<string, number>>((acc, row) => {
+          const value = row[i] || "Brak";
+          acc[value] = (acc[value] || 0) + 1;
+          return acc;
+        }, {}),
+      ).sort((a, b) => b[1] - a[1]),
+    })),
+  };
 }

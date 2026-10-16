@@ -1,1 +1,10 @@
-{ "framework": "nextjs" }
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/mail",
+      "schedule": "17 4 * * *"
+    }
+  ],
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:migrate && pnpm build; else pnpm build; fi"
+}

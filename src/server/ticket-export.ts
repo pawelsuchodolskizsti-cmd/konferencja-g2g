@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, inArray } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import QRCode from "qrcode";
 import { PDFDocument, rgb } from "pdf-lib";
@@ -10,6 +10,8 @@ import { db } from "@/db";
 import { participants, events, auditLogs } from "@/db/schema";
 import { decrypt } from "./crypto";
 import { assert } from "./errors";
+import { invitationConfig, selectedPeople } from "./admin-operations";
+import type { ParticipantFilter } from "@/lib/participant-filter";
 import { safeCsv } from "./imports";
 
 type Person = typeof participants.$inferSelect;
@@ -49,6 +51,7 @@ export async function renderTicket(
   event: Event,
   origin: string,
   fontBytes: Uint8Array,
+  invitation?: { title: string; message: string },
 ) {
   const { accessCode, qrToken } = JSON.parse(decrypt(person.credentials));
   const pdf = await PDFDocument.create();
@@ -74,7 +77,7 @@ export async function renderTicket(
   };
   center(event.organizer, 558, 12);
   center(event.name, 516, 29);
-  center("BILET UCZESTNIKA", 488, 11);
+  center(invitation?.title || "BILET UCZESTNIKA", 488, 11);
   const date = new Intl.DateTimeFormat("pl-PL", {
     dateStyle: "long",
     timeZone: event.timezone,
@@ -88,6 +91,23 @@ export async function renderTicket(
   center(`${date} | ${time(event.startsAt)} - ${time(event.endsAt)}`, 455, 12);
   center(event.location, 434, 12);
   center(`${person.firstName} ${person.lastName}`, 396, 21);
+  if (invitation) {
+    const words = invitation.message.split(/\s+/);
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(next, 10) > 372 && line) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    // Template length is capped; keep up to two fitted lines above the QR.
+    const displayed =
+      lines.length > 2 ? [lines[0], lines.slice(1).join(" ")] : lines;
+    displayed.forEach((text, i) => center(text, 380 - i * 13, 10));
+  }
   const qr = await pdf.embedPng(
     await QRCode.toBuffer(`${origin}/checkin/${qrToken}`, {
       width: 480,
@@ -107,8 +127,9 @@ export async function renderTicket(
 export async function exportTickets(
   eventId: string,
   adminId: string,
-  format: "xlsx" | "csv" | "zip",
+  format: "xlsx" | "csv" | "zip" | "pdf",
   offset = 0,
+  selection: ParticipantFilter = {},
 ) {
   const origin = new URL(process.env.APP_URL!).origin;
   const [event] = await db()
@@ -116,10 +137,21 @@ export async function exportTickets(
     .from(events)
     .where(eq(events.id, eventId));
   assert(event, 404, "Brak konferencji.");
+  const selected = await selectedPeople(eventId, selection);
+  assert(selected.length, 400, "Brak uczestników dla wybranego filtra.");
+  const config = await invitationConfig(eventId);
   const query = db()
     .select()
     .from(participants)
-    .where(eq(participants.eventId, eventId))
+    .where(
+      and(
+        eq(participants.eventId, eventId),
+        inArray(
+          participants.id,
+          selected.map((p) => p.id),
+        ),
+      ),
+    )
     .orderBy(asc(participants.createdAt), asc(participants.id));
   const people =
     format === "zip"
@@ -130,7 +162,15 @@ export async function exportTickets(
   let content: Uint8Array | string;
   let type: string;
   let filename: string;
-  if (format === "zip") {
+  if (format === "pdf") {
+    assert(people.length === 1, 400, "Wybierz jednego uczestnika.");
+    const font = await readFile(
+      path.join(process.cwd(), "assets/NotoSans-Regular.ttf"),
+    );
+    content = await renderTicket(people[0], event, origin, font, config);
+    type = "application/pdf";
+    filename = "zaproszenie.pdf";
+  } else if (format === "zip") {
     const font = await readFile(
       path.join(process.cwd(), "assets/NotoSans-Regular.ttf"),
     );
@@ -143,7 +183,11 @@ export async function exportTickets(
         event,
         origin,
         font,
+        config,
       );
+    files["uczestnicy-z-kodami.csv"] = new TextEncoder().encode(
+      "\uFEFF" + rows.map((row) => row.map(safeCsv).join(";")).join("\r\n"),
+    );
     content = zipSync(files, { level: 1 });
     type = "application/zip";
     filename = `bilety-${offset + 1}-${offset + people.length}.zip`;
@@ -163,7 +207,9 @@ export async function exportTickets(
       eventId,
       adminId,
       action:
-        format === "zip" ? "TICKETS_EXPORTED" : "PARTICIPANT_CODES_EXPORTED",
+        format === "zip" || format === "pdf"
+          ? "TICKETS_EXPORTED"
+          : "PARTICIPANT_CODES_EXPORTED",
       targetId: eventId,
     });
   return new Response(

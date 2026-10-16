@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
+import { unzipSync } from "fflate";
 import * as XLSX from "xlsx";
+import { PARTICIPANT_PRIVACY_VERSION } from "../src/lib/participant-privacy.ts";
 import { decrypt } from "../src/server/crypto.ts";
 import { PDFDocument } from "pdf-lib";
 process.loadEnvFile(".env.local");
@@ -157,29 +159,21 @@ try {
   const [person] =
     await sql`SELECT * FROM participants WHERE event_id=${eventId} ORDER BY email LIMIT 1`;
   const credentials = JSON.parse(decrypt(person.credentials));
-  await checked(
-    "logowanie uczestnika i blokada benefitów przed obecnością",
-    async () => {
-      const r = await call("/api/auth/participant", {
+  await checked("brak logowania przed potwierdzeniem obecności", async () => {
+    const existing =
+      await sql`SELECT * FROM attendance WHERE participant_id=${person.id}`;
+    if (!existing.length)
+      await call("/api/auth/participant", {
         auth: "",
         method: "POST",
-        body: { code: credentials.accessCode },
+        expected: 403,
+        body: {
+          privacyAcknowledged: true,
+          privacyVersion: PARTICIPANT_PRIVACY_VERSION,
+          code: credentials.accessCode,
+        },
       });
-      pcookie = r.headers.get("set-cookie").split(";")[0];
-      const existing =
-        await sql`SELECT * FROM attendance WHERE participant_id=${person.id}`;
-      if (!existing.length) {
-        await call("/api/participant/courses", {
-          auth: pcookie,
-          expected: 403,
-        });
-        await call("/api/participant/certificate", {
-          auth: pcookie,
-          expected: 403,
-        });
-      }
-    },
-  );
+  });
   await checked(
     "QR: powtórne i równoległe skanowanie bez duplikatów",
     async () => {
@@ -207,6 +201,18 @@ try {
       assert.equal(count, 1);
     },
   );
+  await checked("logowanie po obecności i przyjęciu klauzuli", async () => {
+    const r = await call("/api/auth/participant", {
+      auth: "",
+      method: "POST",
+      body: {
+        privacyAcknowledged: true,
+        privacyVersion: PARTICIPANT_PRIVACY_VERSION,
+        code: credentials.accessCode,
+      },
+    });
+    pcookie = r.headers.get("set-cookie").split(";")[0];
+  });
   let overview = await (await call(base)).json();
   if (!overview.courses.length) {
     await call(`${base}/courses`, {
@@ -288,7 +294,7 @@ try {
     form.set(
       "file",
       new File(
-        [await readFile(".local/fixtures/certificate.pdf")],
+        [await (await PDFDocument.create()).save()],
         "Materiał testowy.pdf",
       ),
     );
@@ -302,16 +308,25 @@ try {
     await call(`/api/participant/materials/${item.id}`, { auth: pcookie });
     const [absent] =
       await sql`SELECT credentials FROM participants p WHERE event_id=${eventId} AND NOT EXISTS(SELECT 1 FROM attendance a WHERE a.participant_id=p.id) LIMIT 1`;
-    const r = await call("/api/auth/participant", {
+    await call("/api/auth/participant", {
       auth: "",
       method: "POST",
-      body: { code: JSON.parse(decrypt(absent.credentials)).accessCode },
-    });
-    const absentCookie = r.headers.get("set-cookie").split(";")[0];
-    await call(`/api/participant/materials/${item.id}`, {
-      auth: absentCookie,
       expected: 403,
+      body: {
+        privacyAcknowledged: true,
+        privacyVersion: PARTICIPANT_PRIVACY_VERSION,
+        code: JSON.parse(decrypt(absent.credentials)).accessCode,
+      },
     });
+    await call(`${base}/materials/${item.id}`, {
+      method: "PATCH",
+      body: { title: "Ukryty materiał", published: false },
+    });
+    await call(`/api/participant/materials/${item.id}`, {
+      auth: pcookie,
+      expected: 404,
+    });
+    await call(`${base}/materials/${item.id}`, { method: "DELETE" });
   });
   await checked("wysyłka z panelu jest wyłączona", async () => {
     await call(`${base}/mail`, { method: "POST", body: {}, expected: 410 });
@@ -350,6 +365,151 @@ try {
         });
       } finally {
         await sql`DELETE FROM events WHERE id=${id}`;
+      }
+    },
+  );
+  await checked(
+    "nowe funkcje admina: osoba, CSV, PDF, ZIP, RODO, role",
+    async () => {
+      const created = await (
+        await call(`${base}/participants`, {
+          method: "POST",
+          expected: 201,
+          body: {
+            firstName: "Żaneta",
+            lastName: "Testowa",
+            email: `qa-${randomUUID()}@example.org`,
+          },
+        })
+      ).json();
+      const id = created.id;
+      try {
+        const people = (await (await call(base)).json()).people;
+        const p = people.find((x) => x.id === id);
+        assert(p && !p.checkedInAt);
+        await call(`${base}/participants/${id}/certificate`, { expected: 403 });
+        const csv = await (
+          await call(`${base}/codes-export?format=csv&ids=${id}`)
+        ).text();
+        assert.equal(csv.trim().split("\r\n").length, 2);
+        const bulk = await (
+          await call(`${base}/reports`, {
+            method: "POST",
+            body: {
+              kind: "attendance",
+              ids: people.map((x) => x.id).join(","),
+            },
+          })
+        ).text();
+        assert.equal(bulk.trim().split("\r\n").length, people.length + 1);
+        const pdf = await (
+          await call(`${base}/codes-export?format=pdf&ids=${id}`)
+        ).arrayBuffer();
+        assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1);
+        await writeFile(".local/fixtures/invitation.pdf", Buffer.from(pdf));
+        const zip = unzipSync(
+          new Uint8Array(
+            await (
+              await call(`${base}/codes-export?format=zip&ids=${id}`)
+            ).arrayBuffer(),
+          ),
+        );
+        assert.equal(
+          Object.keys(zip).filter((x) => x.endsWith(".pdf")).length,
+          1,
+        );
+        assert(Object.keys(zip).some((x) => x.endsWith(".csv")));
+        const data = await (
+          await call(`${base}/participants/${id}/data`)
+        ).text();
+        assert(
+          !data.includes("credentials") &&
+            !data.includes("qrToken") &&
+            !data.includes(p.accessCode),
+        );
+        await call(`${base}/privacy`, {
+          method: "POST",
+          body: {
+            participantId: id,
+            kind: "ACCESS",
+            status: "OPEN",
+            note: "Test HTTP",
+          },
+        });
+        const privacy = await (await call(`${base}/privacy`)).json();
+        const request = privacy.requests.find((x) => x.participantId === id);
+        assert(request);
+        await call(`${base}/privacy`, {
+          method: "POST",
+          body: {
+            id: request.id,
+            participantId: id,
+            kind: "ACCESS",
+            status: "DONE",
+            note: "Test HTTP",
+          },
+        });
+        await call(`${base}/checkin`, {
+          method: "POST",
+          body: { participantId: id },
+        });
+        await call(`${base}/participants/${id}/undo-checkin`, {
+          method: "POST",
+          body: { reason: "Błędny test obecności" },
+        });
+        await call(`${base}/participants/${id}/reset`, {
+          method: "POST",
+          body: { confirmation: "ZMIEŃ KODY" },
+        });
+        const after = (await (await call(base)).json()).people.find(
+          (x) => x.id === id,
+        );
+        assert.notEqual(after.accessCode, p.accessCode);
+        assert(!after.checkedInAt);
+        const staff = {
+          email: `staff-${randomUUID()}@example.org`,
+          password: randomUUID(),
+          role: "CHECKIN",
+        };
+        await call(`${base}/team`, { method: "POST", body: staff });
+        const login = await call("/api/auth/admin", {
+          auth: "",
+          method: "POST",
+          body: staff,
+        });
+        const sc = login.headers.get("set-cookie").split(";")[0];
+        await call(base, { auth: sc, expected: 403 });
+        await call(`${base}/codes-export`, { auth: sc, expected: 403 });
+        await call(`${base}/privacy`, { auth: sc, expected: 403 });
+        const found = await (
+          await call(
+            `${base}/checkin-people?q=${encodeURIComponent(after.accessCode)}`,
+            { auth: sc },
+          )
+        ).json();
+        assert.equal(found.length, 1);
+        assert(!("email" in found[0]));
+        await call(`${base}/checkin`, {
+          auth: sc,
+          method: "POST",
+          body: { participantId: id },
+        });
+        const member = (await (await call(`${base}/team`)).json()).find(
+          (x) => x.email === staff.email,
+        );
+        await call(`${base}/team/${member.id}`, { method: "DELETE" });
+        await call(`${base}/checkin-people?q=Test`, {
+          auth: sc,
+          expected: 401,
+        });
+        const logs = await (await call(`${base}/history?target=${id}`)).json();
+        assert(logs.some((x) => x.action === "PARTICIPANT_CREATED"));
+        await call(`${base}/reports?kind=privacy&ids=${id}`);
+        await call(`${base}/reports?kind=certificates&ids=${id}`);
+        await call(`${base}/survey-summary`);
+        await call(`${base}/cleanup`, { method: "POST", body: {} });
+      } finally {
+        await call(`${base}/participants/${id}`, { method: "DELETE" });
       }
     },
   );

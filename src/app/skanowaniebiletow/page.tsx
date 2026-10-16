@@ -1,3 +1,4 @@
+import { CheckinSearch } from "@/components/checkin-search";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/server/auth";
@@ -47,6 +48,7 @@ export default async function Page({
               eventId={event.id}
               initialToken={query.token}
             />
+            <CheckinSearch eventId={event.id} />
           </>
         ) : (
           <p>

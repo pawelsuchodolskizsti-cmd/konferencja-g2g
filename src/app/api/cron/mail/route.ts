@@ -14,8 +14,8 @@ export async function GET(req: Request) {
   )
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    await cleanupEphemeral();
-    return Response.json({ mailDisabled: true });
+    const cleanup = await cleanupEphemeral();
+    return Response.json({ mailDisabled: true, cleanup });
   } catch {
     return Response.json({ error: "Worker unavailable" }, { status: 503 });
   }

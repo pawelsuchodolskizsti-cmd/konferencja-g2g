@@ -126,7 +126,7 @@ export async function previewImport(
   adminId: string,
   file: File,
 ) {
-  const raw = await spreadsheet(file);
+  const raw = await spreadsheet(file, true);
   const existing = await db()
     .select({ email: participants.email })
     .from(participants)

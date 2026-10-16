@@ -34,6 +34,7 @@ export default async function Page({
     adminEventList(admin.id),
     searchParams,
   ]);
+  if (events[0]?.role === "CHECKIN") redirect("/skanowaniebiletow");
   return (
     <Admin
       initialEvents={events}

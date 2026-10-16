@@ -7,7 +7,7 @@ import { TrainingCarousel } from "@/components/training-carousel";
 import { ConferenceShell } from "@/components/conference-shell";
 import styles from "./panel.module.css";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attendance, events, materials } from "@/db/schema";
 import { requireAdmin, requireEvent, requireParticipant } from "@/server/auth";
@@ -81,7 +81,7 @@ export default async function Page({
     ? await db()
         .select({ id: materials.id, title: materials.title })
         .from(materials)
-        .where(eq(materials.eventId, event.id))
+        .where(and(eq(materials.eventId, event.id), eq(materials.published, true)))
     : [];
   const unlockedAt = event.certificateUnlockAt;
   const dateTime = new Intl.DateTimeFormat("pl-PL", {

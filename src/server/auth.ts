@@ -109,6 +109,7 @@ export async function requireEvent(
   adminId: string,
   eventId: string,
   database: Database = db(),
+  permission: "ADMIN" | "CHECKIN" = "ADMIN",
 ) {
   const [access] = await database
     .select()
@@ -117,6 +118,12 @@ export async function requireEvent(
       and(eq(adminEvents.adminId, adminId), eq(adminEvents.eventId, eventId)),
     );
   assert(access, 403, "Brak dostępu do tego wydarzenia.");
+  assert(
+    permission === "CHECKIN" || access.role === "ADMIN",
+    403,
+    "Ta operacja wymaga administratora konferencji.",
+  );
+  return access;
 }
 export async function requireParticipant() {
   const session = await getSession(false);
@@ -208,13 +215,11 @@ export async function loginParticipant(
     .where(eq(participants.accessHash, hashToken(normalized)));
   assert(person, 401, "Nieprawidłowy kod uczestnika.");
   await requireAttendance(person.id);
-  await db()
-    .insert(auditLogs)
-    .values({
-      eventId: person.eventId,
-      targetId: person.id,
-      action: PARTICIPANT_PRIVACY_ACTION,
-    });
+  await db().insert(auditLogs).values({
+    eventId: person.eventId,
+    targetId: person.id,
+    action: PARTICIPANT_PRIVACY_ACTION,
+  });
   await createSession({ participantId: person.id });
 }
 export async function logout(admin: boolean) {

@@ -13,13 +13,16 @@ import {
   trainingCodes,
   materials,
   importBatches,
+  privacyRequests,
 } from "@/db/schema";
 import { assert } from "./errors";
+import { decrypt } from "./crypto";
 import { safeCsv } from "./imports";
 export async function participantList(eventId: string) {
-  return db()
+  const rows = await db()
     .select({
       id: participants.id,
+      credentials: participants.credentials,
       firstName: participants.firstName,
       lastName: participants.lastName,
       certificateNameOverride: participants.certificateNameOverride,
@@ -43,6 +46,10 @@ export async function participantList(eventId: string) {
     .leftJoin(certificates, eq(certificates.participantId, participants.id))
     .where(eq(participants.eventId, eventId))
     .orderBy(participants.lastName, participants.firstName);
+  return rows.map(({ credentials, ...person }) => ({
+    ...person,
+    accessCode: String(JSON.parse(decrypt(credentials)).accessCode),
+  }));
 }
 export async function eventOverview(eventId: string) {
   const [event] = await db()
@@ -71,7 +78,11 @@ export async function eventOverview(eventId: string) {
       .orderBy(desc(auditLogs.createdAt))
       .limit(50),
     db()
-      .select({ id: materials.id, title: materials.title })
+      .select({
+        id: materials.id,
+        title: materials.title,
+        published: materials.published,
+      })
       .from(materials)
       .where(eq(materials.eventId, eventId)),
   ]);
@@ -168,12 +179,17 @@ export async function updateParticipant(
       const [mail] = await tx
         .select({ id: emailLogs.id })
         .from(emailLogs)
-        .where(eq(emailLogs.participantId, id))
+        .where(
+          and(
+            eq(emailLogs.participantId, id),
+            sql`${emailLogs.status} IN ('QUEUED','SENDING')`,
+          ),
+        )
         .limit(1);
       assert(
         !mail,
         409,
-        "Adresu nie można zmienić po zleceniu wysyłki. Skontaktuj się z administratorem systemu, aby poprawić adres i rozliczyć kolejkę.",
+        "Adresu nie można zmienić podczas oczekującej wysyłki. Najpierw rozlicz kolejkę.",
       );
     }
     const [p] = await tx
@@ -206,6 +222,14 @@ export async function deleteParticipant(
     await tx
       .delete(participantTrainingAccess)
       .where(eq(participantTrainingAccess.participantId, id));
+    await tx
+      .delete(privacyRequests)
+      .where(
+        and(
+          eq(privacyRequests.eventId, eventId),
+          eq(privacyRequests.participantId, id),
+        ),
+      );
     const rows = await tx
       .delete(participants)
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
@@ -248,6 +272,9 @@ export async function deleteEventData(
         sql`${trainingCodes.id} IN (SELECT a.code_id FROM participant_training_access a JOIN participants p ON p.id = a.participant_id WHERE p.event_id = ${eventId})`,
       );
     await tx.delete(importBatches).where(eq(importBatches.eventId, eventId));
+    await tx
+      .delete(privacyRequests)
+      .where(eq(privacyRequests.eventId, eventId));
     const rows = await tx
       .delete(participants)
       .where(eq(participants.eventId, eventId))

@@ -121,14 +121,12 @@ export async function queueInvitations(
         ),
       )
       .returning({ id: emailLogs.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "EMAIL_CAMPAIGN_STARTED",
-        targetId: eventId,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "EMAIL_CAMPAIGN_STARTED",
+      targetId: eventId,
+    });
     return { queued: inserted.length + retries.length };
   });
 }
@@ -331,14 +329,12 @@ export async function processMail() {
               eq(emailLogs.leaseToken, job.leaseToken!),
             ),
           );
-        await tx
-          .insert(auditLogs)
-          .values({
-            eventId: context.event.id,
-            adminId: job.adminId,
-            action: "EMAIL_SENT",
-            targetId: job.id,
-          });
+        await tx.insert(auditLogs).values({
+          eventId: context.event.id,
+          adminId: job.adminId,
+          action: "EMAIL_SENT",
+          targetId: job.id,
+        });
       });
       sent++;
     } catch {
@@ -367,8 +363,29 @@ export async function processMail() {
   return { sent, errors };
 }
 export async function cleanupEphemeral() {
-  const now = new Date();
-  await db().delete(sessions).where(lt(sessions.expiresAt, now));
-  await db().delete(rateLimits).where(lt(rateLimits.resetsAt, now));
-  await db().delete(importBatches).where(lt(importBatches.expiresAt, now));
+  return db().transaction(async (tx) => {
+    const now = new Date();
+    const sessionRows = await tx
+      .delete(sessions)
+      .where(lt(sessions.expiresAt, now))
+      .returning({ id: sessions.id });
+    const limitRows = await tx
+      .delete(rateLimits)
+      .where(lt(rateLimits.resetsAt, now))
+      .returning({ key: rateLimits.key });
+    const importRows = await tx
+      .delete(importBatches)
+      .where(lt(importBatches.expiresAt, now))
+      .returning({ id: importBatches.id });
+    await tx
+      .insert(auditLogs)
+      .values({
+        action: `EPHEMERAL_CLEANUP_AUTO imports=${importRows.length} sessions=${sessionRows.length} limits=${limitRows.length}`,
+      });
+    return {
+      sessions: sessionRows.length,
+      limits: limitRows.length,
+      imports: importRows.length,
+    };
+  });
 }

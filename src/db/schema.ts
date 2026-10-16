@@ -71,6 +71,9 @@ export const adminEvents = pgTable(
   "admin_events",
   {
     id: id(),
+    role: text("role", { enum: ["ADMIN", "CHECKIN"] })
+      .notNull()
+      .default("ADMIN"),
     adminId: uuid("admin_id")
       .notNull()
       .references(() => admins.id, { onDelete: "cascade" }),
@@ -265,6 +268,7 @@ export const materials = pgTable("materials", {
   eventId: uuid("event_id")
     .notNull()
     .references(() => events.id, { onDelete: "cascade" }),
+  published: boolean("published").notNull().default(true),
   title: text("title").notNull(),
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
@@ -292,4 +296,33 @@ export const surveyCompletions = pgTable("survey_completions", {
   participantId: uuid("participant_id")
     .primaryKey()
     .references(() => participants.id, { onDelete: "cascade" }),
+});
+
+export const privacyRequests = pgTable("privacy_requests", {
+  id: id(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  participantId: uuid("participant_id").references(() => participants.id, {
+    onDelete: "set null",
+  }),
+  kind: text("kind", {
+    enum: ["ACCESS", "CORRECTION", "DELETION", "OTHER"],
+  }).notNull(),
+  status: text("status", { enum: ["OPEN", "DONE"] })
+    .notNull()
+    .default("OPEN"),
+  note: text("note").notNull().default(""),
+  createdAt: created(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+export const invitationSettings = pgTable("invitation_settings", {
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
+  title: text("title").notNull().default("ZAPROSZENIE"),
+  message: text("message")
+    .notNull()
+    .default("Zapraszamy do udziału w konferencji."),
+  updatedAt: created("updated_at"),
 });

@@ -19,10 +19,10 @@ test("administrator signs in and sees imported participants", async ({
   ).toBeVisible();
   await expect(page.locator("tbody tr")).toHaveCount(250);
   if (await menu.isVisible()) await menu.click();
-  await page.getByRole("link", { name: "Kody i eksport", exact: true }).click();
+  await page.getByRole("link", { name: "Eksporty", exact: true }).click();
   const exported = page.waitForEvent("download");
   await page
-    .getByRole("link", { name: "Pobierz Excel z kodami (250)", exact: true })
+    .getByRole("button", { name: "Excel z kodami", exact: true })
     .click();
   expect((await exported).suggestedFilename()).toBe("uczestnicy-z-kodami.xlsx");
 });
@@ -34,6 +34,7 @@ test("participant sees two courses and can download a PDF", async ({
   );
   await page.goto("/uczestnik");
   await page.getByLabel("Twój kod dostępu").fill(access.code);
+  await page.locator('input[name="privacyAcknowledged"]').check();
   await page.getByRole("button", { name: "Wejdź do strefy" }).click();
   await expect(
     page.getByRole("heading", { name: "Dostęp do szkoleń" }),
@@ -42,7 +43,7 @@ test("participant sees two courses and can download a PDF", async ({
     page.getByRole("link", { name: "Przejdź do kursu" }),
   ).toHaveCount(2);
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Pobierz certyfikat PDF" }).click();
+  await page.getByRole("link", { name: "Kliknij i odbierz certyfikat" }).click();
   expect((await download).suggestedFilename()).toBe("certyfikat.pdf");
 });
 test("public agenda and login do not overflow the viewport", async ({

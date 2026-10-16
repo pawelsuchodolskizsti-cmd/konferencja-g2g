@@ -1,4 +1,6 @@
 "use client";
+import { SurveyForm } from "./survey-form";
+import { DownloadButton } from "./admin-tools";
 import { useEffect, useState } from "react";
 import { api, dateTime } from "./api";
 import { definitionFor } from "@/lib/survey-definition";
@@ -12,6 +14,11 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [preview, setPreview] = useState(false);
+  const [summary, setSummary] = useState<{
+    count: number;
+    questions: { title: string; kind: string; values: [string, number][] }[];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let current = true;
@@ -57,6 +64,65 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
       >
         Pobierz odpowiedzi Excel
       </a>
+      <p>
+        <DownloadButton
+          href={`/api/admin/events/${eventId}/survey-export?format=csv`}
+        >
+          Pobierz odpowiedzi CSV
+        </DownloadButton>
+      </p>
+      <div className="actions">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setPreview(!preview)}
+        >
+          {preview ? "Zamknij podgląd" : "Podgląd ankiety"}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={async () => {
+            try {
+              setSummary(
+                await api(`/api/admin/events/${eventId}/survey-summary`),
+              );
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Błąd wyników.");
+            }
+          }}
+        >
+          Pokaż podsumowanie wyników
+        </button>
+      </div>
+      {preview && (
+        <section className="card">
+          <p>Podgląd testowy — odpowiedzi nie są zapisywane.</p>
+          <SurveyForm
+            key={JSON.stringify(survey.questions)}
+            questions={survey.questions}
+            submitted={false}
+            preview
+          />
+        </section>
+      )}
+      {summary && (
+        <section className="card">
+          <h3>Podsumowanie: {summary.count} ankiet</h3>
+          {summary.questions.map((q, i) => (
+            <details key={i}>
+              <summary>
+                {i + 1}. {q.title}
+              </summary>
+              {q.values.map(([value, count]) => (
+                <p key={value}>
+                  {value} — <strong>{count}</strong>
+                </p>
+              ))}
+            </details>
+          ))}
+        </section>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -141,7 +207,7 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
                 setSurvey({ ...survey, published: e.target.checked })
               }
             />{" "}
-            Udostępnij ankietę uczestnikom od 17:00
+            Udostępnij ankietę uczestnikom od {dateTime(survey.unlockAt)}
           </label>
           <button type="submit">
             {busy ? "Zapisywanie..." : "Zapisz ankietę"}

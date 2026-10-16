@@ -1,4 +1,15 @@
 "use client";
+import {
+  AddParticipant,
+  DownloadButton,
+  ExportCenter,
+  HistoryPanel,
+  MaterialsManager,
+  ParticipantActions,
+  PrivacyPanel,
+  TeamPanel,
+} from "./admin-tools";
+import { filterParticipants } from "@/lib/participant-filter";
 import { certificateName } from "@/lib/certificate-name";
 import { useEffect, useState } from "react";
 import "./admin-theme.css";
@@ -13,7 +24,12 @@ const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
   ["import", "Import"],
-  ["mail", "Kody i eksport"],
+  ["mail", "Eksporty"],
+  ["invitations", "Zaproszenia"],
+  ["materials", "Materiały"],
+  ["privacy", "RODO i dane"],
+  ["history", "Historia działań"],
+  ["team", "Zespół i role"],
   ["checkin", "Check-in"],
   ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
@@ -132,6 +148,7 @@ export function Admin({
                 if (key === "checkin") return;
                 e.preventDefault();
                 setSection(key);
+                window.history.replaceState(null, "", `?section=${key}`);
                 setMenuOpen(false);
                 setNotice("");
               }}
@@ -400,8 +417,17 @@ export function Admin({
                 </>
               )}
               {section === "mail" && (
-                <ExportPanel eventId={eventId} count={people.length} />
+                <ExportCenter eventId={eventId} people={people} />
               )}
+              {section === "invitations" && (
+                <ExportCenter eventId={eventId} people={people} invitations />
+              )}
+              {section === "materials" && (
+                <MaterialsManager data={overview} action={action} busy={busy} />
+              )}
+              {section === "privacy" && <PrivacyPanel eventId={eventId} />}
+              {section === "history" && <HistoryPanel eventId={eventId} />}
+              {section === "team" && <TeamPanel eventId={eventId} />}
               {section === "courses" && (
                 <Courses data={overview} busy={busy} action={action} />
               )}
@@ -432,10 +458,19 @@ export function Admin({
                       . Uczestnicy pobierają plik PDF w swojej strefie.
                     </p>
                     <p className="muted">
-                      Nazwisko, nazwa wydarzenia i numer certyfikatu są
-                      pobierane z bazy danych.
+                      Imię i nazwisko są nanoszone na zatwierdzony wzór. Wygląd
+                      certyfikatu i warunki dostępu pozostają bez zmian.
                     </p>
-                    <PeopleTable people={people.filter((p) => p.checkedInAt)} />
+                    <PeopleTable
+                      people={people.filter((p) => p.checkedInAt)}
+                      renderAction={(p) => (
+                        <DownloadButton
+                          href={`/api/admin/events/${eventId}/participants/${p.id}/certificate`}
+                        >
+                          Pobierz certyfikat
+                        </DownloadButton>
+                      )}
+                    />
                   </section>
                 </>
               )}
@@ -619,19 +654,14 @@ function Participants({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState<Person | null>(null);
-  const filtered = people.filter(
-    (p) =>
-      `${p.firstName} ${p.lastName} ${p.email}`
-        .toLowerCase()
-        .includes(query.toLowerCase()) &&
-      (filter === "all" ||
-        (filter === "present" && p.checkedInAt) ||
-        (filter === "absent" && !p.checkedInAt) ||
-        (filter === "certificate" && p.certificateGeneratedAt) ||
-        (filter === "name-review" && certificateName(p).needsReview)),
-  );
+  const filtered = filterParticipants(people, { q: query, filter });
+  const exportQuery = new URLSearchParams({ q: query, filter }).toString();
+  const currentPerson = editing
+    ? people.find((p) => p.id === editing.id) || editing
+    : null;
   return (
     <>
+      {!compact && <AddParticipant action={action} busy={busy} />}
       <div className={compact ? "" : "card"}>
         <div className="row" style={{ marginBottom: "1rem" }}>
           <input
@@ -639,7 +669,7 @@ function Participants({
             style={{ flex: 2, minWidth: 200 }}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj po imieniu, nazwisku lub e-mailu"
+            placeholder="Szukaj po imieniu, nazwisku, e-mailu lub kodzie"
           />
           <select
             aria-label="Filtr uczestników"
@@ -656,7 +686,7 @@ function Participants({
           {!compact && (
             <a
               className="button secondary"
-              href={`/api/admin/events/${eventId}/export`}
+              href={`/api/admin/events/${eventId}/export?${exportQuery}`}
             >
               Lista obecności CSV
             </a>
@@ -685,6 +715,14 @@ function Participants({
           )}
         />
       </div>
+      {currentPerson && (
+        <ParticipantActions
+          person={currentPerson}
+          eventId={eventId}
+          action={action}
+          busy={busy}
+        />
+      )}
       {editing && (
         <form
           key={editing.id}
@@ -809,62 +847,6 @@ function Participants({
           </div>
         </form>
       )}
-    </>
-  );
-}
-function ExportPanel({ eventId, count }: { eventId: string; count: number }) {
-  const base = `/api/admin/events/${eventId}/codes-export`;
-  return (
-    <>
-      <section className="card">
-        <div className="eyebrow">Korespondencja seryjna</div>
-        <h2>Dane uczestników i kody</h2>
-        <p>
-          Po zatwierdzeniu importu każda osoba otrzymuje unikalny,
-          sześcioznakowy kod. Pobierz Excel i użyj go jako źródła danych w
-          swojej poczcie.
-        </p>
-        <p className="muted">
-          Plik zawiera imię, nazwisko, e-mail, kod, link do strefy i nazwę
-          indywidualnego biletu. Kolejne pobranie zachowuje te same kody.
-        </p>
-        {count ? (
-          <div className="actions">
-            <a className="button" href={base}>
-              Pobierz Excel z kodami ({count})
-            </a>
-            <a className="button secondary" href={`${base}?format=csv`}>
-              Pobierz CSV
-            </a>
-          </div>
-        ) : (
-          <p className="notice">Najpierw wgraj listę w sekcji Import.</p>
-        )}
-      </section>
-      <section className="card">
-        <h2>Bilety z QR do załączenia</h2>
-        <p>
-          Każda paczka ZIP zawiera osobne bilety PDF oraz Excel pasujący do tych
-          biletów. Po rozpakowaniu przypisz plik z kolumny „Plik biletu” do
-          odpowiedniej osoby w narzędziu do korespondencji seryjnej.
-        </p>
-        <div className="actions">
-          {Array.from({ length: Math.ceil(count / 50) }, (_, index) => (
-            <a
-              className="button secondary"
-              key={index}
-              href={`${base}?format=zip&offset=${index * 50}`}
-            >
-              Bilety {index * 50 + 1}-{Math.min((index + 1) * 50, count)} (ZIP)
-            </a>
-          ))}
-        </div>
-        <p className="muted">
-          Excel jest źródłem danych dla korespondencji, a załącznikiem dla
-          uczestnika jest jego własny bilet. Obsługa indywidualnych załączników
-          zależy od programu pocztowego.
-        </p>
-      </section>
     </>
   );
 }

@@ -39,6 +39,7 @@ beforeAll(async () => {
     "0003_schema",
     "0004_anonymous_survey",
     "0005_schema",
+    "0006_schema",
   ])
     await pg.exec(await readFile(`drizzle/${file}.sql`, "utf8"));
   const [admin] = await database
