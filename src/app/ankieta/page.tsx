@@ -7,6 +7,9 @@ import { CertificateRefresh } from "@/components/participant";
 import { requireAdmin, requireEvent, requireParticipant } from "@/server/auth";
 import { AppError } from "@/server/errors";
 import { participantSurvey } from "@/server/surveys";
+import { db } from "@/db";
+import { attendance } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import styles from "./survey.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -36,6 +39,9 @@ export default async function Page({
     const admin = await requireAdmin();
     await requireEvent(admin.id, person.eventId);
   }
+  const present = await db().select({ id: attendance.id }).from(attendance)
+    .where(eq(attendance.participantId, person.id)).limit(1);
+  if (!present.length) redirect("/uczestnik/panel");
   const survey = await participantSurvey(person);
   return (
     <ConferenceShell current="participant">
