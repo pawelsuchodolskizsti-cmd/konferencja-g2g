@@ -17,7 +17,7 @@ test("administrator signs in and sees imported participants", async ({
   await expect(
     page.getByRole("textbox", { name: "Wyszukaj uczestnika" }),
   ).toBeVisible();
-  await expect(page.locator("tbody tr")).toHaveCount(250);
+  await expect(page.locator("tbody tr")).toHaveCount(251);
   if (await menu.isVisible()) await menu.click();
   await page.getByRole("link", { name: "Eksporty", exact: true }).click();
   const exported = page.waitForEvent("download");
