@@ -101,7 +101,6 @@ export const participants = pgTable(
     updatedAt: created("updated_at"),
   },
   (t) => [
-    uniqueIndex("participant_email_event").on(t.eventId, t.email),
     index("participant_event").on(t.eventId),
   ],
 );
@@ -169,6 +168,11 @@ export type MailPayload = {
   html: string;
   attachments?: { filename: string; content: string; content_id?: string }[];
 };
+export const smtpSettings = pgTable("smtp_settings", {
+  eventId: uuid("event_id").primaryKey().references(() => events.id, { onDelete: "cascade" }),
+  passwordEncrypted: text("password_encrypted").notNull(),
+  updatedAt: created("updated_at"),
+});
 export const emailLogs = pgTable(
   "email_logs",
   {
