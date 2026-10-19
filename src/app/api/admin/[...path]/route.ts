@@ -1,7 +1,7 @@
 import { pdfDownload } from "@/server/pdf-download";
 import {
   smtpOverview, saveSmtpPassword, removeSmtpPassword, saveSmtpTemplate,
-  startSmtpCampaign, processSmtpBatch,
+  startSmtpCampaign, processSmtpBatch, checkSmtpCredentials,
 } from "@/server/smtp-campaign";
 import {
   listArchives,
@@ -226,6 +226,8 @@ async function handle(req: Request, ctx: Context) {
       if (req.method === "DELETE")
         return Response.json(await removeSmtpPassword(eventId, admin.id));
     }
+    if (action === "smtp-verify" && path.length === 3 && req.method === "POST")
+      return Response.json(await checkSmtpCredentials(eventId));
     if (action === "smtp-template" && path.length === 3 && req.method === "POST")
       return Response.json(await saveSmtpTemplate(eventId, admin.id, await jsonBody(req)));
     if (action === "smtp-queue" && path.length === 3 && req.method === "POST")
