@@ -84,14 +84,15 @@
   background: white;
   overflow: hidden;
 }
-.navigation a {
+.navigation a,
+.navigationLocked {
   color: #123e59;
   padding: 14px 8px;
   min-height: 70px;
   text-align: center;
   font-size: 13px;
 }
-.navigation a + a {
+.navigation > * + * {
   border-left: 1px solid #bfeaff38;
 }
 .navigation span {
@@ -103,6 +104,38 @@
 }
 .navigation a:hover {
   background: #eaf4ff;
+}
+.navigationLocked {
+  cursor: default;
+  background: #f8fbfd;
+}
+.hiddenLabel {
+  display: block;
+  width: 70%;
+  max-width: 82px;
+  height: 13px;
+  margin: 6px auto 3px;
+  border-radius: 5px;
+  background: linear-gradient(100deg, #c7d9e280, #e1ebf0, #c7d9e280);
+  filter: blur(3px);
+}
+.navigationRevealed {
+  animation: sectionReveal 450ms ease-out;
+}
+@keyframes sectionReveal {
+  from {
+    opacity: 0.45;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navigationRevealed {
+    animation: none;
+  }
 }
 .card {
   position: relative;

@@ -187,15 +187,35 @@ export default async function Page({
           <a href="#szkolenia">
             <span>02</span>Szkolenia
           </a>
-          {survey.available && (
-            <a href="#ankieta">
+          {survey.available ? (
+            <a href="#ankieta" className={styles.navigationRevealed}>
               <span>03</span>Ankieta
             </a>
+          ) : (
+            <div
+              className={styles.navigationLocked}
+              role="group"
+              aria-label="Sekcja 03 - dostępna później"
+              title="Ta sekcja zostanie odsłonięta później"
+            >
+              <span>03</span>
+              <i className={styles.hiddenLabel} aria-hidden="true" />
+            </div>
           )}
-          {ready && (
-            <a href="#certyfikat">
+          {ready ? (
+            <a href="#certyfikat" className={styles.navigationRevealed}>
               <span>04</span>Certyfikat
             </a>
+          ) : (
+            <div
+              className={styles.navigationLocked}
+              role="group"
+              aria-label="Sekcja 04 - dostępna później"
+              title="Ta sekcja zostanie odsłonięta później"
+            >
+              <span>04</span>
+              <i className={styles.hiddenLabel} aria-hidden="true" />
+            </div>
           )}
         </nav>
 
