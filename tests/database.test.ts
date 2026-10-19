@@ -16,6 +16,7 @@ beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0008_smtp_campaign.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0009_courses_unlock.sql", "utf8"));
   const [e] = await db
     .insert(s.events)
     .values({
