@@ -1,7 +1,13 @@
 import { pdfDownload } from "@/server/pdf-download";
 import {
-  smtpOverview, saveSmtpPassword, removeSmtpPassword, saveSmtpTemplate,
-  startSmtpCampaign, processSmtpBatch, checkSmtpCredentials,
+  smtpOverview,
+  saveSmtpPassword,
+  removeSmtpPassword,
+  saveSmtpTemplate,
+  startSmtpCampaign,
+  processSmtpBatch,
+  checkSmtpCredentials,
+  sendSmtpTest,
 } from "@/server/smtp-campaign";
 import {
   listArchives,
@@ -45,7 +51,12 @@ import { requireAdmin, requireEvent, requestOrigin } from "@/server/auth";
 import { adminEventList, saveEvent } from "@/server/events";
 import { commitImport, previewImport } from "@/server/imports";
 import { checkIn } from "@/server/attendance";
-import { createCourse, importCodes, updateCourse, setCoursesUnlocked } from "@/server/training";
+import {
+  createCourse,
+  importCodes,
+  updateCourse,
+  setCoursesUnlocked,
+} from "@/server/training";
 import { exportTickets } from "@/server/ticket-export";
 import {
   deleteEventData,
@@ -220,16 +231,30 @@ async function handle(req: Request, ctx: Context) {
     }
     if (action === "smtp" && path.length === 3) {
       if (req.method === "GET")
-        return Response.json(await smtpOverview(eventId), { headers: { "Cache-Control": "private, no-store" } });
+        return Response.json(await smtpOverview(eventId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
       if (req.method === "POST")
-        return Response.json(await saveSmtpPassword(eventId, admin.id, await jsonBody(req)));
+        return Response.json(
+          await saveSmtpPassword(eventId, admin.id, await jsonBody(req)),
+        );
       if (req.method === "DELETE")
         return Response.json(await removeSmtpPassword(eventId, admin.id));
     }
+    if (action === "smtp-test" && path.length === 3 && req.method === "POST")
+      return Response.json(
+        await sendSmtpTest(eventId, admin.id, await jsonBody(req)),
+      );
     if (action === "smtp-verify" && path.length === 3 && req.method === "POST")
       return Response.json(await checkSmtpCredentials(eventId));
-    if (action === "smtp-template" && path.length === 3 && req.method === "POST")
-      return Response.json(await saveSmtpTemplate(eventId, admin.id, await jsonBody(req)));
+    if (
+      action === "smtp-template" &&
+      path.length === 3 &&
+      req.method === "POST"
+    )
+      return Response.json(
+        await saveSmtpTemplate(eventId, admin.id, await jsonBody(req)),
+      );
     if (action === "smtp-queue" && path.length === 3 && req.method === "POST")
       return Response.json(await startSmtpCampaign(eventId, admin.id));
     if (action === "smtp-process" && path.length === 3 && req.method === "POST")
@@ -270,9 +295,17 @@ async function handle(req: Request, ctx: Context) {
       return Response.json(
         await uploadMaterial(eventId, admin.id, await uploadBody(req)),
       );
-    if (action === "courses-unlock" && path.length === 3 && req.method === "POST") {
-      const { unlocked } = z.object({ unlocked: z.boolean() }).parse(await jsonBody(req));
-      return Response.json(await setCoursesUnlocked(eventId, admin.id, unlocked));
+    if (
+      action === "courses-unlock" &&
+      path.length === 3 &&
+      req.method === "POST"
+    ) {
+      const { unlocked } = z
+        .object({ unlocked: z.boolean() })
+        .parse(await jsonBody(req));
+      return Response.json(
+        await setCoursesUnlocked(eventId, admin.id, unlocked),
+      );
     }
     if (action === "courses" && !path[3] && req.method === "POST")
       return Response.json(

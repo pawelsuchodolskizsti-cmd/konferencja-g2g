@@ -195,3 +195,41 @@ test("SMTP diagnostics retain safe failure code and message ID without retrying 
   expect(rest.sent).toBe(1);
   expect((await smtpOverview(eventId)).errors).toBe(1);
 });
+
+test("single test sends once without touching campaign, even with concurrent duplicate requests", async () => {
+  const { sendSmtpTest } = await import("../src/server/smtp-campaign");
+  const before = await database.select().from(s.emailLogs);
+  const count = vi.mocked(sendSmtp).mock.calls.length;
+  const input = {
+    email: "single@example.org",
+    requestId: "0f68da6d-e212-4e22-987d-a98b880cf3bd",
+  };
+  await Promise.all([
+    sendSmtpTest(eventId, adminId, input),
+    sendSmtpTest(eventId, adminId, input),
+  ]);
+  const replay = await sendSmtpTest(eventId, adminId, input);
+  expect(replay.status).toBe("ACCEPTED");
+  expect(replay.duplicate).toBe(true);
+  expect(vi.mocked(sendSmtp).mock.calls.length).toBe(count + 1);
+  expect(await database.select().from(s.emailLogs)).toEqual(before);
+  const payload = vi.mocked(sendSmtp).mock.calls.at(-1)![0];
+  expect(payload.to).toBe(input.email);
+  expect(payload.html).not.toContain("TEST-02");
+});
+test("ambiguous single test cannot resend on replay", async () => {
+  const { sendSmtpTest } = await import("../src/server/smtp-campaign");
+  vi.mocked(sendSmtp).mockRejectedValueOnce(new SmtpFailure("ACCEPTANCE"));
+  const count = vi.mocked(sendSmtp).mock.calls.length;
+  const input = {
+    email: "single@example.org",
+    requestId: "65ca5ae4-64c4-48b9-91cb-e3c5339b7f4f",
+  };
+  expect((await sendSmtpTest(eventId, adminId, input)).status).toBe(
+    "REVIEW_REQUIRED",
+  );
+  expect((await sendSmtpTest(eventId, adminId, input)).status).toBe(
+    "REVIEW_REQUIRED",
+  );
+  expect(vi.mocked(sendSmtp).mock.calls.length).toBe(count + 1);
+});

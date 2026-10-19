@@ -324,14 +324,12 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
               eq(emailLogs.leaseToken, mail.leaseToken!),
             ),
           );
-        await tx
-          .insert(auditLogs)
-          .values({
-            eventId,
-            adminId,
-            action: "SMTP_EMAIL_ACCEPTED",
-            targetId: mail.id,
-          });
+        await tx.insert(auditLogs).values({
+          eventId,
+          adminId,
+          action: "SMTP_EMAIL_ACCEPTED",
+          targetId: mail.id,
+        });
       });
       sent++;
     } catch (error) {
@@ -356,4 +354,84 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
       await new Promise((resolve) => setTimeout(resolve, 800));
   }
   return { sent, errors };
+}
+
+export async function sendSmtpTest(
+  eventId: string,
+  adminId: string,
+  input: unknown,
+) {
+  const { email, requestId } = z
+    .object({
+      email: z.email().max(254),
+      requestId: z.uuid(),
+    })
+    .parse(input);
+  const { password, event } = await assertSmtpReady(eventId);
+  const messageId = `<test-${requestId}@oneday.com.pl>`;
+  // Persist the claim before SMTP. A repeated request never sends twice,
+  // including when the first HTTP response is lost after SMTP acceptance.
+  const [claim] = await db()
+    .insert(auditLogs)
+    .values({
+      id: requestId,
+      eventId,
+      adminId,
+      targetId: requestId,
+      action: `SMTP_TEST_STARTED ${email}`,
+    })
+    .onConflictDoNothing()
+    .returning({ id: auditLogs.id });
+  if (!claim) {
+    const [existing] = await db()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.id, requestId),
+          eq(auditLogs.eventId, eventId),
+          eq(auditLogs.adminId, adminId),
+        ),
+      );
+    assert(existing, 409, "Identyfikator próby jest już użyty.");
+    return {
+      messageId,
+      status: existing.action.startsWith("SMTP_TEST_ACCEPTED ")
+        ? "ACCEPTED"
+        : "REVIEW_REQUIRED",
+      duplicate: true,
+    };
+  }
+  try {
+    await sendSmtp(
+      {
+        from: event.mailFrom,
+        to: email,
+        subject: "Test dostarczenia - Głowa do Góry",
+        html:
+          '<h1>Głowa do Góry</h1><p>To pojedyncza wiadomość testowa wysłana przez organizatora konferencji.</p><p>Potwierdza sprawdzenie nowego formatu wiadomości. Nie zawiera kodu uczestnika i nie wymaga odpowiedzi.</p><p><a href="' +
+          new URL(process.env.APP_URL!).origin +
+          '/uczestnik">Strefa uczestnika</a></p><p>Fundacja One Day</p>',
+      },
+      password,
+      messageId,
+    );
+    await db()
+      .update(auditLogs)
+      .set({ action: `SMTP_TEST_ACCEPTED ${email}` })
+      .where(eq(auditLogs.id, requestId));
+    return { messageId, status: "ACCEPTED", duplicate: false };
+  } catch (error) {
+    const diagnostic = smtpDiagnostic(error);
+    await db()
+      .update(auditLogs)
+      .set({ action: `SMTP_TEST_REVIEW ${diagnostic} ${email}` })
+      .where(eq(auditLogs.id, requestId));
+    return {
+      messageId,
+      status: "REVIEW_REQUIRED",
+      diagnostic,
+      duplicate: false,
+    };
+  }
 }

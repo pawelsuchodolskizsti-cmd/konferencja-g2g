@@ -42,6 +42,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+  const testRequestId = useRef<string | null>(null);
+  const [testResult, setTestResult] = useState("");
+  const [testPending, setTestPending] = useState(false);
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -348,6 +352,77 @@ export function AdminMail({ eventId }: { eventId: string }) {
           Wiadomość zawiera indywidualny kod i link do panelu uczestnika. Bez
           plików i kodów QR.
         </p>
+      </section>
+      <section className="card">
+        <h2>Pojedyncza wiadomość testowa</h2>
+        <p>
+          Wysyła dokładnie jedną wiadomość bez kodu uczestnika. Nie uruchamia
+          kampanii i nie zmienia statusów zaproszeń.
+        </p>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (testRequestId.current || testPending) return;
+            if (
+              !window.confirm(
+                "Wysłać jedną wiadomość testową na " + testEmail + "?",
+              )
+            )
+              return;
+            testRequestId.current = crypto.randomUUID();
+            setTestPending(true);
+            try {
+              const result = await api<{
+                status: string;
+                messageId: string;
+                diagnostic?: string;
+              }>(`${base}/smtp-test`, {
+                method: "POST",
+                body: JSON.stringify({
+                  email: testEmail,
+                  requestId: testRequestId.current,
+                }),
+              });
+              setTestResult(
+                (result.status === "ACCEPTED"
+                  ? "Przyjęta przez home.pl. Doręczenie do skrzynki odbiorcy niepotwierdzone."
+                  : "Wynik wymaga sprawdzenia: " +
+                    (result.diagnostic || "REVIEW_REQUIRED")) +
+                  " Identyfikator: " +
+                  result.messageId,
+              );
+            } catch {
+              setTestResult(
+                "Nie otrzymano potwierdzenia. Nie ponawiaj wysyłki. Sprawdź historię działań dla próby " +
+                  testRequestId.current,
+              );
+            } finally {
+              setTestPending(false);
+            }
+          }}
+        >
+          <label>
+            Adres odbiorcy testu
+            <input
+              type="email"
+              value={testEmail}
+              required
+              maxLength={254}
+              disabled={testPending || !!testResult}
+              onChange={(e) => setTestEmail(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={!ready || sending || busy || testPending || !!testResult}
+          >
+            Wyślij jeden mail testowy
+          </button>
+        </form>
+        {testResult && (
+          <p role="status" style={{ overflowWrap: "anywhere" }}>
+            {testResult}
+          </p>
+        )}
       </section>
       <section className="card">
         <h2>Uczestnicy i postęp wysyłki</h2>
