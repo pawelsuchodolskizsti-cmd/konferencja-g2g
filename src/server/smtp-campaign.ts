@@ -159,7 +159,7 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
   }
   let sent = 0, errors = 0;
   const started = Date.now();
-  for (let i = 0; i < 8 && Date.now() - started < 40000; i++) {
+  for (let i = 0; i < 5 && Date.now() - started < 20000; i++) {
     const mail = await claimNext(eventId);
     if (!mail) break;
     try {
@@ -181,7 +181,9 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
         status: "ERROR", errorCode: "REVIEW_REQUIRED", leaseToken: null, leaseUntil: null,
       }).where(and(eq(emailLogs.id, mail.id), eq(emailLogs.leaseToken, mail.leaseToken!)));
       errors++;
+      break; // Nie kontynuuj kampanii, gdy serwer pocztowy zgłasza błąd.
     }
+    await new Promise((resolve) => setTimeout(resolve, 800));
   }
   return { sent, errors };
 }
