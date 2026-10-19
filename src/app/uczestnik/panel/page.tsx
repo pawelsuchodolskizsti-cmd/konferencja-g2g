@@ -1,6 +1,8 @@
 import { ParticipantProgram } from "@/components/participant-program";
 import { isDemoParticipant } from "@/server/demo-participant";
 import Image from "next/image";
+import QRCode from "qrcode";
+import { decrypt } from "@/server/crypto";
 import Link from "next/link";
 import { participantSurvey } from "@/server/surveys";
 import { TrainingCarousel } from "@/components/training-carousel";
@@ -51,7 +53,7 @@ export default async function Page({
       .from(attendance)
       .where(eq(attendance.participantId, person.id)),
   ]);
-  const courses = preview
+  const courses = preview && !!present && event.coursesUnlocked
     ? [
         {
           id: "preview",
@@ -70,14 +72,14 @@ export default async function Page({
           available: true,
         },
       ]
-    : present
+    : present && event.coursesUnlocked
       ? await participantCourses(person.id)
       : [];
   courses.sort(
     (a, b) => Number(isOnMyWayCourse(b.url)) - Number(isOnMyWayCourse(a.url)),
   );
   const trainingArtwork =
-    present &&
+    !!present && event.coursesUnlocked &&
     courses.some((course) => course.available && isOnMyWayCourse(course.url))
       ? await onMyWayArtwork()
       : null;
@@ -85,7 +87,8 @@ export default async function Page({
   if (preview) {
     survey.available = true;
   }
-  const ready = preview || (!!present && certificateAvailable(event));
+  const ready = !!present && (preview || certificateAvailable(event));
+  if (!present) survey.available = false;
   const files = present
     ? await db()
         .select({ id: materials.id, title: materials.title })
@@ -94,6 +97,9 @@ export default async function Page({
           and(eq(materials.eventId, event.id), eq(materials.published, true)),
         )
     : [];
+  const credentials = JSON.parse(decrypt(person.credentials)) as { qrToken: string };
+  const qrUrl = `${new URL(process.env.APP_URL!).origin}/checkin/${credentials.qrToken}`;
+  const qrImage = await QRCode.toDataURL(qrUrl, { width: 360, margin: 3, errorCorrectionLevel: "M" });
   const unlockedAt = event.certificateUnlockAt;
   const dateTime = new Intl.DateTimeFormat("pl-PL", {
     dateStyle: "long",
@@ -130,6 +136,19 @@ export default async function Page({
             </p>
           )}
         </header>
+        <section id="bilet" className={`${styles.card} ${styles.qrCard}`} aria-labelledby="qr-title">
+          <div className={styles.sectionLabel}>Twój bilet elektroniczny</div>
+          <h2 id="qr-title">Kod QR do wejścia</h2>
+          <p>Przy wejściu pokaż ten kod QR obsłudze konferencji. Skan potwierdzi Twoją obecność.</p>
+          <div className={styles.qrImage}>
+            <Image src={qrImage} alt="Indywidualny kod QR do potwierdzenia obecności"
+              width={360} height={360} unoptimized priority />
+          </div>
+          <p className={styles.qrStatus}>
+            {present ? "Obecność potwierdzona" : "Oczekuje na zeskanowanie przez obsługę"}
+          </p>
+        </section>
+        {!!present && (
         <section
           className={`${styles.card} ${styles.community}`}
           aria-labelledby="community-title"
@@ -171,51 +190,33 @@ export default async function Page({
             Otworzy się zaproszenie do grupy na WhatsApp.
           </p>
         </section>
+        )}
         {!!present && !ready && (
           <CertificateRefresh unlockAt={unlockedAt.toISOString()} />
         )}
         {survey.published && !survey.available && (
           <CertificateRefresh unlockAt={survey.unlockAt} />
         )}
-        <nav
-          className={styles.navigation}
-          aria-label="Sekcje strefy uczestnika"
-        >
-          <a href="#program">
-            <span>01</span>Program
-          </a>
-          <a href="#szkolenia">
-            <span>02</span>Szkolenia
-          </a>
-          {survey.available ? (
-            <a href="#ankieta" className={styles.navigationRevealed}>
-              <span>03</span>Ankieta
-            </a>
-          ) : (
-            <div
-              className={styles.navigationLocked}
-              role="group"
-              aria-label="Sekcja 03 - dostępna później"
-              title="Ta sekcja zostanie odsłonięta później"
-            >
-              <span>03</span>
-              <i className={styles.hiddenLabel} aria-hidden="true" />
-            </div>
-          )}
-          {ready ? (
-            <a href="#certyfikat" className={styles.navigationRevealed}>
-              <span>04</span>Certyfikat
-            </a>
-          ) : (
-            <div
-              className={styles.navigationLocked}
-              role="group"
-              aria-label="Sekcja 04 - dostępna później"
-              title="Ta sekcja zostanie odsłonięta później"
-            >
-              <span>04</span>
-              <i className={styles.hiddenLabel} aria-hidden="true" />
-            </div>
+        <nav className={styles.navigation} aria-label="Sekcje strefy uczestnika">
+          <a href="#bilet"><span>QR</span>Bilet</a>
+          <a href="#program"><span>01</span>Program</a>
+          {!!present && (
+            <>
+              {survey.available && (
+                <a href="#ankieta" className={styles.navigationRevealed}><span>02</span>Ankieta</a>
+              )}
+              {ready && (
+                <a href="#certyfikat" className={styles.navigationRevealed}><span>03</span>Certyfikat</a>
+              )}
+              {event.coursesUnlocked ? (
+                <a href="#szkolenia" className={styles.navigationRevealed}><span>04</span>Szkolenia</a>
+              ) : (
+                <div className={styles.navigationLocked} role="group"
+                  aria-label="Szkolenia – dostępne po odblokowaniu przez organizatora">
+                  <span>04</span>Szkolenia później
+                </div>
+              )}
+            </>
           )}
         </nav>
 
@@ -247,19 +248,71 @@ export default async function Page({
           {event.info && <p className={styles.info}>{event.info}</p>}
         </section>
 
+        {!!present && survey.available && (
+          <section
+            id="ankieta"
+            className={styles.card}
+            aria-labelledby="survey-title"
+          >
+            <div className={styles.sectionLabel}>
+              02 / Twoja opinia ma znaczenie
+            </div>
+            <h2 id="survey-title">Ankieta</h2>
+            <p>
+              {!preview && survey.submitted
+                ? "Dziękujemy! Twoje odpowiedzi zostały zapisane."
+                : "Podziel się swoją opinią i pomóż nam przygotować kolejne spotkania."}
+            </p>
+            {(preview || !survey.submitted) && (
+              <Link
+                className={styles.communityAction}
+                href={preview ? "/ankieta?podglad=1" : "/ankieta"}
+              >
+                <span>Kliknij i podziel się opinią</span>
+                <span className={styles.communityArrow} aria-hidden="true">
+                  →
+                </span>
+              </Link>
+            )}
+          </section>
+        )}
+        {!!present && ready && (
+          <section
+            id="certyfikat"
+            className={styles.card}
+            aria-labelledby="certificate-title"
+          >
+            <div className={styles.sectionLabel}>
+              03 / Twój udział ma znaczenie
+            </div>
+            <h2 id="certificate-title">Certyfikat</h2>
+            <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
+            <a
+              className={styles.communityAction}
+              href={
+                preview
+                  ? "/przyklady/certyfikat-przykladowy.pdf"
+                  : "/api/participant/certificate"
+              }
+              download
+            >
+              <span>Kliknij i odbierz certyfikat</span>
+              <span className={styles.communityArrow} aria-hidden="true">
+                ↓
+              </span>
+            </a>
+          </section>
+        )}
+        {!!present && (
+          <>
         <section
           id="szkolenia"
           className={styles.card}
           aria-labelledby="training-title"
         >
-          <div className={styles.sectionLabel}>02 / Rozwijaj się dalej</div>
+          <div className={styles.sectionLabel}>04 / Rozwijaj się dalej</div>
           <h2 id="training-title">Dostęp do szkoleń</h2>
-          {!present ? (
-            <p className={styles.notice}>
-              Pokaż kod QR z zaproszenia przy wejściu. Po potwierdzeniu
-              obecności otrzymasz dostęp do szkoleń i materiałów.
-            </p>
-          ) : (
+          {event.coursesUnlocked ? (
             <>
               {courses.length ? (
                 <TrainingCarousel>
@@ -338,63 +391,12 @@ export default async function Page({
                 </div>
               )}
             </>
+          ) : (
+            <p className={styles.notice}>Szkolenia zostaną odblokowane ręcznie przez organizatora następnego dnia po konferencji.</p>
           )}
         </section>
 
-        {survey.available && (
-          <section
-            id="ankieta"
-            className={styles.card}
-            aria-labelledby="survey-title"
-          >
-            <div className={styles.sectionLabel}>
-              03 / Twoja opinia ma znaczenie
-            </div>
-            <h2 id="survey-title">Ankieta</h2>
-            <p>
-              {!preview && survey.submitted
-                ? "Dziękujemy! Twoje odpowiedzi zostały zapisane."
-                : "Podziel się swoją opinią i pomóż nam przygotować kolejne spotkania."}
-            </p>
-            {(preview || !survey.submitted) && (
-              <Link
-                className={styles.communityAction}
-                href={preview ? "/ankieta?podglad=1" : "/ankieta"}
-              >
-                <span>Kliknij i podziel się opinią</span>
-                <span className={styles.communityArrow} aria-hidden="true">
-                  →
-                </span>
-              </Link>
-            )}
-          </section>
-        )}
-        {ready && (
-          <section
-            id="certyfikat"
-            className={styles.card}
-            aria-labelledby="certificate-title"
-          >
-            <div className={styles.sectionLabel}>
-              04 / Twój udział ma znaczenie
-            </div>
-            <h2 id="certificate-title">Certyfikat</h2>
-            <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
-            <a
-              className={styles.communityAction}
-              href={
-                preview
-                  ? "/przyklady/certyfikat-przykladowy.pdf"
-                  : "/api/participant/certificate"
-              }
-              download
-            >
-              <span>Kliknij i odbierz certyfikat</span>
-              <span className={styles.communityArrow} aria-hidden="true">
-                ↓
-              </span>
-            </a>
-          </section>
+          </>
         )}
       </div>
     </ConferenceShell>
