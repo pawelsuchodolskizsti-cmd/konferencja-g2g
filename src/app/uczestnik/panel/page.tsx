@@ -55,7 +55,7 @@ export default async function Page({
     ? [
         {
           id: "preview",
-          name: "On my way — 2 miesiące dostępu",
+          name: "On my way - 2 miesiące dostępu",
           platform: "Joanna Chmura",
           url: "https://onmyway.pl/",
           code: "ONEDAY",
@@ -262,7 +262,7 @@ export default async function Page({
                                   width={1181}
                                   height={927}
                                   unoptimized
-                                  alt="On my way — Joanna Chmura. Otwórz platformę szkoleniową."
+                                  alt="On my way - Joanna Chmura. Otwórz platformę szkoleniową."
                                 />
                               </a>
                             </>
