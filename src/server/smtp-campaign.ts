@@ -192,7 +192,8 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
       errors++;
       break; // Nie kontynuuj kampanii, gdy serwer pocztowy zgłasza błąd.
     }
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    if (process.env.NODE_ENV !== "test")
+      await new Promise((resolve) => setTimeout(resolve, 800));
   }
   return { sent, errors };
 }
