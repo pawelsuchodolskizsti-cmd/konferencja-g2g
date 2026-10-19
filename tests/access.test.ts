@@ -7,7 +7,7 @@ import * as s from "../src/db/schema";
 import type { Database } from "../src/db";
 import { encrypt, newCredentials, hashToken } from "../src/server/crypto";
 import { checkIn, certificateAvailable } from "../src/server/attendance";
-import { participantCourses } from "../src/server/training";
+import { participantCourses, setCoursesUnlocked } from "../src/server/training";
 import { generateCertificate } from "../src/server/certificates";
 const pg = new PGlite();
 const database = drizzle(pg);
@@ -99,6 +99,8 @@ test("one individual code cannot reach two participants and assignment is stable
     codeHash: hashToken("UNIQUE"),
     encryptedCode: encrypt("UNIQUE"),
   });
+  await expect(participantCourses(p1, db)).rejects.toThrow("ręcznym odblokowaniu");
+  await setCoursesUnlocked(eventId, adminId, true, db);
   expect((await participantCourses(p1, db))[0].code).toBe("UNIQUE");
   expect((await participantCourses(p1, db))[0].code).toBe("UNIQUE");
   expect((await participantCourses(p2, db))[0].available).toBe(false);
