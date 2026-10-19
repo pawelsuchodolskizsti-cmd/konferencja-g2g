@@ -12,4 +12,3 @@ const handler = app.getRequestHandler();
 createServer((req, res) => handler(req, res)).listen(port, "127.0.0.1", () =>
   console.log(`Podgląd: http://localhost:${port}`),
 );
-

@@ -14,8 +14,8 @@ export default async function Page({
           <div className="eyebrow">Rejestracja obecności</div>
           <h1>Kod wejścia na konferencję</h1>
           <p>
-            Pokaż ten kod organizatorowi przy wejściu. Samo otwarcie strony
-            nie potwierdza obecności.
+            Pokaż ten kod organizatorowi przy wejściu. Samo otwarcie strony nie
+            potwierdza obecności.
           </p>
           {valid && (
             <Link

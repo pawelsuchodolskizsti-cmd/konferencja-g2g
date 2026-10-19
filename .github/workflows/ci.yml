@@ -43,5 +43,7 @@ jobs:
           done
           exit 1
       - run: pnpm test:http
+      - run: node scripts/test-controller-http.mjs
+      - run: node scripts/test-archives-http.mjs
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e

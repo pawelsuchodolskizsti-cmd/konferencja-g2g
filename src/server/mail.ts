@@ -377,11 +377,9 @@ export async function cleanupEphemeral() {
       .delete(importBatches)
       .where(lt(importBatches.expiresAt, now))
       .returning({ id: importBatches.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        action: `EPHEMERAL_CLEANUP_AUTO imports=${importRows.length} sessions=${sessionRows.length} limits=${limitRows.length}`,
-      });
+    await tx.insert(auditLogs).values({
+      action: `EPHEMERAL_CLEANUP_AUTO imports=${importRows.length} sessions=${sessionRows.length} limits=${limitRows.length}`,
+    });
     return {
       sessions: sessionRows.length,
       limits: limitRows.length,

@@ -75,9 +75,10 @@ export function DataPanel({
         <h2>Archiwa konferencji</h2>
         <p>
           „Utwórz archiwum” zapisuje na serwerze paczkę ZIP: listę uczestników i
-          kodów CSV/Excel, zaproszenia PDF w paczkach ZIP, obecności, raport
-          certyfikatów, RODO, ankietę CSV/Excel, historię oraz ustawienia
-          konferencji. Wcześniej pobrane pliki nie są dodawane automatycznie.
+          kodów CSV/Excel, wielostronicowe PDF zaproszeń (po 50 osób),
+          obecności, raport certyfikatów, RODO, ankietę CSV/Excel, historię oraz
+          ustawienia konferencji. Wcześniej pobrane pliki nie są dodawane
+          automatycznie.
         </p>
         <p>
           Archiwum można pobrać ponownie po wyczyszczeniu uczestników. Nie jest

@@ -94,13 +94,11 @@ test("one individual code cannot reach two participants and assignment is stable
       mode: "INDIVIDUAL",
     })
     .returning();
-  await database
-    .insert(s.trainingCodes)
-    .values({
-      courseId: c.id,
-      codeHash: hashToken("UNIQUE"),
-      encryptedCode: encrypt("UNIQUE"),
-    });
+  await database.insert(s.trainingCodes).values({
+    courseId: c.id,
+    codeHash: hashToken("UNIQUE"),
+    encryptedCode: encrypt("UNIQUE"),
+  });
   expect((await participantCourses(p1, db))[0].code).toBe("UNIQUE");
   expect((await participantCourses(p1, db))[0].code).toBe("UNIQUE");
   expect((await participantCourses(p2, db))[0].available).toBe(false);

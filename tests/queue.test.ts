@@ -44,17 +44,15 @@ beforeAll(async () => {
     })
     .returning();
   eventId = e.id;
-  await database
-    .insert(s.participants)
-    .values(
-      [1, 2].map((i) => ({
-        eventId,
-        firstName: `Test${i}`,
-        lastName: "Test",
-        email: `test${i}@example.org`,
-        ...newCredentials(),
-      })),
-    );
+  await database.insert(s.participants).values(
+    [1, 2].map((i) => ({
+      eventId,
+      firstName: `Test${i}`,
+      lastName: "Test",
+      email: `test${i}@example.org`,
+      ...newCredentials(),
+    })),
+  );
 });
 afterAll(async () => {
   vi.unstubAllGlobals();

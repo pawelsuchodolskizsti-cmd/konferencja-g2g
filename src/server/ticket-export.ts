@@ -3,7 +3,7 @@ import path from "node:path";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import QRCode from "qrcode";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, rgb, type PDFFont, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { zipSync } from "fflate";
 import { db } from "@/db";
@@ -72,11 +72,18 @@ export async function renderTicket(
   origin: string,
   fontBytes: Uint8Array,
   invitation?: { title: string; message: string },
+  shared?: {
+    pdf: PDFDocument;
+    font: PDFFont;
+    background: PDFImage;
+    logo: PDFImage;
+  },
 ) {
   const { accessCode, qrToken } = JSON.parse(decrypt(person.credentials));
-  const pdf = await PDFDocument.create();
-  pdf.registerFontkit(fontkit);
-  const font = await pdf.embedFont(fontBytes, { subset: true });
+  const pdf = shared?.pdf ?? (await PDFDocument.create());
+  if (!shared) pdf.registerFontkit(fontkit);
+  const font =
+    shared?.font ?? (await pdf.embedFont(fontBytes, { subset: true }));
   const page = pdf.addPage([420, 595]);
   page.drawRectangle({
     x: 0,
@@ -86,7 +93,8 @@ export async function renderTicket(
     color: rgb(0.07, 0.42, 0.67),
   });
   if (invitation) {
-    const background = await pdf.embedJpg(await backgroundBytes());
+    const background =
+      shared?.background ?? (await pdf.embedJpg(await backgroundBytes()));
     const scale = Math.max(420 / background.width, 595 / background.height);
     const width = background.width * scale;
     const height = background.height * scale;
@@ -97,7 +105,7 @@ export async function renderTicket(
       height,
     });
     // Match the participant panel's centered watermark and 12% opacity.
-    const logo = await pdf.embedPng(await logoBytes());
+    const logo = shared?.logo ?? (await pdf.embedPng(await logoBytes()));
     const logoScale = Math.min(420 / logo.width, (595 * 0.85) / logo.height);
     page.drawImage(logo, {
       x: (420 - logo.width * logoScale) / 2,
@@ -162,13 +170,14 @@ export async function renderTicket(
   center("TWÓJ KOD DO STREFY UCZESTNIKA", 118, 9);
   center(String(accessCode), 82, 30);
   center(`${origin}/uczestnik`, 57, 11);
-  return pdf.save();
+  // Save a book once, sharing the artwork and font objects across its pages.
+  return shared ? new Uint8Array() : pdf.save();
 }
 
 export async function exportTickets(
   eventId: string,
   adminId: string,
-  format: "xlsx" | "csv" | "zip" | "pdf",
+  format: "xlsx" | "csv" | "zip" | "pdf" | "book",
   offset = 0,
   selection: ParticipantFilter = {},
 ) {
@@ -195,7 +204,7 @@ export async function exportTickets(
     )
     .orderBy(asc(participants.createdAt), asc(participants.id));
   const people =
-    format === "zip"
+    format === "zip" || format === "book"
       ? await query.limit(TICKET_BATCH_SIZE).offset(offset)
       : await query;
   assert(people.length, 400, "Najpierw zaimportuj uczestników.");
@@ -203,7 +212,24 @@ export async function exportTickets(
   let content: Uint8Array | string;
   let type: string;
   let filename: string;
-  if (format === "pdf") {
+  if (format === "book") {
+    const fontBytes = await readFile(
+      path.join(process.cwd(), "assets/NotoSans-Regular.ttf"),
+    );
+    const pdf = await PDFDocument.create();
+    pdf.registerFontkit(fontkit);
+    const shared = {
+      pdf,
+      font: await pdf.embedFont(fontBytes, { subset: true }),
+      background: await pdf.embedJpg(await backgroundBytes()),
+      logo: await pdf.embedPng(await logoBytes()),
+    };
+    for (const person of people)
+      await renderTicket(person, event, origin, fontBytes, config, shared);
+    content = await pdf.save();
+    type = "application/pdf";
+    filename = `zaproszenia-${offset + 1}-${offset + people.length}.pdf`;
+  } else if (format === "pdf") {
     assert(people.length === 1, 400, "Wybierz jednego uczestnika.");
     const font = await readFile(
       path.join(process.cwd(), "assets/NotoSans-Regular.ttf"),
@@ -248,7 +274,7 @@ export async function exportTickets(
       eventId,
       adminId,
       action:
-        format === "zip" || format === "pdf"
+        format === "zip" || format === "pdf" || format === "book"
           ? "TICKETS_EXPORTED"
           : "PARTICIPANT_CODES_EXPORTED",
       targetId: eventId,

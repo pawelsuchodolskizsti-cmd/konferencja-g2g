@@ -25,6 +25,27 @@ test("administrator signs in and sees imported participants", async ({
     .getByRole("button", { name: "Excel z kodami", exact: true })
     .click();
   expect((await exported).suggestedFilename()).toBe("uczestnicy-z-kodami.xlsx");
+  await page.goto("/admin?section=settings");
+  await page.getByLabel("Od", { exact: true }).first().fill("15:00");
+  await page.getByLabel("Do", { exact: true }).first().fill("14:00");
+  await expect(page.locator("#agenda-error-0")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Zapisz ustawienia", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Punkt programu 1: zakończenie musi być późniejsze niż rozpoczęcie.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  // Invalid input is never persisted; reloading restores the original program.
+  await page.reload();
+  await expect(page.getByLabel("Od", { exact: true }).first()).toHaveValue(
+    "09:00",
+  );
+  await expect(page.getByLabel("Do", { exact: true }).first()).toHaveValue(
+    "10:00",
+  );
 });
 test("participant sees two courses and can download a PDF", async ({
   page,
@@ -43,7 +64,9 @@ test("participant sees two courses and can download a PDF", async ({
     page.getByRole("link", { name: "Przejdź do kursu" }),
   ).toHaveCount(2);
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Kliknij i odbierz certyfikat" }).click();
+  await page
+    .getByRole("link", { name: "Kliknij i odbierz certyfikat" })
+    .click();
   expect((await download).suggestedFilename()).toBe("certyfikat.pdf");
 });
 test("public agenda and login do not overflow the viewport", async ({

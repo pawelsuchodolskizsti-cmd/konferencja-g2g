@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { unzipSync } from "fflate";
+import { PDFDocument } from "pdf-lib";
 import * as s from "../src/db/schema";
 import { adminPermission } from "../src/lib/admin-permissions";
 const state = vi.hoisted(() => ({ database: undefined as unknown }));
@@ -89,12 +90,10 @@ test("archive contains reports and invitations, encrypts payload and isolates ev
   const files = unzipSync(bytes);
   expect(Object.keys(files)).toContain("attendance.csv");
   expect(Object.keys(files)).toContain("ankieta.xlsx");
-  expect(Object.keys(files)).toContain("zaproszenia-1-2.zip");
+  expect(Object.keys(files)).toContain("zaproszenia-1-2.pdf");
   expect(
-    Object.keys(unzipSync(files["zaproszenia-1-2.zip"])).filter((f) =>
-      f.endsWith(".pdf"),
-    ),
-  ).toHaveLength(2);
+    (await PDFDocument.load(files["zaproszenia-1-2.pdf"])).getPageCount(),
+  ).toBe(2);
   expect(
     (await database.select().from(s.dataArchives))[0].payload,
   ).not.toContain("Kowalski");

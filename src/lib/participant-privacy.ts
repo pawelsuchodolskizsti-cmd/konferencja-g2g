@@ -21,4 +21,3 @@ export const participantPrivacyParagraphs = [
   "Podanie danych jest dobrowolne, ale niezbędne do korzystania ze Strefy Uczestnika.",
   "Dane osobowe Uczestników Konferencji nie będą przedmiotem zautomatyzowanego podejmowania decyzji, w tym profilowania.",
 ];
-

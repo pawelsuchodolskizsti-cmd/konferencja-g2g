@@ -41,14 +41,12 @@ export async function createCourse(
         sharedCode: value.sharedCode ? encrypt(value.sharedCode) : null,
       })
       .returning({ id: trainingCourses.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "COURSE_CREATED",
-        targetId: course.id,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "COURSE_CREATED",
+      targetId: course.id,
+    });
     return course;
   });
 }
@@ -85,14 +83,12 @@ export async function updateCourse(
           : existing.sharedCode,
       })
       .where(eq(trainingCourses.id, courseId));
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "COURSE_UPDATED",
-        targetId: courseId,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "COURSE_UPDATED",
+      targetId: courseId,
+    });
     return { id: courseId };
   });
 }
@@ -138,14 +134,12 @@ export async function importCodes(
       )
       .onConflictDoNothing()
       .returning({ id: trainingCodes.id });
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: "TRAINING_CODES_IMPORTED",
-        targetId: courseId,
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: "TRAINING_CODES_IMPORTED",
+      targetId: courseId,
+    });
     return { imported: result.length, skipped: codes.length - result.length };
   });
 }
@@ -206,13 +200,11 @@ export async function participantCourses(
         await tx
           .insert(participantTrainingAccess)
           .values({ participantId, courseId: course.id, codeId: free.id });
-        await tx
-          .insert(auditLogs)
-          .values({
-            eventId: person.eventId,
-            action: "TRAINING_CODE_ASSIGNED",
-            targetId: participantId,
-          });
+        await tx.insert(auditLogs).values({
+          eventId: person.eventId,
+          action: "TRAINING_CODE_ASSIGNED",
+          targetId: participantId,
+        });
         return decrypt(free.encryptedCode);
       });
     result.push({

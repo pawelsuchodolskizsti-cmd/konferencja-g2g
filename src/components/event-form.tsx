@@ -21,6 +21,13 @@ export function EventForm({
       className="card"
       onSubmit={async (e) => {
         e.preventDefault();
+        const invalidSlot = agenda.findIndex((item) => item.end <= item.start);
+        if (invalidSlot !== -1) {
+          setError(
+            `Punkt programu ${invalidSlot + 1}: zakończenie musi być późniejsze niż rozpoczęcie.`,
+          );
+          return;
+        }
         setBusy(true);
         setError("");
         const form = new FormData(e.currentTarget);
@@ -161,6 +168,16 @@ export function EventForm({
                   type={key === "start" || key === "end" ? "time" : "text"}
                   required={key === "start" || key === "end" || key === "title"}
                   value={item[key] ?? ""}
+                  aria-invalid={
+                    key === "end" && !!item.end && item.end <= item.start
+                      ? true
+                      : undefined
+                  }
+                  aria-describedby={
+                    key === "end" && !!item.end && item.end <= item.start
+                      ? `agenda-error-${index}`
+                      : undefined
+                  }
                   onChange={(e) =>
                     setAgenda(
                       agenda.map((old, i) =>
@@ -172,6 +189,12 @@ export function EventForm({
               </label>
             ))}
           </div>
+          {!!item.end && item.end <= item.start && (
+            <p id={`agenda-error-${index}`} className="error" role="alert">
+              Punkt {index + 1}: godzina zakończenia musi być późniejsza niż
+              rozpoczęcia.
+            </p>
+          )}
           <button
             type="button"
             className="secondary"

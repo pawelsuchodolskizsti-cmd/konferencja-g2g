@@ -5,6 +5,7 @@ export default defineConfig([
   ...next,
   ...ts,
   globalIgnores([
+    ".local/**",
     ".next/**",
     "next-env.d.ts",
     "drizzle/**",

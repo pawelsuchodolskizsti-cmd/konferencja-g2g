@@ -7,7 +7,7 @@ const pg = new PGlite();
 const database = drizzle(pg);
 vi.mock("@/db", () => ({ db: () => database }));
 vi.mock("../src/server/auth", () => ({ requireEvent: vi.fn() }));
-import { saveEvent } from "../src/server/events";
+import { saveEvent, eventInput } from "../src/server/events";
 let adminId: string;
 beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0000_initial.sql", "utf8"));
@@ -21,6 +21,21 @@ beforeAll(async () => {
   adminId = admin.id;
 });
 afterAll(async () => pg.close());
+test("agenda rejects reversed and equal times with an error on the affected row", () => {
+  const slot = {
+    title: "Warsztat",
+    speaker: "Anna",
+    start: "15:00",
+    end: "16:00",
+  };
+  expect(eventInput.shape.agenda.safeParse([slot]).success).toBe(true);
+  for (const end of ["14:00", "15:00"]) {
+    const result = eventInput.shape.agenda.safeParse([slot, { ...slot, end }]);
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues[0].path).toEqual([1, "end"]);
+  }
+});
 test("configuration creates only one conference and preserves its identity on edit", async () => {
   const input = {
     name: "Inna nazwa",
