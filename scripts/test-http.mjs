@@ -349,7 +349,7 @@ try {
       rows,
     );
     const csv = await (await call(`${base}/export`)).text();
-    assert.equal(csv.trim().split("\r\n").length, 251);
+    assert.equal(csv.trim().split("\r\n").length, 252);
   });
   await checked(
     "administrator nie uzyskuje dostępu do obcego wydarzenia",
