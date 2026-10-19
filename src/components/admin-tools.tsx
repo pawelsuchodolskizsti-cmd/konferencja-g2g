@@ -604,15 +604,29 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
   const base = `/api/admin/events/${eventId}`;
   useEffect(() => {
     let active = true;
-    api<PrivacyInfo>(`${base}/privacy`)
-      .then((d) => {
-        if (active) setData(d);
-      })
-      .catch((e) => {
-        if (active) setNotice(e.message);
-      });
+    let pending = false;
+    async function refresh() {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      try {
+        const result = await api<PrivacyInfo>(`${base}/privacy`);
+        if (active) setData(result);
+      } catch (error) {
+        if (active) setNotice(error instanceof Error ? error.message : "Nie udało się odświeżyć potwierdzeń.");
+      } finally {
+        pending = false;
+      }
+    }
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30000);
+    const onVisible = () => void refresh();
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [base, revision]);
   async function save(path: string, value: unknown) {
@@ -639,6 +653,10 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
   return (
     <section className="card">
       <h2>RODO i zarządzanie danymi</h2>
+      <button type="button" className="secondary" onClick={() => setRevision((v) => v + 1)}>
+        Odśwież potwierdzenia RODO
+      </button>
+      <p className="muted">Status odświeża się co 30 sekund i po powrocie do karty. Potwierdzenie zapisuje się po poprawnym zalogowaniu uczestnika z zaznaczoną klauzulą.</p>
       <p role="status">{notice}</p>
       {data && (
         <>
