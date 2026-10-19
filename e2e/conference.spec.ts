@@ -47,7 +47,7 @@ test("administrator signs in and sees imported participants", async ({
     "10:00",
   );
 });
-test("participant sees two courses and can download a PDF", async ({
+test("participant sees entry QR while courses stay locked and can download a PDF", async ({
   page,
 }) => {
   const access = JSON.parse(
@@ -57,12 +57,10 @@ test("participant sees two courses and can download a PDF", async ({
   await page.getByLabel("Twój kod dostępu").fill(access.code);
   await page.locator('input[name="privacyAcknowledged"]').check();
   await page.getByRole("button", { name: "Wejdź do strefy" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Dostęp do szkoleń" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Przejdź do kursu" }),
-  ).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Kod QR do wejścia" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Indywidualny kod QR do potwierdzenia obecności" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dostęp do szkoleń" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Przejdź do kursu" })).toHaveCount(0);
   const download = page.waitForEvent("download");
   await page
     .getByRole("link", { name: "Kliknij i odbierz certyfikat" })
