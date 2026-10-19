@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import QRCode from "qrcode";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import {
@@ -60,22 +59,11 @@ export async function invitation(
       timeZone: event.timezone,
     }).format(event.startsAt),
   };
-  const qr = await QRCode.toBuffer(
-    `${appUrl()}/checkin/${credentials.qrToken}`,
-    { width: 320, margin: 2, errorCorrectionLevel: "M" },
-  );
   return {
     from: event.mailFrom,
     to: person.email,
     subject: renderTemplate(event.mailSubject, values),
-    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a"><h1>${escapeHtml(event.name)}</h1><p style="white-space:pre-line">${escapeHtml(renderTemplate(event.mailBody, values)).replace(/\n/g, "<br>")}</p><p>Pokaż ten kod przy wejściu:</p><img src="cid:participant-qr" alt="Kod QR do rejestracji obecności" width="240" height="240"><p>Twój kod dostępu: <strong>${credentials.accessCode}</strong></p><p><a href="${appUrl()}/uczestnik">Strefa uczestnika</a></p><p>Zachowaj wiadomość. Materiały i szkolenia będą dostępne po potwierdzeniu obecności, a certyfikat po zakończeniu konferencji.</p></div>`,
-    attachments: [
-      {
-        filename: "qr.png",
-        content: qr.toString("base64"),
-        content_id: "participant-qr",
-      },
-    ],
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a"><h1>${escapeHtml(event.name)}</h1><p style="white-space:pre-line">${escapeHtml(renderTemplate(event.mailBody, values)).replace(/\n/g, "<br>")}</p><p>Twój indywidualny kod dostępu: <strong>${credentials.accessCode}</strong></p><p><a href="${appUrl()}/uczestnik">Strefa uczestnika</a></p><p>Zachowaj wiadomość. Materiały i szkolenia będą dostępne po potwierdzeniu obecności, a certyfikat po zakończeniu konferencji.</p></div>`,
   };
 }
 export async function queueInvitations(
