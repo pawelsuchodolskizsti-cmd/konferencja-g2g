@@ -73,9 +73,9 @@ async function secureSocket(): Promise<TLSSocket> {
   });
 }
 
-export async function sendSmtp(payload: MailPayload, password: string): Promise<void> {
+async function smtpSession(password: string, payload?: MailPayload): Promise<void> {
   if (!password) throw new Error("Brak hasła SMTP.");
-  const message = makeMessage(payload);
+  const message = payload ? makeMessage(payload) : null;
   const socket = await secureSocket();
   socket.setTimeout(30000, () => socket.destroy(new Error("SMTP timeout")));
   socket.on("error", () => { /* obsługa rozłączenia podczas odczytu */ });
@@ -104,18 +104,28 @@ export async function sendSmtp(payload: MailPayload, password: string): Promise<
     await response(334);
     command(Buffer.from(password).toString("base64"));
     await response(235);
-    command(`MAIL FROM:<${LOGIN}>`);
-    await response(250);
-    command(`RCPT TO:<${validAddress(payload.to)}>`);
-    await response(250);
-    command("DATA");
-    await response(354);
-    socket.write(message + "\r\n.\r\n");
-    await response(250);
+    if (payload && message) {
+      command(`MAIL FROM:<${LOGIN}>`);
+      await response(250);
+      command(`RCPT TO:<${validAddress(payload.to)}>`);
+      await response(250);
+      command("DATA");
+      await response(354);
+      socket.write(message + "\r\n.\r\n");
+      await response(250);
+    }
     command("QUIT");
     await response(221);
   } finally {
     lines.close();
     socket.destroy();
   }
+}
+
+export async function sendSmtp(payload: MailPayload, password: string) {
+  await smtpSession(password, payload);
+}
+export async function verifySmtp(password: string) {
+  // Tylko EHLO i uwierzytelnienie. Bez MAIL FROM, RCPT TO i DATA.
+  await smtpSession(password);
 }
