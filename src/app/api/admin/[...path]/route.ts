@@ -45,7 +45,7 @@ import { requireAdmin, requireEvent, requestOrigin } from "@/server/auth";
 import { adminEventList, saveEvent } from "@/server/events";
 import { commitImport, previewImport } from "@/server/imports";
 import { checkIn } from "@/server/attendance";
-import { createCourse, importCodes, updateCourse } from "@/server/training";
+import { createCourse, importCodes, updateCourse, setCoursesUnlocked } from "@/server/training";
 import { exportTickets } from "@/server/ticket-export";
 import {
   deleteEventData,
@@ -270,6 +270,10 @@ async function handle(req: Request, ctx: Context) {
       return Response.json(
         await uploadMaterial(eventId, admin.id, await uploadBody(req)),
       );
+    if (action === "courses-unlock" && path.length === 3 && req.method === "POST") {
+      const { unlocked } = z.object({ unlocked: z.boolean() }).parse(await jsonBody(req));
+      return Response.json(await setCoursesUnlocked(eventId, admin.id, unlocked));
+    }
     if (action === "courses" && !path[3] && req.method === "POST")
       return Response.json(
         await createCourse(eventId, admin.id, await jsonBody(req)),
