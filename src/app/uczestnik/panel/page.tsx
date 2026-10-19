@@ -19,6 +19,7 @@ import { isOnMyWayCourse, onMyWayArtwork } from "@/server/training-artwork";
 import { AppError } from "@/server/errors";
 import {
   CertificateRefresh,
+  CheckinRefresh,
   ParticipantLogout,
 } from "@/components/participant";
 export const metadata = { title: "Twoja strefa | Głowa do Góry" };
@@ -83,12 +84,11 @@ export default async function Page({
     courses.some((course) => course.available && isOnMyWayCourse(course.url))
       ? await onMyWayArtwork()
       : null;
-  const survey = await participantSurvey(person);
-  if (preview) {
-    survey.available = true;
-  }
+  const survey = present
+    ? await participantSurvey(person)
+    : { available: false, published: false, submitted: false, unlockAt: event.endsAt.toISOString() };
+  if (preview && present) survey.available = true;
   const ready = !!present && (preview || certificateAvailable(event));
-  if (!present) survey.available = false;
   const files = present
     ? await db()
         .select({ id: materials.id, title: materials.title })
@@ -129,7 +129,7 @@ export default async function Page({
             />
           </div>
           <p className={styles.greeting}>Cześć, {person.firstName}!</p>
-          {preview && (
+          {preview && !!present && (
             <p role="status">
               Podgląd testowy: wszystkie sekcje są widoczne. Kody i certyfikat
               są przykładowe.
@@ -191,6 +191,7 @@ export default async function Page({
           </p>
         </section>
         )}
+        {!present && <CheckinRefresh />}
         {!!present && !ready && (
           <CertificateRefresh unlockAt={unlockedAt.toISOString()} />
         )}
@@ -303,7 +304,7 @@ export default async function Page({
             </a>
           </section>
         )}
-        {!!present && (
+        {!!present && event.coursesUnlocked && (
           <>
         <section
           id="szkolenia"
@@ -312,8 +313,7 @@ export default async function Page({
         >
           <div className={styles.sectionLabel}>04 / Rozwijaj się dalej</div>
           <h2 id="training-title">Dostęp do szkoleń</h2>
-          {event.coursesUnlocked ? (
-            <>
+          <>
               {courses.length ? (
                 <TrainingCarousel>
                   {courses.map((course) => (
@@ -391,9 +391,6 @@ export default async function Page({
                 </div>
               )}
             </>
-          ) : (
-            <p className={styles.notice}>Szkolenia zostaną odblokowane ręcznie przez organizatora następnego dnia po konferencji.</p>
-          )}
         </section>
 
           </>
