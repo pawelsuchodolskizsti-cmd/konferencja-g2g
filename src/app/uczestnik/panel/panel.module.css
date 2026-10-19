@@ -212,16 +212,15 @@
 }
 .trainingArtwork {
   display: block;
-  margin: 8px 0 12px;
+  margin: 0 0 10px;
 }
 .trainingArtwork img {
   display: block;
-  width: 100%;
-  height: auto;
-}
-.trainingInstructions {
-  font-size: 14px;
-  line-height: 1.5;
+  width: auto;
+  max-width: 100%;
+  height: 120px;
+  object-fit: contain;
+  object-position: left center;
 }
 .carousel {
   margin-bottom: 24px;

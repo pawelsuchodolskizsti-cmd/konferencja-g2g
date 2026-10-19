@@ -265,11 +265,6 @@ export default async function Page({
                                   alt="On my way — Joanna Chmura. Otwórz platformę szkoleniową."
                                 />
                               </a>
-                              <p className={styles.trainingInstructions}>
-                                Wybierz subskrypcję miesięczną i wpisz poniższy
-                                kod, aby uzyskać 2 miesiące darmowego dostępu.
-                                Kod jest ważny do 31.12.2026.
-                              </p>
                             </>
                           )}
                           {course.code && (
