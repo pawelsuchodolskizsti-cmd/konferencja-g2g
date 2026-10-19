@@ -11,7 +11,6 @@ import { db, type Database } from "@/db";
 import {
   auditLogs,
   admins,
-  attendance,
   adminEvents,
   participants,
   rateLimits,
@@ -138,7 +137,6 @@ export async function requireParticipant() {
     .from(participants)
     .where(eq(participants.id, session.participantId));
   assert(person, 401, "Sesja wygasła.");
-  await requireAttendance(person.id);
   const [acknowledged] = await db()
     .select({ id: auditLogs.id })
     .from(auditLogs)
@@ -155,18 +153,6 @@ export async function requireParticipant() {
     "Przed wejściem do strefy zaloguj się ponownie i potwierdź zapoznanie się z klauzulą informacyjną.",
   );
   return person;
-}
-async function requireAttendance(participantId: string) {
-  const [present] = await db()
-    .select({ participantId: attendance.participantId })
-    .from(attendance)
-    .where(eq(attendance.participantId, participantId))
-    .limit(1);
-  assert(
-    present,
-    403,
-    "Panel jest dostępny po zeskanowaniu biletu i potwierdzeniu obecności. Zgłoś się do obsługi konferencji.",
-  );
 }
 export function requestOrigin(req: Request) {
   const expected = process.env.APP_URL;
@@ -231,15 +217,6 @@ export async function loginParticipant(
           .from(participants)
           .where(eq(participants.accessHash, hashToken(normalized)));
         assert(person, 401, "Nieprawidłowy kod uczestnika.");
-        const [present] = await tx
-          .select({ id: attendance.id })
-          .from(attendance)
-          .where(eq(attendance.participantId, person.id));
-        assert(
-          present,
-          403,
-          "Panel jest dostępny po zeskanowaniu biletu i potwierdzeniu obecności. Zgłoś się do obsługi konferencji.",
-        );
         await tx
           .insert(auditLogs)
           .values({
