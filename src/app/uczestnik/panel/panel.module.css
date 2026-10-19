@@ -31,11 +31,13 @@
 }
 .topline button {
   color: #fff;
-  border: 1px solid #ffffff66;
+  border: 2px solid #fff;
   border-radius: 0;
   background: transparent;
-  padding: 8px 14px;
-  font-size: 12px;
+  min-height: 48px;
+  padding: 0 10px;
+  font-size: 14px;
+  letter-spacing: 0.035em;
   font-weight: 400;
 }
 .titleRow {
