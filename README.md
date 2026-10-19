@@ -34,7 +34,7 @@ Alternatywnie uruchom PostgreSQL przez `docker compose up -d`, skopiuj `.env.exa
 5. W razie potrzeby dodaj materiały PDF w sekcji szkoleń. Są dostępne wyłącznie po obecności.
 6. W sekcji Kody i eksport pobierz Excel z kodami oraz indywidualne bilety PDF do swojej korespondencji seryjnej.
 7. Przy wejściu uruchom skaner QR albo wyszukaj uczestnika i oznacz obecność ręcznie.
-8. Uczestnik loguje się kodem z zaproszenia. Obecność odblokowuje kursy, a zakończenie wydarzenia i ustawiony termin również certyfikat.
+8. Uczestnik loguje się kodem z zaproszenia. Po zalogowaniu uczestnik widzi swój QR i harmonogram jeszcze przed skanowaniem. Skan potwierdza obecność i udostępnia materiały, ankietę zgodnie z jej terminem oraz certyfikat po terminie. Kursy odblokowuje osobno administrator przyciskiem w sekcji Kody szkoleniowe, zwykle następnego dnia.
 9. Pobierz CSV obecności. Po terminie retencji można usunąć dane uczestników z ustawień.
 
 Pliki uczestników: do 2 MB, maksymalnie 2000 wierszy w jednym imporcie. Materiały: PDF do 2 MB. Export CSV zabezpiecza wartości przed interpretacją jako formuły w Excelu.
