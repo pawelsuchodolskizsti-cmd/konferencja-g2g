@@ -13,6 +13,7 @@ import { attendance, events, materials } from "@/db/schema";
 import { requireAdmin, requireEvent, requireParticipant } from "@/server/auth";
 import { certificateAvailable } from "@/server/attendance";
 import { participantCourses } from "@/server/training";
+import { isOnMyWayCourse, onMyWayArtwork } from "@/server/training-artwork";
 import { AppError } from "@/server/errors";
 import {
   CertificateRefresh,
@@ -54,10 +55,10 @@ export default async function Page({
     ? [
         {
           id: "preview",
-          name: "Przykładowe szkolenie",
-          platform: "Platforma szkoleniowa",
-          url: "#szkolenia",
-          code: "G2G-TEST-2026",
+          name: "On my way — 2 miesiące dostępu",
+          platform: "Joanna Chmura",
+          url: "https://onmyway.pl/",
+          code: "ONEDAY",
           available: true,
         },
         {
@@ -72,6 +73,14 @@ export default async function Page({
     : present
       ? await participantCourses(person.id)
       : [];
+  courses.sort(
+    (a, b) => Number(isOnMyWayCourse(b.url)) - Number(isOnMyWayCourse(a.url)),
+  );
+  const trainingArtwork =
+    present &&
+    courses.some((course) => course.available && isOnMyWayCourse(course.url))
+      ? await onMyWayArtwork()
+      : null;
   const survey = await participantSurvey(person);
   if (preview) {
     survey.available = true;
@@ -81,7 +90,9 @@ export default async function Page({
     ? await db()
         .select({ id: materials.id, title: materials.title })
         .from(materials)
-        .where(and(eq(materials.eventId, event.id), eq(materials.published, true)))
+        .where(
+          and(eq(materials.eventId, event.id), eq(materials.published, true)),
+        )
     : [];
   const unlockedAt = event.certificateUnlockAt;
   const dateTime = new Intl.DateTimeFormat("pl-PL", {
@@ -238,6 +249,29 @@ export default async function Page({
                       <h3>{course.name}</h3>
                       {course.available ? (
                         <>
+                          {trainingArtwork && isOnMyWayCourse(course.url) && (
+                            <>
+                              <a
+                                href={course.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={styles.trainingArtwork}
+                              >
+                                <Image
+                                  src={trainingArtwork}
+                                  width={1181}
+                                  height={927}
+                                  unoptimized
+                                  alt="On my way — Joanna Chmura. Otwórz platformę szkoleniową."
+                                />
+                              </a>
+                              <p className={styles.trainingInstructions}>
+                                Wybierz subskrypcję miesięczną i wpisz poniższy
+                                kod, aby uzyskać 2 miesiące darmowego dostępu.
+                                Kod jest ważny do 31.12.2026.
+                              </p>
+                            </>
+                          )}
                           {course.code && (
                             <div className={styles.code}>
                               <span>Twój kod dostępu</span>

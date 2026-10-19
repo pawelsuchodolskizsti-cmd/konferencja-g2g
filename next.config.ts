@@ -11,6 +11,7 @@ const config: NextConfig = {
     "/*": [
       "./assets/NotoSans-Regular.ttf",
       "./assets/invitation-background.jpg",
+      "./assets/on-my-way.jpeg",
       "./assets/certificate-template.pdf",
       "./assets/ClashDisplay-Semibold.ttf",
       "./public/branding/montserrat-bold.ttf",

@@ -210,6 +210,19 @@
   margin-top: auto;
   gap: 8px;
 }
+.trainingArtwork {
+  display: block;
+  margin: 8px 0 12px;
+}
+.trainingArtwork img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.trainingInstructions {
+  font-size: 14px;
+  line-height: 1.5;
+}
 .carousel {
   margin-bottom: 24px;
 }
@@ -454,5 +467,6 @@
   }
 }
 
-.course .communityAction { margin-top: auto; }
-
+.course .communityAction {
+  margin-top: auto;
+}
