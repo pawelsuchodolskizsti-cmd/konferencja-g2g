@@ -20,6 +20,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const active = useRef(true);
   const base = `/api/admin/events/${eventId}`;
   const load = useCallback(async () => {
@@ -126,7 +127,19 @@ export function AdminMail({ eventId }: { eventId: string }) {
           <div className="actions">
             <button disabled={busy || sending || !password}>{busy ? "Zapisywanie…" : "Zapisz hasło SMTP"}</button>
             {status.passwordSaved && (
-              <button type="button" className="secondary" disabled={busy || sending}
+              <button type="button" className="secondary" disabled={busy || sending || verifying || !status.productionReady}
+                onClick={async () => {
+                  setVerifying(true); setError(""); setNotice("");
+                  try {
+                    await api(`${base}/smtp-verify`, { method: "POST", body: "{}" });
+                    setNotice("Logowanie do SMTP działa. Nie wysłano żadnego maila.");
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Nie udało się połączyć z SMTP.");
+                  } finally { setVerifying(false); }
+                }}>{verifying ? "Sprawdzanie…" : "Sprawdź połączenie (bez wysyłania)"}</button>
+            )}
+            {status.passwordSaved && (
+              <button type="button" className="secondary" disabled={busy || sending || verifying}
                 onClick={async () => {
                   if (!window.confirm("Usunąć zapisane hasło SMTP? Nie usunie to uczestników ani historii.")) return;
                   setBusy(true); setError("");
