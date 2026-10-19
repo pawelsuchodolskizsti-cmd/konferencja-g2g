@@ -5,9 +5,9 @@ import { z } from "zod";
 import { db } from "@/db";
 import { auditLogs, emailLogs, events, participants, smtpSettings } from "@/db/schema";
 import { decrypt, encrypt } from "./crypto";
-import { assert } from "./errors";
+import { assert, AppError } from "./errors";
 import { invitation } from "./mail";
-import { sendSmtp } from "./smtp-transport";
+import { sendSmtp, verifySmtp } from "./smtp-transport";
 
 export const SMTP_ADDRESS = "konferencja@oneday.com.pl";
 export const SMTP_HOST = "serwer1758522.home.pl";
@@ -100,6 +100,15 @@ async function assertSmtpReady(eventId: string) {
   assert(config, 503, "Najpierw zapisz hasło skrzynki SMTP.");
   assert(event && event.mailFrom.toLowerCase() === SMTP_ADDRESS, 409, "Adres nadawcy musi odpowiadać skrzynce SMTP.");
   return { password: decrypt(config.passwordEncrypted), event };
+}
+export async function checkSmtpCredentials(eventId: string) {
+  const { password } = await assertSmtpReady(eventId);
+  try {
+    await verifySmtp(password);
+    return { connected: true };
+  } catch {
+    throw new AppError(502, "Nie udało się uwierzytelnić w SMTP. Sprawdź hasło i połączenie z serwerem.");
+  }
 }
 // Przygotowanie kolejki nie wysyła wiadomości. Dwa rekordy z tym samym adresem
 // otrzymują dwa osobne zadania dzięki rozróżnieniu po participantId.
