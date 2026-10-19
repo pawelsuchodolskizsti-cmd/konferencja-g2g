@@ -524,3 +524,29 @@
 .course .communityAction {
   margin-top: auto;
 }
+
+.qrCard {
+  text-align: center;
+  padding-top: 12px;
+}
+.qrImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px auto;
+  width: min(100%, 384px);
+  padding: 12px;
+  background: #fff;
+  border: 2px solid #c8efff;
+  border-radius: 10px;
+}
+.qrImage img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 360px;
+}
+.qrStatus {
+  font-size: 14px;
+  font-weight: 600;
+}

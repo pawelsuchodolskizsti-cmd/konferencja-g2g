@@ -35,8 +35,8 @@ const sections = [
   ["history", "Historia działań"],
   ["team", "Zespół i role"],
   ["checkin", "Check-in"],
-  ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
+  ["courses", "Kody szkoleniowe"],
   ["survey", "Ankieta"],
   ["settings", "Ustawienia konferencji"],
 ] as const;
@@ -922,6 +922,25 @@ function Courses({
 }) {
   return (
     <>
+      <section className="card">
+        <h2>Dostęp do szkoleń – ręczne odblokowanie</h2>
+        <p className="muted">
+          Dostęp do kursów jest domyślnie zablokowany i nie odblokowuje się po skanowaniu QR
+          ani po zakończeniu wydarzenia. Włącz go następnego dnia, gdy kursy mają być dostępne.
+        </p>
+        <p><strong>Status: {data.event.coursesUnlocked ? "Kursy odblokowane" : "Kursy zablokowane"}</strong></p>
+        <button className={data.event.coursesUnlocked ? "secondary" : undefined} disabled={busy}
+          onClick={() => {
+            const unlocked = !data.event.coursesUnlocked;
+            if (!window.confirm(unlocked
+              ? "Odblokować kursy wszystkim uczestnikom z potwierdzoną obecnością?"
+              : "Zablokować kursy wszystkim uczestnikom?"
+            )) return;
+            void action("courses-unlock", { unlocked });
+          }}>
+          {data.event.coursesUnlocked ? "Zablokuj kursy" : "Odblokuj kursy uczestnikom"}
+        </button>
+      </section>
       <div className="grid">
         {data.courses.map((course) => (
           <section className="card" key={course.id}>

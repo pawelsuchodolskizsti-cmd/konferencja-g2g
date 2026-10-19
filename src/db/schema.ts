@@ -39,6 +39,7 @@ export const events = pgTable(
     }).notNull(),
     timezone: text("timezone").notNull().default("Europe/Warsaw"),
     published: boolean("published").notNull().default(false),
+    coursesUnlocked: boolean("courses_unlocked").notNull().default(false),
     agenda: jsonb("agenda").$type<AgendaItem[]>().notNull().default([]),
     info: text("info").notNull().default(""),
     mailSubject: text("mail_subject")

@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "courses_unlocked" boolean DEFAULT false NOT NULL;

@@ -26,6 +26,17 @@ export function CertificateRefresh({ unlockAt }: { unlockAt: string }) {
   }, [router, unlockAt]);
   return null;
 }
+export function CheckinRefresh() {
+  const router = useRouter();
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    const interval = window.setInterval(check, 12000);
+    return () => window.clearInterval(interval);
+  }, [router]);
+  return null;
+}
 export function ParticipantActions({
   certificateReady,
 }: {

@@ -1,4 +1,8 @@
 import { pdfDownload } from "@/server/pdf-download";
+import { db } from "@/db";
+import { attendance } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { assert } from "@/server/errors";
 import { requireParticipant, requestOrigin, limit } from "@/server/auth";
 import { participantCourses } from "@/server/training";
 import { generateCertificate } from "@/server/certificates";
@@ -13,10 +17,14 @@ export async function GET(req: Request, ctx: Context) {
   try {
     const person = await requireParticipant();
     const { action } = await ctx.params;
-    if (action === "survey")
+    if (action === "survey") {
+      const present = await db().select({ id: attendance.id }).from(attendance)
+        .where(eq(attendance.participantId, person.id)).limit(1);
+      assert(present.length, 403, "Ankieta wymaga potwierdzenia obecności.");
       return Response.json(await participantSurvey(person), {
         headers: { "Cache-Control": "private, no-store" },
       });
+    }
     if (action === "courses")
       return Response.json(await participantCourses(person.id));
     if (action === "certificate") {

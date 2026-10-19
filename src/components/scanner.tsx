@@ -63,8 +63,8 @@ export function Scanner({
     <section className="card">
       <h2>Rejestracja przy wejściu</h2>
       <p className="muted">
-        Skieruj aparat na kod z zaproszenia. Rejestracja potwierdzi obecność i
-        odblokuje szkolenia.
+        Skieruj aparat na kod QR z panelu uczestnika. Skan potwierdza obecność;
+        szkolenia odblokowuje później administrator.
       </p>
       <div id="qr-reader" style={{ maxWidth: 520, margin: "auto" }} />
       {!active && (

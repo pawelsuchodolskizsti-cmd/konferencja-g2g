@@ -32,6 +32,7 @@ beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0008_smtp_campaign.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0009_courses_unlock.sql", "utf8"));
   fixture.database = database as unknown as Database;
   const [admin] = await database.insert(s.admins)
     .values({ email: "admin@example.org", passwordHash: "test" }).returning();

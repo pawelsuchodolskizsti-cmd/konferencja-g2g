@@ -35,6 +35,7 @@ beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0009_courses_unlock.sql", "utf8"));
   const [event] = await database
     .insert(schema.events)
     .values({
@@ -63,17 +64,13 @@ beforeAll(async () => {
 });
 afterAll(async () => pg.close());
 
-test("valid code cannot create a session before attendance is confirmed", async () => {
-  await expect(
-    loginParticipant("ABC123", "absent", true, PARTICIPANT_PRIVACY_VERSION),
-  ).rejects.toMatchObject({
-    status: 403,
-  });
+test("missing privacy agreement prevents login, also before attendance", async () => {
+  await expect(loginParticipant("ABC123", "absent")).rejects.toMatchObject({ status: 400 });
   expect(state.set).not.toHaveBeenCalled();
   expect(await database.select().from(schema.sessions)).toHaveLength(0);
 });
 
-test("an existing session is rejected until check-in and after attendance removal", async () => {
+test("privacy consent is required, but session remains valid before check-in and after attendance removal", async () => {
   state.token = "a".repeat(43);
   await database.insert(schema.sessions).values({
     participantId,
@@ -81,10 +78,7 @@ test("an existing session is rejected until check-in and after attendance remova
     expiresAt: new Date(Date.now() + 3600000),
   });
   await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
-  await database
-    .insert(schema.attendance)
-    .values({ participantId, method: "QR" });
-  await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
+  // Samo zeskanowanie QR nie zastępuje zaakceptowania klauzuli RODO.
   await expect(loginParticipant("ABC123", "missing")).rejects.toMatchObject({
     status: 400,
   });
@@ -113,7 +107,7 @@ test("an existing session is rejected until check-in and after attendance remova
   await database
     .delete(schema.attendance)
     .where(eq(schema.attendance.participantId, participantId));
-  await expect(requireParticipant()).rejects.toMatchObject({ status: 403 });
+  await expect(requireParticipant()).resolves.toMatchObject({ id: participantId });
 });
 
 test("250 distinct participants can log in through one shared Wi-Fi IP", async () => {
@@ -216,4 +210,16 @@ test("lost commit acknowledgement does not duplicate a session or privacy record
     spy.mockRestore();
     log.mockRestore();
   }
+});
+
+test("participant can log in while still absent and receive session", async () => {
+  const [person] = await database.insert(schema.participants).values({
+    ...newCredentials(), accessHash: hashToken("B4F0RE"),
+    eventId: (await database.select().from(schema.participants).limit(1))[0].eventId,
+    firstName: "Nowa", lastName: "Osoba", email: "early@example.org",
+  }).returning();
+  expect((await database.select().from(schema.attendance).where(eq(schema.attendance.participantId, person.id)))).toHaveLength(0);
+  await expect(loginParticipant("B4F0RE", "before-gate", true, PARTICIPANT_PRIVACY_VERSION)).resolves.toBeUndefined();
+  const logs = await database.select().from(schema.auditLogs).where(eq(schema.auditLogs.targetId, person.id));
+  expect(logs.some((row) => row.action === PARTICIPANT_PRIVACY_ACTION)).toBe(true);
 });
