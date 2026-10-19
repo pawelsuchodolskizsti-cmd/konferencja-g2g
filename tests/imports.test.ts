@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 import * as XLSX from "xlsx";
+import { participantIdentity } from "../src/lib/participant-identity";
 import { safeCsv, spreadsheet, validateRows } from "../src/server/imports";
-test("import accepts duplicate emails as individual participants", () => {
+test("import skips matching identities while allowing different people on one mailbox", () => {
   const result = validateRows(
     [
       ["Imię", "Nazwisko", "Email"],
@@ -9,13 +10,20 @@ test("import accepts duplicate emails as individual participants", () => {
       ["Jan", "Test", "a@example.org"],
       ["", "Test", "bad"],
       ["Ewa", "Test", "existing@example.org"],
+      ["Ewa", "Test", "a@example.org"],
     ],
-    new Set(["existing@example.org"]),
+    new Set([
+      participantIdentity({
+        firstName: " eWA ",
+        lastName: "Test",
+        email: "EXISTING@example.org",
+      }),
+    ]),
   );
-  expect(result.filter((r) => !r.errors.length)).toHaveLength(3);
-  expect(result[1].errors).toHaveLength(0);
+  expect(result.filter((r) => !r.errors.length)).toHaveLength(2);
+  expect(result[1].errors).toHaveLength(1);
   expect(result[2].errors).toHaveLength(2);
-  expect(result[3].errors).toHaveLength(0);
+  expect(result[3].errors).toHaveLength(1);
 });
 test("real XLSX roundtrip retains Polish column labels", async () => {
   const book = XLSX.utils.book_new();

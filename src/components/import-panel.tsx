@@ -30,8 +30,10 @@ export function ImportPanel({
         <div className="eyebrow">Krok 1 z 2</div>
         <h2>Wgraj listę uczestników</h2>
         <p className="muted">
-          Plik XLSX lub CSV, do 2 MB i 2000 uczestników. Powtarzające się adresy są dozwolone – każda osoba otrzyma własny kod. Pierwszy wiersz: Imię,
-          Nazwisko, Email.
+          Plik XLSX lub CSV, do 2 MB i 2000 uczestników. Różne osoby mogą
+          korzystać ze wspólnego adresu. Powtórzone imię, nazwisko i e-mail
+          zostaną pominięte; istniejący kod i status wysyłki pozostaną bez
+          zmian. Pierwszy wiersz: Imię, Nazwisko, Email.
         </p>
         <p>
           <a href="/przyklady/uczestnicy-testowi.xlsx" download>
@@ -84,13 +86,13 @@ export function ImportPanel({
               <strong>{preview.valid}</strong>
             </div>
             <div className="stat">
-              <small>Wymagają poprawy</small>
+              <small>Pominięte lub błędne</small>
               <strong>{preview.total - preview.valid}</strong>
             </div>
           </div>
           <p>
-            Zapisane zostaną wyłącznie poprawne wiersze. Pozostałe popraw w
-            Excelu i wgraj ponownie.
+            Dodamy tylko nowych uczestników. Duplikaty zostaną pominięte. Błędne
+            dane popraw w pliku i wgraj ponownie.
           </p>
           <div className="tablewrap">
             <table>

@@ -10,6 +10,7 @@ import {
   participants,
   smtpSettings,
 } from "@/db/schema";
+import { participantIdentity } from "@/lib/participant-identity";
 import { decrypt, encrypt } from "./crypto";
 import { assert, AppError } from "./errors";
 import { invitation } from "./mail";
@@ -193,15 +194,40 @@ export async function checkSmtpCredentials(eventId: string) {
 export async function startSmtpCampaign(eventId: string, adminId: string) {
   await assertSmtpReady(eventId);
   return db().transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const people = await tx
-      .select({ id: participants.id })
+      .select()
       .from(participants)
       .where(eq(participants.eventId, eventId));
     assert(people.length, 400, "Brak uczestników do wysyłki.");
+    const prior = await tx
+      .select({ person: participants })
+      .from(emailLogs)
+      .innerJoin(participants, eq(participants.id, emailLogs.participantId))
+      .where(
+        and(
+          eq(participants.eventId, eventId),
+          eq(emailLogs.kind, "INVITATION"),
+        ),
+      );
+    const seen = new Set(
+      prior.map(({ person }) => participantIdentity(person)),
+    );
+    const fresh = people.filter((person) => {
+      const key = participantIdentity(person);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!fresh.length) return { queued: 0 };
     const inserted = await tx
       .insert(emailLogs)
       .values(
-        people.map((person) => ({
+        fresh.map((person) => ({
           participantId: person.id,
           kind: "INVITATION" as const,
           adminId,
@@ -222,6 +248,11 @@ export async function startSmtpCampaign(eventId: string, adminId: string) {
 // To zapobiega przypadkowemu wysłaniu drugiej wiadomości przy zerwaniu sieci.
 async function claimNext(eventId: string) {
   return db().transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [match] = await tx
       .select({ mail: emailLogs })
       .from(emailLogs)
@@ -238,6 +269,34 @@ async function claimNext(eventId: string) {
       .limit(1)
       .for("update", { skipLocked: true });
     if (!match) return null;
+    const [person] = await tx
+      .select()
+      .from(participants)
+      .where(eq(participants.id, match.mail.participantId));
+    const prior = await tx
+      .select({ person: participants, mail: emailLogs })
+      .from(emailLogs)
+      .innerJoin(participants, eq(participants.id, emailLogs.participantId))
+      .where(
+        and(
+          eq(participants.eventId, eventId),
+          eq(emailLogs.kind, "INVITATION"),
+        ),
+      );
+    if (
+      prior.some(
+        (entry) =>
+          entry.mail.id !== match.mail.id &&
+          entry.mail.status !== "QUEUED" &&
+          participantIdentity(entry.person) === participantIdentity(person),
+      )
+    ) {
+      await tx
+        .update(emailLogs)
+        .set({ status: "ERROR", errorCode: "DUPLICATE_PARTICIPANT_BLOCKED" })
+        .where(eq(emailLogs.id, match.mail.id));
+      return null;
+    }
     const leaseToken = randomUUID();
     const [claimed] = await tx
       .update(emailLogs)

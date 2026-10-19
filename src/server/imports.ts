@@ -6,10 +6,12 @@ import { db, type Database } from "@/db";
 import {
   auditLogs,
   importBatches,
+  events,
   participants,
   type ImportRow,
 } from "@/db/schema";
 import { assert, AppError } from "./errors";
+import { participantIdentity } from "@/lib/participant-identity";
 import { newCredentials } from "./crypto";
 
 export async function spreadsheet(
@@ -91,7 +93,7 @@ function heading(value: string) {
 }
 export function validateRows(
   raw: string[][],
-  _existing: Set<string>,
+  existing: Set<string>,
 ): ImportRow[] {
   assert(raw.length > 1, 400, "Brak uczestników w pliku.");
   const headers = raw[0].map(heading);
@@ -103,10 +105,17 @@ export function validateRows(
     400,
     "Wymagane kolumny: Imię, Nazwisko, Email.",
   );
+  const seen = new Set<string>();
   return raw.slice(1).map((row, index) => {
-    const firstName = (row[first] || "").normalize("NFC");
-    const lastName = (row[last] || "").normalize("NFC");
-    const email = (row[mail] || "").toLowerCase();
+    const firstName = (row[first] || "")
+      .normalize("NFC")
+      .trim()
+      .replace(/\s+/g, " ");
+    const lastName = (row[last] || "")
+      .normalize("NFC")
+      .trim()
+      .replace(/\s+/g, " ");
+    const email = (row[mail] || "").trim().toLowerCase();
     const errors: string[] = [];
     if (!firstName || firstName.length > 100 || /[\x00-\x1f]/.test(firstName))
       errors.push("Nieprawidłowe imię");
@@ -114,6 +123,11 @@ export function validateRows(
       errors.push("Nieprawidłowe nazwisko");
     if (!z.email().safeParse(email).success || email.length > 254)
       errors.push("Nieprawidłowy e-mail");
+    const key = participantIdentity({ firstName, lastName, email });
+    if (existing.has(key)) errors.push("Pominięto: uczestnik już istnieje");
+    else if (seen.has(key))
+      errors.push("Pominięto: powtórzony uczestnik w pliku");
+    if (!errors.length) seen.add(key);
     return { row: index + 2, firstName, lastName, email, errors };
   });
 }
@@ -123,7 +137,11 @@ export async function previewImport(
   file: File,
 ) {
   const raw = await spreadsheet(file, true);
-  const rows = validateRows(raw, new Set<string>());
+  const people = await db()
+    .select()
+    .from(participants)
+    .where(eq(participants.eventId, eventId));
+  const rows = validateRows(raw, new Set(people.map(participantIdentity)));
   const [batch] = await db()
     .insert(importBatches)
     .values({
@@ -147,6 +165,11 @@ export async function commitImport(
   database: Database = db(),
 ) {
   return database.transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [batch] = await tx
       .select()
       .from(importBatches)
@@ -166,8 +189,15 @@ export async function commitImport(
     );
     const values = batch.rows.filter((r) => !r.errors.length);
     assert(values.length, 400, "Brak poprawnych wierszy do importu.");
+    const people = await tx
+      .select()
+      .from(participants)
+      .where(eq(participants.eventId, eventId));
+    const existing = new Set(people.map(participantIdentity));
     let imported = 0;
     for (const row of values) {
+      const key = participantIdentity(row);
+      if (existing.has(key)) continue;
       let resolved = false;
       for (let attempt = 0; attempt < 20; attempt++) {
         const [person] = await tx
@@ -183,6 +213,7 @@ export async function commitImport(
           .returning({ id: participants.id });
         if (person) {
           imported++;
+          existing.add(key);
           resolved = true;
           break;
         }

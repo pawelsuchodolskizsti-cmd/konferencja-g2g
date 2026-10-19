@@ -233,3 +233,87 @@ test("ambiguous single test cannot resend on replay", async () => {
   );
   expect(vi.mocked(sendSmtp).mock.calls.length).toBe(count + 1);
 });
+
+test("repeated and concurrent imports preserve participants, credentials and sent invitations", async () => {
+  const { commitImport } = await import("../src/server/imports");
+  const [original] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, eventId));
+  const logsBefore = await database.select().from(s.emailLogs);
+  const row = {
+    row: 2,
+    firstName: original.firstName.toUpperCase(),
+    lastName: " " + original.lastName + " ",
+    email: original.email,
+    errors: [],
+  };
+  const fresh = {
+    row: 3,
+    firstName: "Nowa",
+    lastName: "Osoba",
+    email: original.email,
+    errors: [],
+  };
+  const batches = await database
+    .insert(s.importBatches)
+    .values(
+      [1, 2].map(() => ({
+        eventId,
+        adminId,
+        rows: [row, fresh, fresh],
+        expiresAt: new Date(Date.now() + 60000),
+      })),
+    )
+    .returning();
+  const results = await Promise.all(
+    batches.map((b) => commitImport(b.id, eventId, adminId)),
+  );
+  expect(results.reduce((n, r) => n + r.imported, 0)).toBe(1);
+  expect(
+    await database
+      .select()
+      .from(s.participants)
+      .where(eq(s.participants.id, original.id)),
+  ).toEqual([original]);
+  expect(await database.select().from(s.emailLogs)).toEqual(logsBefore);
+  const [reimport] = await database
+    .insert(s.importBatches)
+    .values({
+      eventId,
+      adminId,
+      rows: [row, fresh],
+      expiresAt: new Date(Date.now() + 60000),
+    })
+    .returning();
+  expect((await commitImport(reimport.id, eventId, adminId)).imported).toBe(0);
+  expect((await startSmtpCampaign(eventId, adminId)).queued).toBe(1);
+  expect((await startSmtpCampaign(eventId, adminId)).queued).toBe(0);
+});
+test("legacy duplicate record never receives a new invitation after first identity was attempted", async () => {
+  const [original] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, eventId));
+  const [duplicate] = await database
+    .insert(s.participants)
+    .values({
+      eventId,
+      firstName: original.firstName,
+      lastName: original.lastName,
+      email: original.email,
+      ...newCredentials(),
+    })
+    .returning();
+  expect((await startSmtpCampaign(eventId, adminId)).queued).toBe(0);
+  await database
+    .insert(s.emailLogs)
+    .values({ participantId: duplicate.id, kind: "INVITATION" });
+  for (let i = 0; i < 3; i++) await processSmtpBatch(eventId, adminId);
+  const [log] = await database
+    .select()
+    .from(s.emailLogs)
+    .where(eq(s.emailLogs.participantId, duplicate.id));
+  expect(log.status).toBe("ERROR");
+  expect(log.errorCode).toBe("DUPLICATE_PARTICIPANT_BLOCKED");
+});

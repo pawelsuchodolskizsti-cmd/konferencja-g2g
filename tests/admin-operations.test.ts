@@ -76,11 +76,17 @@ afterAll(() => pg.close());
 test("manual participant creation does not grant attendance and permits shared email", async () => {
   expect(await database.select().from(s.attendance)).toHaveLength(0);
   const second = await createParticipant(
-    eventId, adminId,
-    { firstName: "Anna", lastName: "Testowa", email: "anna@example.test" }, db,
+    eventId,
+    adminId,
+    { firstName: "Ewa", lastName: "Testowa", email: "anna@example.test" },
+    db,
   );
   expect(second.id).not.toBe(personId);
-  expect((await database.select().from(s.participants)).filter(p => p.email === "anna@example.test")).toHaveLength(2);
+  expect(
+    (await database.select().from(s.participants)).filter(
+      (p) => p.email === "anna@example.test",
+    ),
+  ).toHaveLength(2);
 });
 test("staff role can check in, but not export or manage an event", async () => {
   const [staff] = await database
@@ -322,4 +328,17 @@ test("controller can read data but cannot administer or check in", async () => {
   await expect(
     requireEvent(controller.id, otherEventId, db, "READ"),
   ).rejects.toMatchObject({ status: 403 });
+});
+
+test("manual duplicate is rejected without changing existing credentials", async () => {
+  const before = await database.select().from(s.participants);
+  await expect(
+    createParticipant(
+      eventId,
+      adminId,
+      { firstName: " eWa ", lastName: "TESTOWA", email: "anna@example.test" },
+      db,
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(await database.select().from(s.participants)).toEqual(before);
 });

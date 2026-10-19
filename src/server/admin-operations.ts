@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { assert } from "./errors";
 import { decrypt, encrypt, newCredentials, passwordHash } from "./crypto";
+import { participantIdentity } from "@/lib/participant-identity";
 import { safeCsv } from "./imports";
 import { participantList } from "./admin-data";
 import { certificateName } from "@/lib/certificate-name";
@@ -130,6 +131,20 @@ export async function createParticipant(
     })
     .parse(input);
   return database.transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
+    const people = await tx
+      .select()
+      .from(participants)
+      .where(eq(participants.eventId, eventId));
+    assert(
+      !people.some((p) => participantIdentity(p) === participantIdentity(data)),
+      409,
+      "Ten uczestnik już istnieje. Użyj jego obecnego konta i kodu.",
+    );
     const [p] = await tx
       .insert(participants)
       .values({ ...data, eventId, ...newCredentials() })
