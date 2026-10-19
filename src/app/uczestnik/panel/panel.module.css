@@ -465,6 +465,29 @@
 .communityAction:hover {
   background: #1a5e88;
 }
+.community .communityAction {
+  animation: communityPulse 3s ease-in-out infinite;
+}
+@keyframes communityPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 #249bd100;
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px #249bd126,
+      0 0 22px #249bd12e;
+  }
+}
+.community .communityAction:hover,
+.community .communityAction:focus-visible {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .community .communityAction {
+    animation: none;
+  }
+}
 .communityAction:active {
   background: #0c2c40;
 }
