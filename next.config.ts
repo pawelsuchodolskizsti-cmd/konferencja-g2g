@@ -10,6 +10,7 @@ const config: NextConfig = {
   outputFileTracingIncludes: {
     "/*": [
       "./assets/NotoSans-Regular.ttf",
+      "./assets/invitation-background.jpg",
       "./assets/certificate-template.pdf",
       "./assets/ClashDisplay-Semibold.ttf",
       "./public/branding/montserrat-bold.ttf",

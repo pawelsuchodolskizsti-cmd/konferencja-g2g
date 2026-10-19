@@ -13,10 +13,21 @@ import { assert } from "./errors";
 import { invitationConfig, selectedPeople } from "./admin-operations";
 import type { ParticipantFilter } from "@/lib/participant-filter";
 import { safeCsv } from "./imports";
+import { pdfStream } from "./incremental-pdf";
 
 type Person = typeof participants.$inferSelect;
 type Event = typeof events.$inferSelect;
 export const TICKET_BATCH_SIZE = 50;
+let invitationBackground: Promise<Buffer> | undefined;
+function backgroundBytes() {
+  // PDF-compatible copy of the participant panel's portrait background.
+  return (invitationBackground ??= readFile(
+    path.join(process.cwd(), "assets/invitation-background.jpg"),
+  ).catch((error) => {
+    invitationBackground = undefined;
+    throw error;
+  }));
+}
 export function exportRows(people: Person[], origin: string) {
   return [
     ["Imię", "Nazwisko", "Email", "Kod", "Link do strefy", "Plik biletu"],
@@ -65,6 +76,18 @@ export async function renderTicket(
     height: 595,
     color: rgb(0.07, 0.42, 0.67),
   });
+  if (invitation) {
+    const background = await pdf.embedJpg(await backgroundBytes());
+    const scale = Math.max(420 / background.width, 595 / background.height);
+    const width = background.width * scale;
+    const height = background.height * scale;
+    page.drawImage(background, {
+      x: (420 - width) / 2,
+      y: 595 - height,
+      width,
+      height,
+    });
+  }
   const center = (text: string, y: number, size: number) => {
     while (font.widthOfTextAtSize(text, size) > 372 && size > 5) size--;
     page.drawText(text, {
@@ -213,7 +236,11 @@ export async function exportTickets(
       targetId: eventId,
     });
   return new Response(
-    typeof content === "string" ? content : new Uint8Array(content),
+    typeof content === "string"
+      ? content
+      : format === "zip"
+        ? pdfStream([content])
+        : new Uint8Array(content),
     {
       headers: {
         "Content-Type": type,
