@@ -148,89 +148,93 @@ test("each participant with the same email gets a separate queued invitation", a
   expect(logs.every((log) => log.status === "QUEUED")).toBe(true);
 });
 
-test("250 invitations preserve separate recipients and obey pacing across 10 concurrent workers", async () => {
-  const [stressEvent] = await database
-    .insert(s.events)
-    .values({
-      slug: "smtp-stress",
-      name: "Głowa do Góry",
-      organizer: "Fundacja",
-      location: "Sala",
-      startsAt: new Date("2027-04-01"),
-      endsAt: new Date("2027-04-02"),
-      certificateUnlockAt: new Date("2027-04-02"),
-      mailFrom: "konferencja@oneday.com.pl",
-    })
-    .returning();
-  const event = stressEvent.id;
-  const rows = Array.from({ length: 250 }, (_, index) => ({
-    eventId: event,
-    firstName: `Uczestnik${index + 1}`,
-    lastName: "Testowy",
-    email: `shared${String(index % 25).padStart(2, "0")}@example.org`,
-    ...newCredentials(),
-  }));
-  await database.insert(s.participants).values(rows);
-  await saveSmtpPassword(event, adminId, { password: "synthetic-only" });
+test.each([250, 500])(
+  "%i invitations preserve separate recipients and obey pacing across 10 concurrent workers",
+  async (count) => {
+    const [stressEvent] = await database
+      .insert(s.events)
+      .values({
+        slug: `smtp-stress-${count}`,
+        name: "Głowa do Góry",
+        organizer: "Fundacja",
+        location: "Sala",
+        startsAt: new Date("2027-04-01"),
+        endsAt: new Date("2027-04-02"),
+        certificateUnlockAt: new Date("2027-04-02"),
+        mailFrom: "konferencja@oneday.com.pl",
+      })
+      .returning();
+    const event = stressEvent.id;
+    const rows = Array.from({ length: count }, (_, index) => ({
+      eventId: event,
+      firstName: `Uczestnik${index + 1}`,
+      lastName: "Testowy",
+      email: `shared${String(index % 25).padStart(2, "0")}@example.org`,
+      ...newCredentials(),
+    }));
+    await database.insert(s.participants).values(rows);
+    await saveSmtpPassword(event, adminId, { password: "synthetic-only" });
 
-  const pending = await smtpOverview(event);
-  expect(pending.total).toBe(250);
-  expect(pending.uniqueEmails).toBe(25);
-  expect(pending.duplicateRecipients).toBe(225);
-  expect((await startSmtpCampaign(event, adminId)).queued).toBe(250);
-  expect((await startSmtpCampaign(event, adminId)).queued).toBe(0);
-  fixture.sent.length = 0;
+    const pending = await smtpOverview(event);
+    expect(pending.total).toBe(count);
+    expect(pending.uniqueEmails).toBe(25);
+    expect(pending.duplicateRecipients).toBe(count - 25);
+    expect((await startSmtpCampaign(event, adminId)).queued).toBe(count);
+    expect((await startSmtpCampaign(event, adminId)).queued).toBe(0);
+    fixture.sent.length = 0;
 
-  const concurrent = await Promise.all(
-    Array.from({ length: 10 }, () => processSmtpBatch(event, adminId)),
-  );
-  expect(concurrent.reduce((sum, batch) => sum + batch.sent, 0)).toBe(1);
-  expect(concurrent.every((batch) => batch.retryAfterMs > 0)).toBe(true);
-  for (let round = 1; round < 250; round++) {
-    vi.setSystemTime(Date.now() + 3000);
-    expect((await processSmtpBatch(event, adminId)).sent).toBe(1);
-  }
-  const final = await smtpOverview(event);
-  expect(final.queued).toBe(0);
-  expect(final.errors).toBe(0);
-  expect(final.sent).toBe(250);
-  expect(fixture.sent).toHaveLength(250);
-  const receipts = await database
-    .select()
-    .from(s.auditLogs)
-    .where(eq(s.auditLogs.eventId, event));
-  expect(
-    receipts.filter(
-      (r) => r.action === "SMTP_EMAIL_ACCEPTED queue=SYNTHETIC123",
-    ),
-  ).toHaveLength(250);
-  expect(new Set(fixture.sent.map((payload) => payload.to)).size).toBe(25);
-  expect(
-    fixture.sent.every(
-      (payload) =>
-        !payload.attachments?.length &&
-        payload.html.includes("/uczestnik") &&
-        !payload.html.includes("cid:") &&
-        !payload.html.includes("<img"),
-    ),
-  ).toBe(true);
-
-  const people = await database
-    .select()
-    .from(s.participants)
-    .where(eq(s.participants.eventId, event));
-  const codes = people.map(
-    (person) =>
-      (JSON.parse(decrypt(person.credentials)) as { accessCode: string })
-        .accessCode,
-  );
-  expect(new Set(codes).size).toBe(250);
-  for (const code of codes) {
+    const concurrent = await Promise.all(
+      Array.from({ length: 10 }, () => processSmtpBatch(event, adminId)),
+    );
+    expect(concurrent.reduce((sum, batch) => sum + batch.sent, 0)).toBe(1);
+    expect(concurrent.every((batch) => batch.retryAfterMs > 0)).toBe(true);
+    for (let round = 1; round < count; round++) {
+      vi.setSystemTime(Date.now() + 3000);
+      expect((await processSmtpBatch(event, adminId)).sent).toBe(1);
+    }
+    const final = await smtpOverview(event);
+    expect(final.queued).toBe(0);
+    expect(final.errors).toBe(0);
+    expect(final.sent).toBe(count);
+    expect(fixture.sent).toHaveLength(count);
+    const receipts = await database
+      .select()
+      .from(s.auditLogs)
+      .where(eq(s.auditLogs.eventId, event));
     expect(
-      fixture.sent.filter((payload) => payload.html.includes(code)),
-    ).toHaveLength(1);
-  }
-}, 180000);
+      receipts.filter(
+        (r) => r.action === "SMTP_EMAIL_ACCEPTED queue=SYNTHETIC123",
+      ),
+    ).toHaveLength(count);
+    expect(new Set(fixture.sent.map((payload) => payload.to)).size).toBe(25);
+    expect(
+      fixture.sent.every(
+        (payload) =>
+          !payload.attachments?.length &&
+          payload.html.includes("/uczestnik") &&
+          !payload.html.includes("cid:") &&
+          !payload.html.includes("<img"),
+      ),
+    ).toBe(true);
+
+    const people = await database
+      .select()
+      .from(s.participants)
+      .where(eq(s.participants.eventId, event));
+    const codes = people.map(
+      (person) =>
+        (JSON.parse(decrypt(person.credentials)) as { accessCode: string })
+          .accessCode,
+    );
+    expect(new Set(codes).size).toBe(count);
+    for (const code of codes) {
+      expect(
+        fixture.sent.filter((payload) => payload.html.includes(code)),
+      ).toHaveLength(1);
+    }
+  },
+  180000,
+);
 
 test("invitation identifies the recipient and organizer without duplicating a code already in the template", async () => {
   const { invitation } = await import("../src/server/mail");
@@ -456,4 +460,13 @@ test("temporary pre-acceptance failure retries safely, while an ambiguous DATA r
   });
   expect((await startSmtpCampaign(uncertain, adminId)).queued).toBe(0);
   expect((await processSmtpBatch(uncertain, adminId)).sent).toBe(0);
+  vi.setSystemTime(Date.now() + 60000);
+  const policy = await extraEvent("policy-rejection", ["policy@example.org"]);
+  vi.mocked(sendSmtp).mockRejectedValueOnce(
+    new SmtpFailure("RECIPIENT", 550, "5.7.1"),
+  );
+  expect(await processSmtpBatch(policy, adminId)).toMatchObject({
+    errors: 1,
+    stopped: true,
+  });
 });

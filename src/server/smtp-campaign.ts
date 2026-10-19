@@ -477,7 +477,8 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
         error instanceof SmtpFailure &&
         error.stage === "RECIPIENT" &&
         error.smtpCode &&
-        error.smtpCode >= 500
+        error.smtpCode >= 500 &&
+        error.enhancedCode?.startsWith("5.1.")
       )) {
         stopped = true;
         break;
