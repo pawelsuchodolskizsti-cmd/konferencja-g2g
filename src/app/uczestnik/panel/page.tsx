@@ -137,16 +137,16 @@ export default async function Page({
           )}
         </header>
         <section id="bilet" className={`${styles.card} ${styles.qrCard}`} aria-labelledby="qr-title">
-          <div className={styles.sectionLabel}>Twój bilet elektroniczny</div>
+          <div className={styles.sectionLabel}>01 / Twój bilet elektroniczny</div>
           <h2 id="qr-title">Kod QR do wejścia</h2>
           <p>Przy wejściu pokaż ten kod QR obsłudze konferencji. Skan potwierdzi Twoją obecność.</p>
           <div className={styles.qrImage}>
             <Image src={qrImage} alt="Indywidualny kod QR do potwierdzenia obecności"
               width={360} height={360} unoptimized priority />
           </div>
-          <p className={styles.qrStatus}>
-            {present ? "Obecność potwierdzona" : "Oczekuje na zeskanowanie przez obsługę"}
-          </p>
+          {!present && (
+            <p className={styles.qrStatus}>Oczekuje na zeskanowanie przez obsługę</p>
+          )}
         </section>
         {!!present && (
         <section
@@ -199,25 +199,25 @@ export default async function Page({
           <CertificateRefresh unlockAt={survey.unlockAt} />
         )}
         <nav className={styles.navigation} aria-label="Sekcje strefy uczestnika">
-          <a href="#bilet"><span>QR</span>Bilet</a>
-          <a href="#program"><span>01</span>Program</a>
-          {!!present && (
-            <>
-              {survey.available && (
-                <a href="#ankieta" className={styles.navigationRevealed}><span>02</span>Ankieta</a>
-              )}
-              {ready && (
-                <a href="#certyfikat" className={styles.navigationRevealed}><span>03</span>Certyfikat</a>
-              )}
-              {event.coursesUnlocked ? (
-                <a href="#szkolenia" className={styles.navigationRevealed}><span>04</span>Szkolenia</a>
-              ) : (
-                <div className={styles.navigationLocked} role="group"
-                  aria-label="Szkolenia – dostępne po odblokowaniu przez organizatora">
-                  <span>04</span>Szkolenia później
-                </div>
-              )}
-            </>
+          {[
+            { number: "01", label: "Bilet", href: "#bilet", available: true },
+            { number: "02", label: "Program", href: "#program", available: true },
+            { number: "03", label: "Ankieta", href: "#ankieta", available: !!present && survey.available },
+            { number: "04", label: "Certyfikat", href: "#certyfikat", available: !!present && ready },
+            { number: "05", label: "Szkolenia", href: "#szkolenia", available: !!present && event.coursesUnlocked },
+          ].map((section) =>
+            section.available ? (
+              <a key={section.number} href={section.href} className={styles.navigationRevealed}>
+                <span>{section.number}</span>{section.label}
+              </a>
+            ) : (
+              <div key={section.number} className={styles.navigationLocked}
+                role="group" aria-label={`Sekcja ${section.number} - dostępna później`}
+                title="Ta sekcja zostanie odsłonięta później">
+                <span>{section.number}</span>
+                <i className={styles.hiddenLabel} aria-hidden="true" />
+              </div>
+            ),
           )}
         </nav>
 
@@ -226,7 +226,7 @@ export default async function Page({
           className={styles.card}
           aria-labelledby="program-title"
         >
-          <div className={styles.sectionLabel}>01 / Spotykamy się</div>
+          <div className={styles.sectionLabel}>02 / Spotykamy się</div>
           <h2 id="program-title">Program</h2>
           <p className={styles.eventName}>{event.name}</p>
           <p className={styles.detail}>
@@ -273,7 +273,7 @@ export default async function Page({
             aria-labelledby="survey-title"
           >
             <div className={styles.sectionLabel}>
-              02 / Twoja opinia ma znaczenie
+              03 / Twoja opinia ma znaczenie
             </div>
             <h2 id="survey-title">Ankieta</h2>
             <p>
@@ -301,7 +301,7 @@ export default async function Page({
             aria-labelledby="certificate-title"
           >
             <div className={styles.sectionLabel}>
-              03 / Twój udział ma znaczenie
+              04 / Twój udział ma znaczenie
             </div>
             <h2 id="certificate-title">Certyfikat</h2>
             <p>Twój imienny certyfikat udziału w konferencji już czeka.</p>
@@ -328,7 +328,7 @@ export default async function Page({
           className={styles.card}
           aria-labelledby="training-title"
         >
-          <div className={styles.sectionLabel}>04 / Rozwijaj się dalej</div>
+          <div className={styles.sectionLabel}>05 / Rozwijaj się dalej</div>
           <h2 id="training-title">Dostęp do szkoleń</h2>
           <>
               {courses.length ? (

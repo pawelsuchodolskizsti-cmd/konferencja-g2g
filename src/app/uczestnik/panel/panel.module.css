@@ -529,6 +529,9 @@
   text-align: center;
   padding-top: 12px;
 }
+.qrCard h2 {
+  text-align: left;
+}
 .qrImage {
   display: flex;
   align-items: center;
