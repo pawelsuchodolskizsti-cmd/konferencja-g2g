@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { operationalError } from "@/server/operational-error";
 import { jsonBody } from "@/server/http";
 import { AppError } from "@/server/errors";
 import {
@@ -51,6 +52,7 @@ export async function POST(
         : error instanceof z.ZodError || error instanceof SyntaxError
           ? 400
           : 503;
+    if (status === 503) operationalError("login", error);
     return Response.json(
       {
         error:
