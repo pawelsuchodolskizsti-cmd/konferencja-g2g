@@ -173,7 +173,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
           </label>
           <button disabled={busy || sending}>Zapisz szablon</button>
         </form>
-        <p className="muted">Pod wiadomością automatycznie dołączane są: indywidualny kod, kod QR i odnośnik do strefy uczestnika.</p>
+        <p className="muted">Wiadomość zawiera indywidualny kod i link do panelu uczestnika. Bez plików i kodów QR.</p>
       </section>
       <section className="card">
         <h2>Uczestnicy i postęp wysyłki</h2>
