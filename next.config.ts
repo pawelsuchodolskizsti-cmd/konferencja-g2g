@@ -15,6 +15,7 @@ const config: NextConfig = {
       "./assets/ClashDisplay-Semibold.ttf",
       "./public/branding/montserrat-bold.ttf",
       "./public/branding/g2g-horizontal.png",
+      "./public/branding/g2g-vertical.png",
     ],
   },
   async headers() {

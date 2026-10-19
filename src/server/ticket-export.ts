@@ -19,6 +19,15 @@ type Person = typeof participants.$inferSelect;
 type Event = typeof events.$inferSelect;
 export const TICKET_BATCH_SIZE = 50;
 let invitationBackground: Promise<Buffer> | undefined;
+let invitationLogo: Promise<Buffer> | undefined;
+function logoBytes() {
+  return (invitationLogo ??= readFile(
+    path.join(process.cwd(), "public/branding/g2g-vertical.png"),
+  ).catch((error) => {
+    invitationLogo = undefined;
+    throw error;
+  }));
+}
 function backgroundBytes() {
   // PDF-compatible copy of the participant panel's portrait background.
   return (invitationBackground ??= readFile(
@@ -87,6 +96,16 @@ export async function renderTicket(
       width,
       height,
     });
+    // Match the participant panel's centered watermark and 12% opacity.
+    const logo = await pdf.embedPng(await logoBytes());
+    const logoScale = Math.min(420 / logo.width, (595 * 0.85) / logo.height);
+    page.drawImage(logo, {
+      x: (420 - logo.width * logoScale) / 2,
+      y: 595 * 0.05 + (595 * 0.85 - logo.height * logoScale) / 2,
+      width: logo.width * logoScale,
+      height: logo.height * logoScale,
+      opacity: 0.12,
+    });
   }
   const center = (text: string, y: number, size: number) => {
     while (font.widthOfTextAtSize(text, size) > 372 && size > 5) size--;
@@ -143,7 +162,6 @@ export async function renderTicket(
   center("TWÓJ KOD DO STREFY UCZESTNIKA", 118, 9);
   center(String(accessCode), 82, 30);
   center(`${origin}/uczestnik`, 57, 11);
-  center("Dostęp do szkoleń po potwierdzeniu obecności.", 30, 9);
   return pdf.save();
 }
 
