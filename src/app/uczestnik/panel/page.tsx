@@ -249,6 +249,23 @@ export default async function Page({
           {event.info && <p className={styles.info}>{event.info}</p>}
         </section>
 
+        {!!present && files.length > 0 && (
+          <section className={styles.card} aria-labelledby="files-title">
+            <div className={styles.materials}>
+              <h2 id="files-title">Materiały konferencyjne</h2>
+                  {files.map((file) => (
+                    <a
+                      key={file.id}
+                      href={`/api/participant/materials/${file.id}`}
+                      download
+                    >
+                      {file.title}
+                      <span>PDF ↓</span>
+                    </a>
+                  ))}
+            </div>
+          </section>
+              )}
         {!!present && survey.available && (
           <section
             id="ankieta"
@@ -375,21 +392,7 @@ export default async function Page({
                   Organizator przygotowuje szkolenia.
                 </p>
               )}
-              {files.length > 0 && (
-                <div className={styles.materials}>
-                  <h3>Materiały konferencyjne</h3>
-                  {files.map((file) => (
-                    <a
-                      key={file.id}
-                      href={`/api/participant/materials/${file.id}`}
-                      download
-                    >
-                      {file.title}
-                      <span>PDF ↓</span>
-                    </a>
-                  ))}
-                </div>
-              )}
+
             </>
         </section>
 
