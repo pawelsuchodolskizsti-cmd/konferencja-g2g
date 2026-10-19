@@ -59,11 +59,17 @@ export async function invitation(
       timeZone: event.timezone,
     }).format(event.startsAt),
   };
+  const body = renderTemplate(event.mailBody, values);
+  const panelUrl = escapeHtml(`${appUrl()}/uczestnik`);
+  const code = escapeHtml(credentials.accessCode);
+  const codeParagraph = body.includes(credentials.accessCode)
+    ? ""
+    : `<p>Twój indywidualny kod dostępu: <strong>${code}</strong></p>`;
   return {
     from: event.mailFrom,
     to: person.email,
     subject: renderTemplate(event.mailSubject, values),
-    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a"><h1>${escapeHtml(event.name)}</h1><p style="white-space:pre-line">${escapeHtml(renderTemplate(event.mailBody, values)).replace(/\n/g, "<br>")}</p><p>Twój indywidualny kod dostępu: <strong>${credentials.accessCode}</strong></p><p><a href="${appUrl()}/uczestnik">Strefa uczestnika</a></p><p>Zachowaj wiadomość. Materiały i szkolenia będą dostępne po potwierdzeniu obecności, a certyfikat po zakończeniu konferencji.</p></div>`,
+    html: `<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.5"><h1>${escapeHtml(event.name)}</h1><p>Zaproszenie dla: ${escapeHtml(person.firstName)} ${escapeHtml(person.lastName)}</p><p>${escapeHtml(body).replace(/\r?\n/g, "<br>")}</p>${codeParagraph}<p>Strefa uczestnika: <a href="${panelUrl}">${panelUrl}</a></p><p>Zachowaj wiadomość. Materiały i szkolenia będą dostępne po potwierdzeniu obecności, a certyfikat po zakończeniu konferencji.</p><p>Fundacja One Day<br>Organizator konferencji ${escapeHtml(event.name)}<br>Kontakt: konferencja@oneday.com.pl</p><p>W razie pytań możesz odpowiedzieć na tę wiadomość.</p></div></body></html>`,
   };
 }
 export async function queueInvitations(

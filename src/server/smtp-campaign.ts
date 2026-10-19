@@ -1,6 +1,6 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
-import { and, eq, lt } from "drizzle-orm";
+import { createHash, randomUUID } from "node:crypto";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -8,13 +8,14 @@ import {
   emailLogs,
   events,
   participants,
+  rateLimits,
   smtpSettings,
 } from "@/db/schema";
 import { participantIdentity } from "@/lib/participant-identity";
 import { decrypt, encrypt } from "./crypto";
 import { assert, AppError } from "./errors";
 import { invitation } from "./mail";
-import { smtpDiagnostic } from "./smtp-message";
+import { smtpDiagnostic, smtpRetryDelay, SmtpFailure } from "./smtp-message";
 import { sendSmtp, verifySmtp } from "./smtp-transport";
 
 export const SMTP_ADDRESS = "konferencja@oneday.com.pl";
@@ -262,13 +263,14 @@ async function claimNext(eventId: string) {
           eq(participants.eventId, eventId),
           eq(emailLogs.kind, "INVITATION"),
           eq(emailLogs.status, "QUEUED"),
-          lt(emailLogs.nextAttemptAt, new Date(Date.now() + 1000)),
         ),
       )
-      .orderBy(emailLogs.createdAt)
+      .orderBy(emailLogs.nextAttemptAt, emailLogs.createdAt)
       .limit(1)
       .for("update", { skipLocked: true });
     if (!match) return null;
+    const scheduledWait = match.mail.nextAttemptAt.getTime() - Date.now();
+    if (scheduledWait > 0) return { retryAfterMs: scheduledWait };
     const [person] = await tx
       .select()
       .from(participants)
@@ -287,7 +289,8 @@ async function claimNext(eventId: string) {
       prior.some(
         (entry) =>
           entry.mail.id !== match.mail.id &&
-          entry.mail.status !== "QUEUED" &&
+          (entry.mail.status !== "QUEUED" ||
+            entry.mail.firstAttemptAt !== null) &&
           participantIdentity(entry.person) === participantIdentity(person),
       )
     ) {
@@ -295,8 +298,54 @@ async function claimNext(eventId: string) {
         .update(emailLogs)
         .set({ status: "ERROR", errorCode: "DUPLICATE_PARTICIPANT_BLOCKED" })
         .where(eq(emailLogs.id, match.mail.id));
-      return null;
+      return { retryAfterMs: 1 };
     }
+    // One database lock for this SMTP account across events, tabs and workers.
+    // No network calls while holding it. Expired entries can use normal cleanup.
+    const globalKey = `smtp:dispatch:${SMTP_ADDRESS}`;
+    const [globalLimit] = await tx
+      .insert(rateLimits)
+      .values({
+        key: globalKey,
+        count: 0,
+        resetsAt: new Date(0),
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: { count: sql`${rateLimits.count}` },
+      })
+      .returning();
+    const now = Date.now();
+    if (globalLimit.resetsAt.getTime() > now)
+      return { retryAfterMs: globalLimit.resetsAt.getTime() - now };
+    const mailboxKey = `smtp:mailbox:${createHash("sha256").update(person.email.trim().toLowerCase()).digest("hex")}`;
+    const [mailboxLimit] = await tx
+      .select()
+      .from(rateLimits)
+      .where(eq(rateLimits.key, mailboxKey));
+    if (mailboxLimit && mailboxLimit.resetsAt.getTime() > now) {
+      await tx
+        .update(emailLogs)
+        .set({ nextAttemptAt: mailboxLimit.resetsAt })
+        .where(eq(emailLogs.id, match.mail.id));
+      // Let other ready addresses advance instead of blocking the whole queue.
+      return { retryAfterMs: 1 };
+    }
+    await tx
+      .update(rateLimits)
+      .set({ resetsAt: new Date(now + 3000) })
+      .where(eq(rateLimits.key, globalKey));
+    await tx
+      .insert(rateLimits)
+      .values({
+        key: mailboxKey,
+        count: 0,
+        resetsAt: new Date(now + 30000),
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: { resetsAt: new Date(now + 30000) },
+      });
     const leaseToken = randomUUID();
     const [claimed] = await tx
       .update(emailLogs)
@@ -304,7 +353,7 @@ async function claimNext(eventId: string) {
         status: "SENDING",
         leaseToken,
         leaseUntil: new Date(Date.now() + 120000),
-        firstAttemptAt: new Date(),
+        firstAttemptAt: match.mail.firstAttemptAt || new Date(),
         attempts: match.mail.attempts + 1,
       })
       .where(eq(emailLogs.id, match.mail.id))
@@ -339,11 +388,17 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
       .where(and(eq(emailLogs.id, mail.id), eq(emailLogs.status, "SENDING")));
   }
   let sent = 0,
-    errors = 0;
+    errors = 0,
+    retryAfterMs = 0;
+  let stopped = false;
   const started = Date.now();
   for (let i = 0; i < 5 && Date.now() - started < 20000; i++) {
     const mail = await claimNext(eventId);
     if (!mail) break;
+    if ("retryAfterMs" in mail) {
+      retryAfterMs = mail.retryAfterMs;
+      break;
+    }
     try {
       const [person] = await db()
         .select()
@@ -366,7 +421,7 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
             eq(emailLogs.leaseToken, mail.leaseToken!),
           ),
         );
-      await sendSmtp(payload, password, messageId);
+      const receipt = await sendSmtp(payload, password, messageId);
       await db().transaction(async (tx) => {
         await tx
           .update(emailLogs)
@@ -386,17 +441,23 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
         await tx.insert(auditLogs).values({
           eventId,
           adminId,
-          action: "SMTP_EMAIL_ACCEPTED",
+          action: receipt?.queueId
+            ? `SMTP_EMAIL_ACCEPTED queue=${receipt.queueId}`
+            : "SMTP_EMAIL_ACCEPTED",
           targetId: mail.id,
         });
       });
       sent++;
     } catch (error) {
+      const retryDelay = smtpRetryDelay(error, mail.attempts);
       await db()
         .update(emailLogs)
         .set({
-          status: "ERROR",
+          status: retryDelay === null ? "ERROR" : "QUEUED",
           errorCode: smtpDiagnostic(error),
+          ...(retryDelay === null
+            ? {}
+            : { nextAttemptAt: new Date(Date.now() + retryDelay) }),
           leaseToken: null,
           leaseUntil: null,
         })
@@ -406,13 +467,24 @@ export async function processSmtpBatch(eventId: string, adminId: string) {
             eq(emailLogs.leaseToken, mail.leaseToken!),
           ),
         );
+      if (retryDelay !== null) {
+        retryAfterMs = retryDelay;
+        break;
+      }
       errors++;
-      break; // Nie kontynuuj kampanii, gdy serwer pocztowy zgłasza błąd.
+      // A permanently rejected recipient should not prevent other invitations.
+      if (!(
+        error instanceof SmtpFailure &&
+        error.stage === "RECIPIENT" &&
+        error.smtpCode &&
+        error.smtpCode >= 500
+      )) {
+        stopped = true;
+        break;
+      }
     }
-    if (process.env.NODE_ENV !== "test")
-      await new Promise((resolve) => setTimeout(resolve, 800));
   }
-  return { sent, errors };
+  return { sent, errors, retryAfterMs, stopped };
 }
 
 export async function sendSmtpTest(

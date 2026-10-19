@@ -36,7 +36,12 @@ const deliveryLabels: Record<string, string> = {
   SENDING: "W trakcie",
   ERROR: "Wymaga sprawdzenia",
 };
-type Batch = { sent: number; errors: number };
+type Batch = {
+  sent: number;
+  errors: number;
+  retryAfterMs?: number;
+  stopped?: boolean;
+};
 
 export function AdminMail({ eventId }: { eventId: string }) {
   const [status, setStatus] = useState<Status | null>(null);
@@ -149,13 +154,28 @@ export function AdminMail({ eventId }: { eventId: string }) {
           body: "{}",
         });
         lastStatus = await load();
-        if (batch.errors > 0) {
+        if (
+          batch.stopped ||
+          (batch.errors > 0 && batch.stopped === undefined)
+        ) {
           setError(
             "Wystąpił błąd SMTP. Wysyłka została zatrzymana; sprawdź dane skrzynki i statusy.",
           );
           break;
         }
-        if (batch.sent === 0) break;
+        if (active.current && lastStatus.queued > 0 && batch.retryAfterMs) {
+          setNotice(
+            `Wysyłka trwa. Przyjęte przez home.pl: ${lastStatus.sent}. W kolejce: ${lastStatus.queued}. Odstępy między wiadomościami ograniczają nagłe serie wysyłek.`,
+          );
+          await new Promise((resolve) =>
+            setTimeout(
+              resolve,
+              Math.min(30000, Math.max(1000, batch.retryAfterMs!)),
+            ),
+          );
+          continue;
+        }
+        if (batch.sent === 0 && batch.errors === 0) break;
       }
       if (
         active.current &&
@@ -166,6 +186,15 @@ export function AdminMail({ eventId }: { eventId: string }) {
       ) {
         setNotice(
           "Wszystkie wiadomości zostały przyjęte przez home.pl. Doręczenie do skrzynek odbiorców nie jest potwierdzone.",
+        );
+      } else if (
+        active.current &&
+        lastStatus.queued === 0 &&
+        lastStatus.sending === 0 &&
+        lastStatus.errors > 0
+      ) {
+        setNotice(
+          `Zakończono kolejkę. Przyjęte przez home.pl: ${lastStatus.sent}. Wymaga sprawdzenia: ${lastStatus.errors}. Rozwiń diagnostykę wiadomości poniżej.`,
         );
       } else if (
         active.current &&
@@ -197,6 +226,12 @@ export function AdminMail({ eventId }: { eventId: string }) {
         <p className="muted">
           Po zapisaniu hasła poczta nie zostanie wysłana automatycznie. Wysyłkę
           uruchamiasz osobnym przyciskiem.
+        </p>
+        <p className="muted">
+          Zaproszenia wysyłamy z odstępem co najmniej 3 sekund, a na ten sam
+          adres co najmniej 30 sekund. Zostaw tę kartę otwartą do zakończenia
+          wysyłki. Przyjęcie przez home.pl nie potwierdza doręczenia ani
+          umieszczenia w skrzynce odbiorczej.
         </p>
         <div className="formgrid">
           <div>
@@ -475,7 +510,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
         <p className="muted">
           Wysyłka odbywa się partiami. Pozostaw otwartą kartę do zakończenia; po
           jej zamknięciu można wznowić pozostałą kolejkę. W przypadku niepewnego
-          wyniku SMTP nie ponawiamy wiadomości automatycznie.
+          wyniku SMTP nie ponawiamy wiadomości automatycznie. Chwilowe błędy
+          przed przyjęciem wiadomości ponawiamy najwyżej dwukrotnie.
         </p>
         <button
           disabled={
@@ -513,7 +549,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
           <p>
             Identyfikator i czas pomagają odszukać wiadomość w logach home.pl.
             Starsze wiadomości mogą nie mieć zapisanego identyfikatora. Błędy
-            nie powodują automatycznego ponowienia.
+            niejednoznaczne wymagają ręcznej weryfikacji. W kolejce mogą być
+            również bezpieczne ponowienia po chwilowym odrzuceniu przez SMTP.
           </p>
           <div className="tablewrap">
             <table>

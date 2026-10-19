@@ -5,6 +5,7 @@ import {
   validAddress,
   validateSmtpResponse,
   SmtpFailure,
+  smtpQueueId,
   type SmtpStage,
 } from "./smtp-message";
 import { createInterface } from "node:readline";
@@ -42,7 +43,7 @@ async function smtpSession(
   password: string,
   payload?: MailPayload,
   messageId?: string,
-): Promise<void> {
+): Promise<{ queueId: string | null }> {
   if (!password) throw new Error("Brak hasła SMTP.");
   const message = payload ? makeMessage(payload, messageId) : null;
   let socket: TLSSocket;
@@ -53,6 +54,7 @@ async function smtpSession(
   }
   let stage: SmtpStage = "GREETING";
   let accepted = false;
+  let queueId: string | null = null;
   socket.setTimeout(30000, () => socket.destroy(new Error("SMTP timeout")));
   socket.on("error", () => {
     /* obsługa rozłączenia podczas odczytu */
@@ -67,7 +69,7 @@ async function smtpSession(
       if (!/^\d{3}[ -]/.test(line)) throw new SmtpFailure(stage);
       if (line[3] === " ") {
         validateSmtpResponse(line, expected, stage);
-        return;
+        return line;
       }
     }
   }
@@ -98,7 +100,7 @@ async function smtpSession(
       await response([354]);
       stage = "ACCEPTANCE";
       socket.write(message + "\r\n.\r\n");
-      await response([250]);
+      queueId = smtpQueueId(await response([250]));
       accepted = true;
     }
     stage = "QUIT";
@@ -112,6 +114,7 @@ async function smtpSession(
     lines.close();
     socket.destroy();
   }
+  return { queueId };
 }
 
 export async function sendSmtp(
@@ -119,7 +122,7 @@ export async function sendSmtp(
   password: string,
   messageId?: string,
 ) {
-  await smtpSession(password, payload, messageId);
+  return smtpSession(password, payload, messageId);
 }
 export async function verifySmtp(password: string) {
   // Tylko EHLO i uwierzytelnienie. Bez MAIL FROM, RCPT TO i DATA.

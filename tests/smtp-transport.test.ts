@@ -5,6 +5,8 @@ import {
   smtpDiagnostic,
   SmtpFailure,
   validateSmtpResponse,
+  smtpQueueId,
+  smtpRetryDelay,
 } from "../src/server/smtp-message";
 const scenario = vi.hoisted(() => ({
   recipient: 250,
@@ -38,7 +40,10 @@ vi.mock("node:tls", async () => {
           else if (line === "DATA\r\n") reply = "354 continue";
           else if (line.startsWith("From:")) {
             scenario.sent++;
-            reply = scenario.dataCode + " 5.7.1 policy";
+            reply =
+              scenario.dataCode === 250
+                ? "250 2.0.0 Ok: queued as ABC123"
+                : scenario.dataCode + " 5.7.1 policy";
           } else if (line === "QUIT\r\n") {
             if (scenario.quitDisconnect) {
               queueMicrotask(() => socket.push(null));
@@ -131,15 +136,36 @@ test("diagnostics keep stage and codes but never raw replies or secrets", () => 
     "SMTP_CONNECT_CONNECTION",
   );
 });
+test("only definite non-acceptance is retried, with a strict attempt limit", () => {
+  expect(smtpRetryDelay(new SmtpFailure("CONNECT"), 1)).toBe(60000);
+  expect(smtpRetryDelay(new SmtpFailure("RECIPIENT", 450), 2)).toBe(120000);
+  expect(smtpRetryDelay(new SmtpFailure("ACCEPTANCE", 451), 1)).toBe(60000);
+  expect(smtpRetryDelay(new SmtpFailure("ACCEPTANCE"), 1)).toBeNull();
+  expect(smtpRetryDelay(new SmtpFailure("RECIPIENT", 550), 1)).toBeNull();
+  expect(smtpRetryDelay(new SmtpFailure("AUTH", 535), 1)).toBeNull();
+  expect(smtpRetryDelay(new SmtpFailure("CONNECT"), 3)).toBeNull();
+  expect(smtpRetryDelay(new Error("unknown"), 1)).toBeNull();
+});
 test("accepted DATA remains successful if QUIT disconnects, and RCPT 251 is accepted", async () => {
   scenario.recipient = 251;
   scenario.quitDisconnect = true;
   scenario.dataCode = 250;
   scenario.sent = 0;
-  await expect(
-    sendSmtp(payload, "synthetic-password"),
-  ).resolves.toBeUndefined();
+  await expect(sendSmtp(payload, "synthetic-password")).resolves.toEqual({
+    queueId: "ABC123",
+  });
   expect(scenario.sent).toBe(1);
+});
+test("queue receipt extracts only an ID and plain text does not repeat visible URLs", () => {
+  expect(smtpQueueId("250 2.0.0 Ok: queued as ABC123")).toBe("ABC123");
+  expect(smtpQueueId("250 OK private@example.org")).toBeNull();
+  expect(smtpQueueId("550 queued as ABC123")).toBeNull();
+  expect(smtpQueueId("250 queued as private@example.org")).toBeNull();
+  expect(
+    htmlToText(
+      '<html><head><title>hidden metadata</title></head><body><a href="https://example.org">https://example.org</a></body></html>',
+    ),
+  ).toBe("https://example.org");
 });
 test("recipient rejection stops before DATA and reports a safe error", async () => {
   scenario.recipient = 550;

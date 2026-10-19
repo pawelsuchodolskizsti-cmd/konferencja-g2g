@@ -30,6 +30,25 @@ export function smtpDiagnostic(error: unknown): string {
   if (!(error instanceof SmtpFailure)) return "REVIEW_REQUIRED";
   return error.message + (error.enhancedCode ? "_" + error.enhancedCode : "");
 }
+export function smtpRetryDelay(
+  error: unknown,
+  attempts: number,
+): number | null {
+  if (!(error instanceof SmtpFailure) || attempts >= 3) return null;
+  // Explicit temporary rejection means the server did not accept the message.
+  if (error.smtpCode && error.smtpCode >= 400 && error.smtpCode < 500)
+    return attempts * 60000;
+  // A disconnect before the body is sent is also safe to retry. Once DATA has
+  // been written, a lost response may hide acceptance: never retry that case.
+  if (
+    !error.smtpCode &&
+    ["CONNECT", "GREETING", "EHLO", "FROM", "RECIPIENT", "DATA"].includes(
+      error.stage,
+    )
+  )
+    return attempts * 60000;
+  return null;
+}
 export function validateSmtpResponse(
   line: string,
   expected: number[],
@@ -74,8 +93,13 @@ function base64Lines(value: string | Buffer) {
 }
 export function htmlToText(html: string) {
   return html
+    .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, "")
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
+    .replace(
+      /<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+      (_, url: string, label: string) =>
+        label === url ? url : `${label} (${url})`,
+    )
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(?:p|div|h[1-6]|li)>/gi, "\n\n")
     .replace(/<[^>]*>/g, "")
@@ -94,6 +118,13 @@ export function htmlToText(html: string) {
     )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+// Keep only a bounded queue token, never the raw SMTP reply (which may contain PII).
+export function smtpQueueId(reply: string) {
+  return (
+    reply.match(/^250\b.*\bqueued as ([a-zA-Z0-9_-]{1,100})(?:\s|$)/i)?.[1] ??
+    null
+  );
 }
 export function makeMessage(
   payload: Payload,

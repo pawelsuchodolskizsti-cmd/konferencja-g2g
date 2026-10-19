@@ -1,4 +1,12 @@
-import { beforeAll, afterAll, expect, test, vi } from "vitest";
+import {
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+  expect,
+  test,
+  vi,
+} from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFile } from "node:fs/promises";
@@ -16,6 +24,7 @@ vi.mock("../src/server/smtp-transport", () => ({
   sendSmtp: vi.fn(
     async (payload: { to: string; html: string; attachments?: unknown[] }) => {
       fixture.sent.push(payload);
+      return { queueId: "SYNTHETIC123" };
     },
   ),
   verifySmtp: vi.fn(async () => undefined),
@@ -33,6 +42,15 @@ const pg = new PGlite();
 const database = drizzle(pg);
 let eventId: string;
 let adminId: string;
+let clock = Date.now() + 60000;
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(clock);
+});
+afterEach(() => {
+  clock = Date.now() + 60000;
+  vi.useRealTimers();
+});
 
 beforeAll(async () => {
   process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
@@ -86,6 +104,29 @@ afterAll(async () => {
   await pg.close();
 });
 
+async function extraEvent(slug: string, addresses: string[]) {
+  const [base] = await database
+    .select()
+    .from(s.events)
+    .where(eq(s.events.id, eventId));
+  const [event] = await database
+    .insert(s.events)
+    .values({ ...base, id: undefined, slug })
+    .returning();
+  await database.insert(s.participants).values(
+    addresses.map((email, i) => ({
+      eventId: event.id,
+      email,
+      firstName: `Osoba${i}`,
+      lastName: slug,
+      ...newCredentials(),
+    })),
+  );
+  await saveSmtpPassword(event.id, adminId, { password: "synthetic-only" });
+  await startSmtpCampaign(event.id, adminId);
+  return event.id;
+}
+
 test("password saves encrypted, without queueing or sending mail", async () => {
   await saveSmtpPassword(eventId, adminId, {
     password: "synthetic-test-password",
@@ -107,7 +148,7 @@ test("each participant with the same email gets a separate queued invitation", a
   expect(logs.every((log) => log.status === "QUEUED")).toBe(true);
 });
 
-test("250 participant invitations survive 10 concurrent mock-SMTP workers with duplicate addresses", async () => {
+test("250 invitations preserve separate recipients and obey pacing across 10 concurrent workers", async () => {
   const [stressEvent] = await database
     .insert(s.events)
     .values({
@@ -140,16 +181,29 @@ test("250 participant invitations survive 10 concurrent mock-SMTP workers with d
   expect((await startSmtpCampaign(event, adminId)).queued).toBe(0);
   fixture.sent.length = 0;
 
-  for (let round = 0; round < 5; round++) {
-    await Promise.all(
-      Array.from({ length: 10 }, () => processSmtpBatch(event, adminId)),
-    );
+  const concurrent = await Promise.all(
+    Array.from({ length: 10 }, () => processSmtpBatch(event, adminId)),
+  );
+  expect(concurrent.reduce((sum, batch) => sum + batch.sent, 0)).toBe(1);
+  expect(concurrent.every((batch) => batch.retryAfterMs > 0)).toBe(true);
+  for (let round = 1; round < 250; round++) {
+    vi.setSystemTime(Date.now() + 3000);
+    expect((await processSmtpBatch(event, adminId)).sent).toBe(1);
   }
   const final = await smtpOverview(event);
   expect(final.queued).toBe(0);
   expect(final.errors).toBe(0);
   expect(final.sent).toBe(250);
   expect(fixture.sent).toHaveLength(250);
+  const receipts = await database
+    .select()
+    .from(s.auditLogs)
+    .where(eq(s.auditLogs.eventId, event));
+  expect(
+    receipts.filter(
+      (r) => r.action === "SMTP_EMAIL_ACCEPTED queue=SYNTHETIC123",
+    ),
+  ).toHaveLength(250);
   expect(new Set(fixture.sent.map((payload) => payload.to)).size).toBe(25);
   expect(
     fixture.sent.every(
@@ -173,12 +227,43 @@ test("250 participant invitations survive 10 concurrent mock-SMTP workers with d
   expect(new Set(codes).size).toBe(250);
   for (const code of codes) {
     expect(
-      fixture.sent.filter((payload) =>
-        payload.html.includes(`<strong>${code}</strong>`),
-      ),
+      fixture.sent.filter((payload) => payload.html.includes(code)),
     ).toHaveLength(1);
   }
 }, 180000);
+
+test("invitation identifies the recipient and organizer without duplicating a code already in the template", async () => {
+  const { invitation } = await import("../src/server/mail");
+  const { htmlToText } = await import("../src/server/smtp-message");
+  const [event] = await database
+    .select()
+    .from(s.events)
+    .where(eq(s.events.id, eventId));
+  const [person] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, eventId));
+  const code = JSON.parse(decrypt(person.credentials)).accessCode as string;
+  for (const mailBody of [
+    "Witaj {{firstName}}, Twój kod: {{accessCode}}",
+    "Zapraszamy na {{eventName}}.",
+  ]) {
+    const mail = await invitation(
+      { ...person, firstName: "<Anna>" },
+      { ...event, mailBody },
+    );
+    const text = htmlToText(mail.html);
+    expect(text).toContain(`Zaproszenie dla: <Anna> ${person.lastName}`);
+    expect(text.split(code)).toHaveLength(2);
+    expect(text.split("https://conference.example.org/uczestnik")).toHaveLength(
+      2,
+    );
+    expect(text).toContain("Fundacja One Day");
+    expect(text).toContain("konferencja@oneday.com.pl");
+    expect(mail.html).not.toContain("<Anna>");
+    expect(mail.html).toContain('<html lang="pl">');
+  }
+});
 
 test("SMTP diagnostics retain safe failure code and message ID without retrying accepted or failed invitations", async () => {
   vi.mocked(sendSmtp).mockRejectedValueOnce(
@@ -191,6 +276,11 @@ test("SMTP diagnostics retain safe failure code and message ID without retrying 
   expect(failed.errorCode).toBe("SMTP_RECIPIENT_550_5.1.1");
   expect(failed.messageId).toMatch(/^<invitation-.*@oneday\.com\.pl>$/);
   expect((await startSmtpCampaign(eventId, adminId)).queued).toBe(0);
+  vi.setSystemTime(Date.now() + 3000);
+  const waiting = await processSmtpBatch(eventId, adminId);
+  expect(waiting.sent).toBe(0);
+  expect(waiting.retryAfterMs).toBeGreaterThan(0);
+  vi.setSystemTime(Date.now() + 27000);
   const rest = await processSmtpBatch(eventId, adminId);
   expect(rest.sent).toBe(1);
   expect((await smtpOverview(eventId)).errors).toBe(1);
@@ -309,11 +399,61 @@ test("legacy duplicate record never receives a new invitation after first identi
   await database
     .insert(s.emailLogs)
     .values({ participantId: duplicate.id, kind: "INVITATION" });
-  for (let i = 0; i < 3; i++) await processSmtpBatch(eventId, adminId);
+  for (let i = 0; i < 3; i++) {
+    await processSmtpBatch(eventId, adminId);
+    vi.setSystemTime(Date.now() + 30000);
+  }
   const [log] = await database
     .select()
     .from(s.emailLogs)
     .where(eq(s.emailLogs.participantId, duplicate.id));
   expect(log.status).toBe("ERROR");
   expect(log.errorCode).toBe("DUPLICATE_PARTICIPANT_BLOCKED");
+});
+
+test("global pacing covers different events and a waiting mailbox does not block other recipients", async () => {
+  const first = await extraEvent("pacing-a", ["pacing@example.org"]);
+  const second = await extraEvent("pacing-b", [
+    "pacing@example.org",
+    "other@example.org",
+  ]);
+  expect((await processSmtpBatch(first, adminId)).sent).toBe(1);
+  expect((await processSmtpBatch(second, adminId)).retryAfterMs).toBe(3000);
+  vi.setSystemTime(Date.now() + 3000);
+  expect((await processSmtpBatch(second, adminId)).sent).toBe(0);
+  expect((await processSmtpBatch(second, adminId)).sent).toBe(1);
+  vi.setSystemTime(Date.now() + 27000);
+  expect((await processSmtpBatch(second, adminId)).sent).toBe(1);
+});
+
+test("temporary pre-acceptance failure retries safely, while an ambiguous DATA result is never resent", async () => {
+  const event = await extraEvent("safe-retry", ["safe-retry@example.org"]);
+  vi.mocked(sendSmtp).mockRejectedValueOnce(new SmtpFailure("CONNECT"));
+  const failed = await processSmtpBatch(event, adminId);
+  expect(failed).toMatchObject({
+    sent: 0,
+    errors: 0,
+    retryAfterMs: 60000,
+    stopped: false,
+  });
+  const before = (await smtpOverview(event)).diagnostics[0];
+  expect(before.status).toBe("QUEUED");
+  vi.setSystemTime(Date.now() + 60000);
+  expect((await processSmtpBatch(event, adminId)).sent).toBe(1);
+  const accepted = (await smtpOverview(event)).diagnostics[0];
+  expect(accepted.attemptedAt).toEqual(before.attemptedAt);
+  expect(accepted.messageId).toBe(before.messageId);
+  expect((await processSmtpBatch(event, adminId)).sent).toBe(0);
+
+  vi.setSystemTime(Date.now() + 60000);
+  const uncertain = await extraEvent("uncertain-retry", [
+    "uncertain@example.org",
+  ]);
+  vi.mocked(sendSmtp).mockRejectedValueOnce(new SmtpFailure("ACCEPTANCE"));
+  expect(await processSmtpBatch(uncertain, adminId)).toMatchObject({
+    errors: 1,
+    stopped: true,
+  });
+  expect((await startSmtpCampaign(uncertain, adminId)).queued).toBe(0);
+  expect((await processSmtpBatch(uncertain, adminId)).sent).toBe(0);
 });
