@@ -3,7 +3,8 @@ import {
   PARTICIPANT_PRIVACY_VERSION,
   PARTICIPANT_PRIVACY_ACTION,
 } from "@/lib/participant-privacy";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { retryDatabase } from "./database-retry";
 import { cookies } from "next/headers";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
@@ -32,21 +33,23 @@ export async function limit(
   database: Database = db(),
 ) {
   const now = new Date();
-  const [row] = await database
-    .insert(rateLimits)
-    .values({
-      key: hashToken(key),
-      count: 1,
-      resetsAt: new Date(now.getTime() + seconds * 1000),
-    })
-    .onConflictDoUpdate({
-      target: rateLimits.key,
-      set: {
-        count: sql`CASE WHEN ${rateLimits.resetsAt} <= ${now.toISOString()} THEN 1 ELSE ${rateLimits.count} + 1 END`,
-        resetsAt: sql`CASE WHEN ${rateLimits.resetsAt} <= ${now.toISOString()} THEN ${new Date(now.getTime() + seconds * 1000).toISOString()} ELSE ${rateLimits.resetsAt} END`,
-      },
-    })
-    .returning();
+  const [row] = await retryDatabase("rate-limit", async () =>
+    database
+      .insert(rateLimits)
+      .values({
+        key: hashToken(key),
+        count: 1,
+        resetsAt: new Date(now.getTime() + seconds * 1000),
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: {
+          count: sql`CASE WHEN ${rateLimits.resetsAt} <= ${now.toISOString()} THEN 1 ELSE ${rateLimits.count} + 1 END`,
+          resetsAt: sql`CASE WHEN ${rateLimits.resetsAt} <= ${now.toISOString()} THEN ${new Date(now.getTime() + seconds * 1000).toISOString()} ELSE ${rateLimits.resetsAt} END`,
+        },
+      })
+      .returning(),
+  );
   assert(
     row.count <= maximum,
     429,
@@ -213,18 +216,57 @@ export async function loginParticipant(
     401,
     "Nieprawidłowy kod uczestnika.",
   );
-  const [person] = await db()
-    .select({ id: participants.id, eventId: participants.eventId })
-    .from(participants)
-    .where(eq(participants.accessHash, hashToken(normalized)));
-  assert(person, 401, "Nieprawidłowy kod uczestnika.");
-  await requireAttendance(person.id);
-  await db().insert(auditLogs).values({
-    eventId: person.eventId,
-    targetId: person.id,
-    action: PARTICIPANT_PRIVACY_ACTION,
+  // Stable identifiers make retries safe even if the connection disappears
+  // after COMMIT but before its acknowledgement reaches this function.
+  const token = randomBytes(32).toString("base64url");
+  const auditId = randomUUID();
+  const maxAge = 24 * 3600;
+  const expiresAt = new Date(Date.now() + maxAge * 1000);
+  await retryDatabase(
+    "participant-login",
+    () =>
+      db().transaction(async (tx) => {
+        const [person] = await tx
+          .select({ id: participants.id, eventId: participants.eventId })
+          .from(participants)
+          .where(eq(participants.accessHash, hashToken(normalized)));
+        assert(person, 401, "Nieprawidłowy kod uczestnika.");
+        const [present] = await tx
+          .select({ id: attendance.id })
+          .from(attendance)
+          .where(eq(attendance.participantId, person.id));
+        assert(
+          present,
+          403,
+          "Panel jest dostępny po zeskanowaniu biletu i potwierdzeniu obecności. Zgłoś się do obsługi konferencji.",
+        );
+        await tx
+          .insert(auditLogs)
+          .values({
+            id: auditId,
+            eventId: person.eventId,
+            targetId: person.id,
+            action: PARTICIPANT_PRIVACY_ACTION,
+          })
+          .onConflictDoNothing();
+        await tx
+          .insert(sessions)
+          .values({
+            participantId: person.id,
+            tokenHash: hashToken(token),
+            expiresAt,
+          })
+          .onConflictDoNothing();
+      }),
+    true,
+  );
+  (await cookies()).set("participant_session", token, {
+    httpOnly: true,
+    secure: process.env.APP_URL?.startsWith("https://"),
+    sameSite: "lax",
+    path: "/",
+    maxAge,
   });
-  await createSession({ participantId: person.id });
 }
 export async function logout(admin: boolean) {
   const name = admin ? "admin_session" : "participant_session";

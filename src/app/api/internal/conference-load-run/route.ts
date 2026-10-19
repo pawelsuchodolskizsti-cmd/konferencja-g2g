@@ -112,6 +112,7 @@ export async function POST(req: Request) {
                     throw Error("Not PDF");
                   let size = 0,
                     tail = "";
+                  const digest = createHash("sha256");
                   const reader = r.body!.getReader();
                   for (;;) {
                     const { value, done } = await reader.read();
@@ -122,6 +123,7 @@ export async function POST(req: Request) {
                     )
                       throw Error("Invalid PDF header");
                     size += value.length;
+                    digest.update(value);
                     tail = Buffer.from(value).subarray(-100).toString();
                   }
                   if (
@@ -131,6 +133,8 @@ export async function POST(req: Request) {
                   )
                     throw Error("Incomplete PDF");
                   row.bytes = size;
+                  if (r.headers.get("etag") !== `"${digest.digest("hex")}"`)
+                    throw Error("PDF integrity check failed");
                 }
               } catch (e) {
                 row.error = e instanceof Error ? e.message : String(e);

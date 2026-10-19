@@ -5,6 +5,7 @@ import { auditLogs, certificates, participants } from "@/db/schema";
 import { certificateAvailable, presentParticipant } from "./attendance";
 import { assert, AppError } from "./errors";
 import { renderCertificateParts } from "./certificate-pdf";
+import { retryDatabase } from "./database-retry";
 export { renderCertificate } from "./certificate-pdf";
 async function certificateInput(participantId: string, database: Database) {
   const { person, event } = await presentParticipant(participantId, database);
@@ -40,38 +41,45 @@ export async function generateCertificate(
   database: Database = db(),
 ) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const initial = await certificateInput(participantId, database);
+    const initial = await retryDatabase(
+      "certificate-input",
+      () => certificateInput(participantId, database),
+      true,
+    );
     // No database connection or row lock is held while rendering the PDF.
     const parts = await renderCertificateParts(initial.input);
-    const completed = await database.transaction(async (tx) => {
-      await tx
-        .select({ id: participants.id })
-        .from(participants)
-        .where(eq(participants.id, participantId))
-        .for("update");
-      const current = await certificateInput(
-        participantId,
-        tx as unknown as Database,
-      );
-      if (JSON.stringify(current.input) !== JSON.stringify(initial.input))
-        return false;
-      if (!current.existing) {
-        const inserted = await tx
-          .insert(certificates)
-          .values({ participantId, number: current.input.number })
-          .onConflictDoNothing()
-          .returning();
-        if (inserted.length)
+    const completed = await retryDatabase(
+      "certificate-issue",
+      () =>
+        database.transaction(async (tx) => {
           await tx
-            .insert(auditLogs)
-            .values({
-              eventId: current.eventId,
-              action: "CERTIFICATE_GENERATED",
-              targetId: participantId,
-            });
-      }
-      return true;
-    });
+            .select({ id: participants.id })
+            .from(participants)
+            .where(eq(participants.id, participantId))
+            .for("update");
+          const current = await certificateInput(
+            participantId,
+            tx as unknown as Database,
+          );
+          if (JSON.stringify(current.input) !== JSON.stringify(initial.input))
+            return false;
+          if (!current.existing) {
+            const inserted = await tx
+              .insert(certificates)
+              .values({ participantId, number: current.input.number })
+              .onConflictDoNothing()
+              .returning();
+            if (inserted.length)
+              await tx.insert(auditLogs).values({
+                eventId: current.eventId,
+                action: "CERTIFICATE_GENERATED",
+                targetId: participantId,
+              });
+          }
+          return true;
+        }),
+      true,
+    );
     if (completed)
       return {
         parts,

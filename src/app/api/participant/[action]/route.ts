@@ -1,4 +1,4 @@
-import { pdfStream } from "@/server/incremental-pdf";
+import { pdfDownload } from "@/server/pdf-download";
 import { requireParticipant, requestOrigin, limit } from "@/server/auth";
 import { participantCourses } from "@/server/training";
 import { generateCertificate } from "@/server/certificates";
@@ -22,14 +22,7 @@ export async function GET(req: Request, ctx: Context) {
     if (action === "certificate") {
       await limit(`pdf:${person.id}`, 10, 60);
       const { parts } = await generateCertificate(person.id);
-      const body = pdfStream(parts);
-      return new Response(body, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'attachment; filename="certyfikat.pdf"',
-          "Cache-Control": "private, no-store",
-        },
-      });
+      return pdfDownload(req, parts);
     }
     throw new AppError(404, "Nie znaleziono.");
   } catch (error) {

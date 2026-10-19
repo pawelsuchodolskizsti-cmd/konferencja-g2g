@@ -9,9 +9,17 @@ function createDb() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL missing");
   const local = process.env.APP_ENV === "development";
-  return drizzle(postgres(url, { max: local ? 1 : 5, prepare: local }), {
-    schema,
-  });
+  return drizzle(
+    postgres(url, {
+      max: local ? 1 : 2,
+      prepare: local,
+      idle_timeout: 20,
+      connect_timeout: 15,
+    }),
+    {
+      schema,
+    },
+  );
 }
 export function db() {
   return (globalDb.conferenceDatabase ??= createDb());

@@ -9,5 +9,11 @@ export function operationalError(operation: string, error: unknown) {
       codes.push(item.code);
     current = item.cause;
   }
-  console.error(JSON.stringify({ operation, codes, type: error instanceof Error ? error.name : "unknown" }));
+  console.error(
+    JSON.stringify({
+      operation,
+      codes,
+      type: error instanceof Error ? error.name : "unknown",
+    }),
+  );
 }

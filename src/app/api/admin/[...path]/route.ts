@@ -1,4 +1,4 @@
-import { pdfStream } from "@/server/incremental-pdf";
+import { pdfDownload } from "@/server/pdf-download";
 import {
   listArchives,
   createArchive,
@@ -350,13 +350,7 @@ async function handle(req: Request, ctx: Context) {
         await participantRecord(eventId, id);
         const { parts } = await generateCertificate(id);
         await audit(eventId, admin.id, "ADMIN_CERTIFICATE_DOWNLOADED", id);
-        return new Response(pdfStream(parts), {
-          headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition": 'attachment; filename="certyfikat.pdf"',
-            "Cache-Control": "private, no-store",
-          },
-        });
+        return pdfDownload(req, parts);
       }
       assert(!path[4], 404, "Nie znaleziono operacji.");
       if (req.method === "PATCH")

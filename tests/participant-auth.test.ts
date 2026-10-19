@@ -178,3 +178,25 @@ test("repeated code guesses remain limited independently of other users", async 
     ),
   ).resolves.toBeUndefined();
 });
+
+test("lost commit acknowledgement does not duplicate a session or privacy record", async () => {
+  const beforeSessions = await database.select().from(schema.sessions);
+  const beforeAudit = await database.select().from(schema.auditLogs);
+  const transaction = database.transaction.bind(database);
+  let loseAcknowledgement = true;
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const spy = vi.spyOn(database, "transaction").mockImplementation(async (...args) => {
+    const result = await transaction(...args);
+    if (loseAcknowledgement) {
+      loseAcknowledgement = false;
+      throw Object.assign(new Error("simulated connection loss after commit"), { code: "ECONNRESET" });
+    }
+    return result;
+  });
+  try {
+    await loginParticipant("W00001", "retry-test", true, PARTICIPANT_PRIVACY_VERSION);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(await database.select().from(schema.sessions)).toHaveLength(beforeSessions.length + 1);
+    expect(await database.select().from(schema.auditLogs)).toHaveLength(beforeAudit.length + 1);
+  } finally { spy.mockRestore(); log.mockRestore(); }
+});
