@@ -110,7 +110,11 @@ test("filters and explicit selection agree for screen and export, invalid scope 
   const csv = await (
     await exportReport(eventId, adminId, "attendance", { filter: "absent" })
   ).text();
-  expect(csv).not.toContain("anna@example.test");
+  // Osoba bez obecności może mieć ten sam e-mail co osoba z obecnością.
+  // Filtr musi działać po identyfikatorze uczestnika, nie po adresie.
+  expect(csv).toContain("anna@example.test");
+  const absent = await selectedPeople(eventId, { filter: "absent" });
+  expect(absent.every((person) => person.id !== personId)).toBe(true);
   const filtered = await (
     await exportReport(eventId, adminId, "attendance", { q: "Anna" })
   ).text();
