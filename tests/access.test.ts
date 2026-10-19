@@ -23,6 +23,7 @@ beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0009_courses_unlock.sql", "utf8"));
   const [a] = await database
     .insert(s.admins)
     .values({ email: "test@example.org", passwordHash: "unused" })
