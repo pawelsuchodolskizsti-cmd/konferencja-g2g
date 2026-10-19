@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import * as XLSX from "xlsx";
 import { safeCsv, spreadsheet, validateRows } from "../src/server/imports";
-test("import validates bad emails and duplicates both in file and database", () => {
+test("import accepts duplicate emails as individual participants", () => {
   const result = validateRows(
     [
       ["Imię", "Nazwisko", "Email"],
@@ -12,10 +12,10 @@ test("import validates bad emails and duplicates both in file and database", () 
     ],
     new Set(["existing@example.org"]),
   );
-  expect(result.filter((r) => !r.errors.length)).toHaveLength(1);
-  expect(result[1].errors).toContain("Duplikat w pliku");
+  expect(result.filter((r) => !r.errors.length)).toHaveLength(3);
+  expect(result[1].errors).toHaveLength(0);
   expect(result[2].errors).toHaveLength(2);
-  expect(result[3].errors).toContain("Uczestnik już istnieje");
+  expect(result[3].errors).toHaveLength(0);
 });
 test("real XLSX roundtrip retains Polish column labels", async () => {
   const book = XLSX.utils.book_new();
