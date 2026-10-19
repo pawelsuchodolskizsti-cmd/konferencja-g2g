@@ -53,7 +53,7 @@ export function ParticipantProgram({
               {state === "before"
                 ? `Zaczynamy ${date} o ${next?.start}.`
                 : state === "after"
-                  ? "Wszystkie punkty programu już się zakończyły."
+                  ? "Dziękujemy, że byliście z nami! Cieszymy się, że wspólnie spędziliśmy ten dzień."
                   : state === "empty"
                     ? "Program pojawi się wkrótce."
                     : "Chwila przerwy przed kolejnym punktem programu."}
