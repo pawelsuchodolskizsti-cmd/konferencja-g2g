@@ -15,6 +15,7 @@ beforeAll(async () => {
   await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0008_smtp_campaign.sql", "utf8"));
   const [e] = await db
     .insert(s.events)
     .values({
@@ -44,20 +45,20 @@ beforeAll(async () => {
 afterAll(async () => {
   await pg.close();
 });
-test("migration enforces one attendance record and one email per event", async () => {
+test("migration enforces one attendance record and allows duplicate emails", async () => {
   await db.insert(s.attendance).values({ participantId, method: "QR" });
   await expect(
     db.insert(s.attendance).values({ participantId, method: "MANUAL" }),
   ).rejects.toThrow();
-  await expect(
-    db.insert(s.participants).values({
-      eventId,
-      firstName: "A",
-      lastName: "B",
-      email: "test@example.org",
-      ...newCredentials(),
-    }),
-  ).rejects.toThrow();
+  const [sameEmail] = await db.insert(s.participants).values({
+    eventId,
+    firstName: "A",
+    lastName: "B",
+    email: "test@example.org",
+    ...newCredentials(),
+  }).returning();
+  expect(sameEmail.email).toBe("test@example.org");
+  expect(sameEmail.id).not.toBe(participantId);
 });
 test("database disallows certificates unlocking before event ends", async () => {
   await expect(

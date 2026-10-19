@@ -73,16 +73,14 @@ beforeAll(async () => {
   ).id;
 });
 afterAll(() => pg.close());
-test("manual participant creation does not grant attendance and rejects duplicate email", async () => {
+test("manual participant creation does not grant attendance and permits shared email", async () => {
   expect(await database.select().from(s.attendance)).toHaveLength(0);
-  await expect(
-    createParticipant(
-      eventId,
-      adminId,
-      { firstName: "Anna", lastName: "Testowa", email: "anna@example.test" },
-      db,
-    ),
-  ).rejects.toThrow();
+  const second = await createParticipant(
+    eventId, adminId,
+    { firstName: "Anna", lastName: "Testowa", email: "anna@example.test" }, db,
+  );
+  expect(second.id).not.toBe(personId);
+  expect((await database.select().from(s.participants)).filter(p => p.email === "anna@example.test")).toHaveLength(2);
 });
 test("staff role can check in, but not export or manage an event", async () => {
   const [staff] = await database
@@ -112,7 +110,11 @@ test("filters and explicit selection agree for screen and export, invalid scope 
   const csv = await (
     await exportReport(eventId, adminId, "attendance", { filter: "absent" })
   ).text();
-  expect(csv).not.toContain("anna@example.test");
+  // Osoba bez obecności może mieć ten sam e-mail co osoba z obecnością.
+  // Filtr musi działać po identyfikatorze uczestnika, nie po adresie.
+  expect(csv).toContain("anna@example.test");
+  const absent = await selectedPeople(eventId, { filter: "absent" });
+  expect(absent.every((person) => person.id !== personId)).toBe(true);
   const filtered = await (
     await exportReport(eventId, adminId, "attendance", { q: "Anna" })
   ).text();

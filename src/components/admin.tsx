@@ -21,6 +21,7 @@ import { EventForm } from "./event-form";
 import { ImportPanel } from "./import-panel";
 import { Scanner } from "./scanner";
 import { AdminSurvey } from "./admin-survey";
+import { AdminMail } from "./admin-mail";
 const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
@@ -28,6 +29,7 @@ const sections = [
   ["data", "Dane"],
   ["mail", "Eksporty"],
   ["invitations", "Zaproszenia"],
+  ["wysylka", "Wysyłka"],
   ["materials", "Materiały"],
   ["privacy", "RODO i dane"],
   ["history", "Historia działań"],
@@ -425,6 +427,7 @@ export function Admin({
               {section === "invitations" && (
                 <ExportCenter eventId={eventId} people={people} invitations />
               )}
+              {section === "wysylka" && <AdminMail key={eventId} eventId={eventId} />}
               {section === "materials" && (
                 <MaterialsManager data={overview} action={action} busy={busy} />
               )}
@@ -1075,6 +1078,7 @@ function AdminIcon({ name }: { name: string }) {
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M16 3a4 4 0 0 1 0 8",
     import: "M12 16V3m-5 5 5-5 5 5M3 15v6h18v-6",
     mail: "M3 5h18v14H3zM3 5l9 7 9-7",
+    wysylka: "M22 2 11 13M22 2 15 22l-4-9-9-4z",
     checkin:
       "M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z",
     courses: "m2 8 10-5 10 5-10 5L2 8m4 3v6l6 3 6-3v-6M22 8v8",

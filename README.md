@@ -21,7 +21,7 @@ pnpm dev:local
 
 Panel: http://localhost:3000/admin. Pierwsze uruchomienie tworzy lokalnego administratora. Jego losowe hasło znajduje się w `.local/access.json`. Plik jest ignorowany przez Git. Nie używaj tego konta poza komputerem lokalnym.
 
-Lokalny PostgreSQL działa przez PGlite Socket na 127.0.0.1:54329 i zapisuje dane w `.local/postgres`. Jest przeznaczony do developmentu, nie do produkcji. Wysyłka rzeczywistych maili jest wyłączona. Uruchomione testy HTTP tworzą 250 syntetycznych uczestników i dwa przykładowe kursy.
+Lokalny PostgreSQL działa przez PGlite Socket na 127.0.0.1:54329 i zapisuje dane w `.local/postgres`. Jest przeznaczony do developmentu, nie do produkcji. Wysyłka rzeczywistych maili jest wyłączona w środowisku lokalnym. Uruchomione testy HTTP tworzą 250 syntetycznych uczestników i dwa przykładowe kursy.
 
 Alternatywnie uruchom PostgreSQL przez `docker compose up -d`, skopiuj `.env.example` do `.env.local`, ustaw losowe klucze i wykonaj migracje. Skrypty `db:migrate` i `admin:create` czytają zmienne procesu; lokalnie użyj `node --env-file=.env.local --import tsx scripts/migrate.ts` oraz analogicznie `scripts/create-admin.ts`. Konto administratora tworzy się ze zmiennych `ADMIN_EMAIL` i `ADMIN_PASSWORD`, przy czym hasło musi mieć przynajmniej 14 znaków.
 
@@ -56,7 +56,7 @@ Kod indywidualny jest przydzielany w transakcji. Przy usunięciu uczestnika wyko
 
 ## Kody i korespondencja seryjna
 
-Panel nie wysyła wiadomości. Wgraj XLSX z nagłówkami Imię, Nazwisko, Email i zatwierdź podgląd. Każdy nowy uczestnik otrzymuje unikalny kod z sześciu wielkich liter i cyfr oraz niezależny token QR.
+Domyślnie panel nie wysyła wiadomości. Zakładka Wysyłka pozwala administratorowi zapisać zaszyfrowane hasło SMTP do skrzynki konferencja@oneday.com.pl (serwer1758522.home.pl, TLS port 465), przygotować szablon i uruchomić ręczną wysyłkę do każdego rekordu uczestnika. Taki sam e-mail kilku osób oznacza kilka osobnych zaproszeń i kodów. Samo podanie hasła nie powoduje wysyłki. SMTP działa wyłącznie w produkcji, gdy APP_URL używa HTTPS. Wysyłka odbywa się w partiach przy otwartym panelu; można wznowić oczekujące zadania. Rekordy o niepewnym wyniku wymagają ręcznej kontroli i nie są automatycznie ponawiane.\n\nWgraj XLSX z nagłówkami Imię, Nazwisko, Email i zatwierdź podgląd. Każdy nowy uczestnik otrzymuje unikalny kod z sześciu wielkich liter i cyfr oraz niezależny token QR.
 
 Sekcja Kody i eksport udostępnia Excel i CSV z danymi, istniejącymi kodami, linkiem do strefy oraz nazwą biletu. Ponowny eksport nie zmienia kodów. Excel przechowuje kod jako tekst, zachowując początkowe zera. CSV należy importować z kolumną Kod ustawioną jako tekst.
 

@@ -91,7 +91,7 @@ function heading(value: string) {
 }
 export function validateRows(
   raw: string[][],
-  existing: Set<string>,
+  _existing: Set<string>,
 ): ImportRow[] {
   assert(raw.length > 1, 400, "Brak uczestników w pliku.");
   const headers = raw[0].map(heading);
@@ -103,7 +103,6 @@ export function validateRows(
     400,
     "Wymagane kolumny: Imię, Nazwisko, Email.",
   );
-  const seen = new Set<string>();
   return raw.slice(1).map((row, index) => {
     const firstName = (row[first] || "").normalize("NFC");
     const lastName = (row[last] || "").normalize("NFC");
@@ -115,9 +114,6 @@ export function validateRows(
       errors.push("Nieprawidłowe nazwisko");
     if (!z.email().safeParse(email).success || email.length > 254)
       errors.push("Nieprawidłowy e-mail");
-    if (seen.has(email)) errors.push("Duplikat w pliku");
-    if (existing.has(email)) errors.push("Uczestnik już istnieje");
-    seen.add(email);
     return { row: index + 2, firstName, lastName, email, errors };
   });
 }
@@ -127,11 +123,7 @@ export async function previewImport(
   file: File,
 ) {
   const raw = await spreadsheet(file, true);
-  const existing = await db()
-    .select({ email: participants.email })
-    .from(participants)
-    .where(eq(participants.eventId, eventId));
-  const rows = validateRows(raw, new Set(existing.map((p) => p.email)));
+  const rows = validateRows(raw, new Set<string>());
   const [batch] = await db()
     .insert(importBatches)
     .values({
@@ -191,19 +183,6 @@ export async function commitImport(
           .returning({ id: participants.id });
         if (person) {
           imported++;
-          resolved = true;
-          break;
-        }
-        const [existing] = await tx
-          .select({ id: participants.id })
-          .from(participants)
-          .where(
-            and(
-              eq(participants.eventId, eventId),
-              eq(participants.email, row.email),
-            ),
-          );
-        if (existing) {
           resolved = true;
           break;
         }

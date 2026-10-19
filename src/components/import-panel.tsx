@@ -30,7 +30,7 @@ export function ImportPanel({
         <div className="eyebrow">Krok 1 z 2</div>
         <h2>Wgraj listę uczestników</h2>
         <p className="muted">
-          Plik XLSX lub CSV, do 2 MB i 2000 uczestników. Pierwszy wiersz: Imię,
+          Plik XLSX lub CSV, do 2 MB i 2000 uczestników. Powtarzające się adresy są dozwolone – każda osoba otrzyma własny kod. Pierwszy wiersz: Imię,
           Nazwisko, Email.
         </p>
         <p>

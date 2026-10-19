@@ -57,6 +57,13 @@
       "when": 1792157206365,
       "tag": "0007_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792411200000,
+      "tag": "0008_smtp_campaign",
+      "breakpoints": true
     }
   ]
 }

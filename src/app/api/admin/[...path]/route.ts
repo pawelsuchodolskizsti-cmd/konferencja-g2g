@@ -1,5 +1,9 @@
 import { pdfDownload } from "@/server/pdf-download";
 import {
+  smtpOverview, saveSmtpPassword, removeSmtpPassword, saveSmtpTemplate,
+  startSmtpCampaign, processSmtpBatch, checkSmtpCredentials,
+} from "@/server/smtp-campaign";
+import {
   listArchives,
   createArchive,
   downloadArchive,
@@ -214,6 +218,22 @@ async function handle(req: Request, ctx: Context) {
         .parse(await jsonBody(req));
       return Response.json(await checkIn(eventId, admin.id, input));
     }
+    if (action === "smtp" && path.length === 3) {
+      if (req.method === "GET")
+        return Response.json(await smtpOverview(eventId), { headers: { "Cache-Control": "private, no-store" } });
+      if (req.method === "POST")
+        return Response.json(await saveSmtpPassword(eventId, admin.id, await jsonBody(req)));
+      if (req.method === "DELETE")
+        return Response.json(await removeSmtpPassword(eventId, admin.id));
+    }
+    if (action === "smtp-verify" && path.length === 3 && req.method === "POST")
+      return Response.json(await checkSmtpCredentials(eventId));
+    if (action === "smtp-template" && path.length === 3 && req.method === "POST")
+      return Response.json(await saveSmtpTemplate(eventId, admin.id, await jsonBody(req)));
+    if (action === "smtp-queue" && path.length === 3 && req.method === "POST")
+      return Response.json(await startSmtpCampaign(eventId, admin.id));
+    if (action === "smtp-process" && path.length === 3 && req.method === "POST")
+      return Response.json(await processSmtpBatch(eventId, admin.id));
     if (action === "mail" || action === "mail-preview")
       throw new AppError(
         410,
