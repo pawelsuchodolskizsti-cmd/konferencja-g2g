@@ -160,7 +160,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
       <section className="card">
         <h2>Treść wiadomości do uczestnika</h2>
         <p className="muted">
-          Każdy uczestnik dostanie indywidualny kod dostępu i QR do konferencji.
+          Każdy uczestnik dostanie indywidualny kod dostępu do panelu konferencji, bez załączników.
           Dostępne pola: {"{{firstName}}"}, {"{{lastName}}"}, {"{{eventName}}"},
           {" {{location}}"}, {" {{date}}"}, {" {{accessCode}}"}.
         </p>
