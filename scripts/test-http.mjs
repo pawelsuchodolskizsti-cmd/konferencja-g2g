@@ -112,7 +112,7 @@ try {
   }
   const base = `/api/admin/events/${eventId}`;
   await checked(
-    "podgląd i zatwierdzenie 250 osób, walidacja 3 błędów",
+    "podgląd i zatwierdzenie 251 osób, walidacja 2 błędów",
     async () => {
       const rows = [
         ["Imię", "Nazwisko", "Email"],
@@ -139,7 +139,7 @@ try {
       const preview = await (
         await call(`${base}/import`, { method: "POST", body: form })
       ).json();
-      if (preview.valid === 250) {
+      if (preview.valid === 251) {
         assert.equal(preview.total, 253);
         const commit = await (
           await call(`${base}/import-confirm`, {
@@ -147,7 +147,7 @@ try {
             body: { batchId: preview.id },
           })
         ).json();
-        assert.equal(commit.imported, 250);
+        assert.equal(commit.imported, 251);
         await call(`${base}/import-confirm`, {
           method: "POST",
           body: { batchId: preview.id },
@@ -333,13 +333,13 @@ try {
     await call(`${base}/mail-preview`, { expected: 410 });
     await call("/api/cron/mail", { auth: "", expected: 401 });
   });
-  await checked("eksport istniejących kodów 250 uczestników", async () => {
+  await checked("eksport istniejących kodów 251 uczestników", async () => {
     await call(`${base}/codes-export`, { auth: "", expected: 401 });
     const response = await call(`${base}/codes-export`);
     const book = XLSX.read(await response.arrayBuffer());
     const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]);
-    assert.equal(rows.length, 250);
-    assert.equal(new Set(rows.map((row) => row.Kod)).size, 250);
+    assert.equal(rows.length, 251);
+    assert.equal(new Set(rows.map((row) => row.Kod)).size, 251);
     assert(rows.every((row) => /^[A-Z0-9]{6}$/.test(row.Kod)));
     const again = XLSX.read(
       await (await call(`${base}/codes-export`)).arrayBuffer(),
