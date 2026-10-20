@@ -63,7 +63,7 @@ export function SurveyForm({
             : "Ankieta została zapisana."}
         </p>
         <Link
-          className={styles.action}
+          className={`${styles.action} ${styles.introAction}`}
           href={preview ? "/uczestnik/panel?podglad=1" : "/uczestnik/panel"}
         >
           Wróć do swojej strefy

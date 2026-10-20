@@ -259,7 +259,9 @@
   margin: 0 0 18px;
   line-height: 1.6;
 }
-.introCard .introAction {
+.action.introAction {
+  box-sizing: border-box;
+  text-decoration: none;
   width: 100%;
   border-color: #123e59;
   border-radius: 12px;
@@ -268,10 +270,10 @@
   text-align: center;
   animation: surveyStartPulse 3s ease-in-out infinite;
 }
-.introCard .introAction:hover {
+.action.introAction:hover {
   background: #1a5272;
 }
-.introCard .introAction:focus-visible {
+.action.introAction:focus-visible {
   outline: 3px solid #123e59;
   outline-offset: 4px;
 }
@@ -298,12 +300,12 @@
   0%, 100% { box-shadow: 0 0 0 0 rgb(18 62 89 / 0%); }
   50% { box-shadow: 0 0 0 6px rgb(18 62 89 / 14%), 0 8px 22px rgb(18 62 89 / 18%); }
 }
-.introCard .introAction:hover,
-.introCard .introAction:focus-visible {
+.action.introAction:hover,
+.action.introAction:focus-visible {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .introCard .introAction {
+  .action.introAction {
     animation: none;
   }
 }
