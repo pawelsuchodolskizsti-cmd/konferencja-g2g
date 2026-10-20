@@ -265,7 +265,8 @@
   border-radius: 12px;
   background: #123e59;
   color: #fff;
-  text-align: left;
+  text-align: center;
+  animation: surveyStartPulse 3s ease-in-out infinite;
 }
 .introCard .introAction:hover {
   background: #1a5272;
@@ -291,4 +292,18 @@
 .questionHeader p {
   margin: 12px 0 0;
   color: #35546a;
+}
+
+@keyframes surveyStartPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(18 62 89 / 0%); }
+  50% { box-shadow: 0 0 0 6px rgb(18 62 89 / 14%), 0 8px 22px rgb(18 62 89 / 18%); }
+}
+.introCard .introAction:hover,
+.introCard .introAction:focus-visible {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .introCard .introAction {
+    animation: none;
+  }
 }
