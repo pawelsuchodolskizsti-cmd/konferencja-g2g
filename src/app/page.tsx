@@ -112,17 +112,17 @@ export default async function Home() {
                 {
                   role: "Organizator",
                   name: "Fundacja One Day",
-                  position: styles.oneDay,
+                  image: "/branding/crops/one-day.webp",
                 },
                 {
                   role: "Patronat honorowy",
                   name: "Rzecznik Praw Dziecka",
-                  position: styles.childRights,
+                  image: "/branding/crops/rzecznik-praw-dziecka.webp",
                 },
                 {
                   role: "Partner współzapraszający",
                   name: "Ogólnopolskie Stowarzyszenie Placówek Opiekuńczo-Wychowawczych „Dla Naszych Dzieci”",
-                  position: styles.association,
+                  image: "/branding/crops/dla-naszych-dzieci.webp",
                 },
               ].map((partner) => (
                 <article key={partner.role} className={styles.organizerCard}>
@@ -131,13 +131,13 @@ export default async function Home() {
                     {partner.role.includes(" ") &&
                       ` ${partner.role.split(" ").slice(1).join(" ")}`}
                   </h3>
-                  <div className={`${styles.partnerLogo} ${partner.position}`}>
+                  <div className={styles.partnerLogo}>
                     <Image
-                      src="/branding/organizatorzy-zrodlo.jpg"
+                      src={partner.image}
                       alt={partner.name}
-                      width={2858}
-                      height={1905}
-                      sizes="1920px"
+                      width={660}
+                      height={400}
+                      unoptimized
                     />
                   </div>
                 </article>
@@ -176,29 +176,29 @@ export default async function Home() {
               {[
                 {
                   name: "InCredibles - Program Sebastiana Kulczyka",
-                  position: styles.incredibles,
+                  image: "/branding/crops/incredibles.webp",
                 },
                 {
                   name: "Presidential Hotel Warsaw",
-                  position: styles.presidential,
+                  image: "/branding/crops/presidential-hotel.webp",
                 },
                 {
                   name: "Yummy - Party Box & Catering",
-                  position: styles.yummy,
+                  image: "/branding/crops/yummy.webp",
                 },
-                { name: "Garnizon Sztuki", position: styles.garnizon },
+                { name: "Garnizon Sztuki", image: "/branding/crops/garnizon-sztuki.webp" },
               ].map((partner) => (
                 <div
                   key={partner.name}
-                  className={`${styles.projectPartnerLogo} ${partner.position}`}
+                  className={styles.projectPartnerLogo}
                 >
                   <Image
-                    src="/branding/partnerzy-biale-loga.png"
+                    src={partner.image}
                     loading="lazy"
                     alt={partner.name}
-                    width={1942}
-                    height={809}
-                    sizes="(min-width: 1000px) 502px, (min-width: 600px) 100vw, 200vw"
+                    width={720}
+                    height={300}
+                    unoptimized
                   />
                 </div>
               ))}
