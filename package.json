@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "node scripts/prepare-certificate-font.mjs && next build --webpack",
+    "dev": "node scripts/generate-branding-crops.mjs && next dev",
+    "build": "node scripts/generate-branding-crops.mjs && node scripts/prepare-certificate-font.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "db:local": "node scripts/dev-database.mjs",
     "setup:local": "node scripts/local-setup.mjs",
-    "dev:local": "node scripts/serve-local.mjs",
+    "dev:local": "node scripts/generate-branding-crops.mjs && node scripts/serve-local.mjs",
     "test:http": "node scripts/test-http.mjs",
     "format": "prettier --write src tests scripts e2e *.ts *.mjs *.json docs README.md"
   },
@@ -52,7 +52,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3",
-    "@electric-sql/pglite-socket": "0.2.11"
+    "@electric-sql/pglite-socket": "0.2.11",
+    "sharp": "^0.35.5"
   },
   "engines": {
     "node": ">=24 <25"

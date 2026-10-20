@@ -86,3 +86,38 @@ test("public agenda and login do not overflow the viewport", async ({
     ),
   ).toBe(true);
 });
+
+
+test("frozen sponsor layout uses seven correctly sized independent crops", async ({ page }) => {
+  await page.goto("/");
+  const organizers = page.locator("#organizatorzy article img");
+  const partners = page.locator("#partnerzy img");
+  await expect(organizers).toHaveCount(3);
+  await expect(partners).toHaveCount(4);
+
+  const organizerSources = [
+    "/branding/crops/one-day.webp",
+    "/branding/crops/rzecznik-praw-dziecka.webp",
+    "/branding/crops/dla-naszych-dzieci.webp",
+  ];
+  const partnerSources = [
+    "/branding/crops/incredibles.webp",
+    "/branding/crops/presidential-hotel.webp",
+    "/branding/crops/yummy.webp",
+    "/branding/crops/garnizon-sztuki.webp",
+  ];
+  for (const [group, files, ratio] of [
+    [organizers, organizerSources, 330 / 200],
+    [partners, partnerSources, 360 / 150],
+  ] as const) {
+    for (let i = 0; i < files.length; i++) {
+      const image = group.nth(i);
+      await image.scrollIntoViewIfNeeded();
+      await expect(image).toHaveAttribute("src", files[i]);
+      await expect.poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+      const box = await image.boundingBox();
+      expect(box).not.toBeNull();
+      expect(Math.abs(box!.width / box!.height - ratio)).toBeLessThan(0.01);
+    }
+  }
+});
