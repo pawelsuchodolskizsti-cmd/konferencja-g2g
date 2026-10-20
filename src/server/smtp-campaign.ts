@@ -493,14 +493,36 @@ export async function sendSmtpTest(
   adminId: string,
   input: unknown,
 ) {
-  const { email, requestId } = z
+  const { email, requestId, participantId } = z
     .object({
       email: z.email().max(254),
       requestId: z.uuid(),
+      participantId: z.uuid().optional(),
     })
     .parse(input);
   const { password, event } = await assertSmtpReady(eventId);
   const messageId = `<test-${requestId}@oneday.com.pl>`;
+  const person = participantId
+    ? (
+        await db()
+          .select()
+          .from(participants)
+          .where(
+            and(
+              eq(participants.id, participantId),
+              eq(participants.eventId, eventId),
+            ),
+          )
+      )[0]
+    : null;
+  assert(
+    !participantId || person,
+    404,
+    "Nie znaleziono uczestnika w tej konferencji.",
+  );
+  const personalized = person
+    ? { ...(await invitation(person, event)), to: email }
+    : null;
   // Persist the claim before SMTP. A repeated request never sends twice,
   // including when the first HTTP response is lost after SMTP acceptance.
   const [claim] = await db()
@@ -536,7 +558,7 @@ export async function sendSmtpTest(
   }
   try {
     await sendSmtp(
-      {
+      personalized ?? {
         from: event.mailFrom,
         to: email,
         subject: "Test dostarczenia - Głowa do Góry",

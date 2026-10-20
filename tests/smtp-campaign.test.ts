@@ -32,6 +32,7 @@ vi.mock("../src/server/smtp-transport", () => ({
 import { sendSmtp } from "../src/server/smtp-transport";
 import { SmtpFailure } from "../src/server/smtp-message";
 import {
+  sendSmtpTest,
   smtpOverview,
   saveSmtpPassword,
   startSmtpCampaign,
@@ -469,4 +470,57 @@ test("temporary pre-acceptance failure retries safely, while an ambiguous DATA r
     errors: 1,
     stopped: true,
   });
+});
+
+test("personalized test sends exactly once to override address without changing campaign or codes", async () => {
+  await saveSmtpPassword(eventId, adminId, {
+    password: "synthetic-test-password",
+  });
+  const [person] = await database.select().from(s.participants);
+  await database
+    .update(s.events)
+    .set({
+      mailSubject: "{{firstName}}, ważne informacje",
+      mailBody: "Dzień dobry, {{firstName}}! Twój kod: {{accessCode}}",
+    })
+    .where(eq(s.events.id, eventId));
+  const before = await database.select().from(s.emailLogs);
+  const count = fixture.sent.length;
+  const input = {
+    email: "preview@example.test",
+    participantId: person.id,
+    requestId: crypto.randomUUID(),
+  };
+  expect(await sendSmtpTest(eventId, adminId, input)).toMatchObject({
+    status: "ACCEPTED",
+    duplicate: false,
+  });
+  expect(await sendSmtpTest(eventId, adminId, input)).toMatchObject({
+    status: "ACCEPTED",
+    duplicate: true,
+  });
+  expect(fixture.sent).toHaveLength(count + 1);
+  const payload = fixture.sent.at(-1)!;
+  expect(payload.to).toBe(input.email);
+  expect(payload.html).toContain(person.firstName);
+  expect(payload.html).toContain(
+    JSON.parse(decrypt(person.credentials)).accessCode,
+  );
+  expect(await database.select().from(s.emailLogs)).toEqual(before);
+  expect(
+    (
+      await database
+        .select()
+        .from(s.participants)
+        .where(eq(s.participants.id, person.id))
+    )[0].credentials,
+  ).toBe(person.credentials);
+  await expect(
+    sendSmtpTest(eventId, adminId, {
+      ...input,
+      participantId: crypto.randomUUID(),
+      requestId: crypto.randomUUID(),
+    }),
+  ).rejects.toMatchObject({ status: 404 });
+  expect(fixture.sent).toHaveLength(count + 1);
 });

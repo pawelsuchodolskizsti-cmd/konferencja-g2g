@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "./api";
+import { api, type Overview, type Person } from "./api";
 
 type Status = {
   host: string;
@@ -48,6 +48,19 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [testEmail, setTestEmail] = useState("");
+  const [testParticipant, setTestParticipant] = useState("");
+  const [testPeople, setTestPeople] = useState<Person[]>([]);
+  useEffect(() => {
+    let current = true;
+    api<Overview>(`/api/admin/events/${eventId}`)
+      .then((data) => {
+        if (current) setTestPeople(data.people);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [eventId]);
   const testRequestId = useRef<string | null>(null);
   const [testResult, setTestResult] = useState("");
   const [testPending, setTestPending] = useState(false);
@@ -391,8 +404,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
       <section className="card">
         <h2>Pojedyncza wiadomość testowa</h2>
         <p>
-          Wysyła dokładnie jedną wiadomość bez kodu uczestnika. Nie uruchamia
-          kampanii i nie zmienia statusów zaproszeń.
+          Wysyła dokładnie jedną wiadomość. Po wybraniu uczestnika używa
+          zapisanego szablonu, jego imienia i istniejącego kodu. Bez wyboru
+          wysyła ogólny test bez kodu. Nie uruchamia kampanii i nie zmienia
+          statusów zaproszeń.
         </p>
         <form
           onSubmit={async (event) => {
@@ -400,7 +415,16 @@ export function AdminMail({ eventId }: { eventId: string }) {
             if (testRequestId.current || testPending) return;
             if (
               !window.confirm(
-                "Wysłać jedną wiadomość testową na " + testEmail + "?",
+                "Wysłać jedną wiadomość testową na " +
+                  testEmail +
+                  (testParticipant
+                    ? " z imieniem i kodem uczestnika: " +
+                      testPeople.find((p) => p.id === testParticipant)
+                        ?.firstName +
+                      " " +
+                      testPeople.find((p) => p.id === testParticipant)?.lastName
+                    : " bez kodu uczestnika") +
+                  "?",
               )
             )
               return;
@@ -416,6 +440,9 @@ export function AdminMail({ eventId }: { eventId: string }) {
                 body: JSON.stringify({
                   email: testEmail,
                   requestId: testRequestId.current,
+                  ...(testParticipant
+                    ? { participantId: testParticipant }
+                    : {}),
                 }),
               });
               setTestResult(
@@ -436,6 +463,21 @@ export function AdminMail({ eventId }: { eventId: string }) {
             }
           }}
         >
+          <label>
+            Uczestnik do personalizacji
+            <select
+              value={testParticipant}
+              onChange={(e) => setTestParticipant(e.target.value)}
+              disabled={testPending || !!testResult}
+            >
+              <option value="">Ogólny test bez kodu</option>
+              {testPeople.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.firstName} {p.lastName} ({p.email})
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             Adres odbiorcy testu
             <input
