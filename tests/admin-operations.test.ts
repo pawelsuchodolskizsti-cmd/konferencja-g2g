@@ -22,7 +22,7 @@ import {
 } from "../src/server/admin-operations";
 import { requireEvent } from "../src/server/auth";
 import { decrypt, encrypt, hashToken } from "../src/server/crypto";
-import { updateParticipant } from "../src/server/admin-data";
+import { participantList, updateParticipant } from "../src/server/admin-data";
 import { downloadMaterial } from "../src/server/materials";
 import { filterParticipants } from "../src/lib/participant-filter";
 const pg = new PGlite();
@@ -341,4 +341,63 @@ test("manual duplicate is rejected without changing existing credentials", async
     ),
   ).rejects.toMatchObject({ status: 409 });
   expect(await database.select().from(s.participants)).toEqual(before);
+});
+
+test("activity uses all successful login records, isolates events and keeps shared mailboxes separate", async () => {
+  const a = await createParticipant(
+    eventId,
+    adminId,
+    { firstName: "Aktywna", lastName: "Osoba", email: "activity@example.test" },
+    db,
+  );
+  const b = await createParticipant(
+    eventId,
+    adminId,
+    {
+      firstName: "Nieaktywna",
+      lastName: "Osoba",
+      email: "activity@example.test",
+    },
+    db,
+  );
+  const first = new Date("2026-10-01T08:00:00Z");
+  const last = new Date("2026-10-20T08:00:00Z");
+  await database
+    .insert(s.auditLogs)
+    .values([
+      {
+        eventId,
+        targetId: a.id,
+        action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
+        createdAt: first,
+      },
+      {
+        eventId,
+        targetId: a.id,
+        action: "PARTICIPANT_PRIVACY_ACK_future-version",
+        createdAt: last,
+      },
+      {
+        eventId: otherEventId,
+        targetId: b.id,
+        action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
+      },
+      { eventId, targetId: b.id, action: "PARTICIPANT_CREATED" },
+      ...Array.from({ length: 60 }, () => ({
+        eventId,
+        targetId: b.id,
+        action: "SMTP_EMAIL_ACCEPTED",
+      })),
+    ]);
+  const people = await participantList(eventId);
+  const active = people.filter((p) => p.id === a.id);
+  expect(active).toHaveLength(1);
+  expect(new Date(active[0].firstLoginAt!).toISOString()).toBe(
+    first.toISOString(),
+  );
+  expect(new Date(active[0].lastLoginAt!).toISOString()).toBe(
+    last.toISOString(),
+  );
+  expect(people.find((p) => p.id === b.id)?.firstLoginAt).toBeNull();
+  expect(people.find((p) => p.id === b.id)?.lastLoginAt).toBeNull();
 });

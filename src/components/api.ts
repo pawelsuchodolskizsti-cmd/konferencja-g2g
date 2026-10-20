@@ -45,6 +45,8 @@ export type EventData = {
   agenda: AgendaItem[];
 };
 export type Person = {
+  firstLoginAt?: string | null;
+  lastLoginAt?: string | null;
   accessCode: string;
   id: string;
   firstName: string;

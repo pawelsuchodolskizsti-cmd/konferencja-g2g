@@ -20,6 +20,25 @@ import { assert } from "./errors";
 import { decrypt } from "./crypto";
 import { safeCsv } from "./imports";
 export async function participantList(eventId: string) {
+  const logins = db()
+    .select({
+      participantId: auditLogs.targetId,
+      firstLoginAt: sql<string>`min(${auditLogs.createdAt})::text`.as(
+        "first_login_at",
+      ),
+      lastLoginAt: sql<string>`max(${auditLogs.createdAt})::text`.as(
+        "last_login_at",
+      ),
+    })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.eventId, eventId),
+        sql`starts_with(${auditLogs.action}, 'PARTICIPANT_PRIVACY_ACK_')`,
+      ),
+    )
+    .groupBy(auditLogs.targetId)
+    .as("participant_logins");
   const rows = await db()
     .select({
       id: participants.id,
@@ -28,6 +47,8 @@ export async function participantList(eventId: string) {
       lastName: participants.lastName,
       certificateNameOverride: participants.certificateNameOverride,
       email: participants.email,
+      firstLoginAt: logins.firstLoginAt,
+      lastLoginAt: logins.lastLoginAt,
       checkedInAt: attendance.checkedInAt,
       method: attendance.method,
       emailStatus: emailLogs.status,
@@ -36,6 +57,7 @@ export async function participantList(eventId: string) {
       certificateGeneratedAt: certificates.createdAt,
     })
     .from(participants)
+    .leftJoin(logins, eq(logins.participantId, participants.id))
     .leftJoin(attendance, eq(attendance.participantId, participants.id))
     .leftJoin(
       emailLogs,
