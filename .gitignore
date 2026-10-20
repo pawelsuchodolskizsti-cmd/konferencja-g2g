@@ -15,3 +15,6 @@ next-env.d.ts
 
 # Downloaded from the official Fontshare CDN during builds.
 /assets/ClashDisplay-Semibold.ttf
+
+# Precomputed individual logos; recreated from the immutable source assets at build time.
+/public/branding/crops/
