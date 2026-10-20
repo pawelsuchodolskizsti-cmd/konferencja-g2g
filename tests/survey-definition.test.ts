@@ -42,10 +42,16 @@ test("validates single choice, optional text, matrix and maximum two choices", (
   expect(
     answerError(q[2], {
       ...emptyAnswer(),
-      ratings: Array(7).fill(q[2].options![4]),
+      ratings: Array(6).fill(q[2].options![4]),
     }),
   ).toBeTruthy();
-  const matrix = { ...emptyAnswer(), ratings: Array(8).fill(q[2].options![4]) };
+  const matrix = { ...emptyAnswer(), ratings: Array(7).fill(q[2].options![4]) };
   expect(answerError(q[2], matrix)).toBeNull();
-  expect(formatAnswer(q[2], matrix).split("\n")).toHaveLength(8);
+  expect(formatAnswer(q[2], matrix).split("\n")).toHaveLength(7);
+});
+
+test("current survey has nine questions without hotel or trust item", () => {
+  expect(q).toHaveLength(9);
+  expect(q[2].rows).toHaveLength(7);
+  expect(JSON.stringify(q)).not.toMatch(/Presidential|zaufanie do Fundacji/);
 });

@@ -21,13 +21,12 @@ export function SurveyForm({
   preview?: boolean;
 }) {
   const definitions = definitionFor(questions);
-  const modern = questions.length === 11;
+  const modern = questions.length === 9;
   const [done, setDone] = useState(submitted);
   const [started, setStarted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState(0);
-  const [hotel, setHotel] = useState<"yes" | "no" | "">("");
   const [answers, setAnswers] = useState<SurveyAnswer[]>(() =>
     questions.map(emptyAnswer),
   );
@@ -39,11 +38,10 @@ export function SurveyForm({
       form.current?.scrollIntoView({ block: "start" });
     }
   }, [step, started]);
-  const hotelStep = modern && step === 9;
-  const index = hotelStep ? (hotel === "no" ? 10 : 9) : step;
+  const index = step;
   const q = definitions[index];
   const a = answers[index];
-  const total = modern ? 10 : questions.length;
+  const total = questions.length;
   const update = (patch: Partial<SurveyAnswer>) => {
     setAnswers((old) =>
       old.map((value, i) => (i === index ? { ...value, ...patch } : value)),
@@ -99,10 +97,6 @@ export function SurveyForm({
       ref={form}
       onSubmit={async (e) => {
         e.preventDefault();
-        if (hotelStep && !hotel) {
-          setError("Wskaż, czy korzystałeś/aś z hotelu Presidential.");
-          return;
-        }
         const issue = answerError(q, a);
         if (issue) {
           setError(issue);
@@ -113,11 +107,6 @@ export function SurveyForm({
           return;
         }
         for (let i = 0; i < questions.length; i++) {
-          if (
-            modern &&
-            ((i === 9 && hotel === "no") || (i === 10 && hotel === "yes"))
-          )
-            continue;
           const problem = answerError(definitions[i], answers[i]);
           if (problem) {
             setStep(Math.min(i, total - 1));
@@ -137,7 +126,6 @@ export function SurveyForm({
             body: JSON.stringify({
               questions,
               answers: modern ? answers : answers.map((a) => a.text),
-              ...(modern ? { hotel } : {}),
             }),
           });
           setDone(true);
@@ -167,36 +155,7 @@ export function SurveyForm({
           max={total}
           aria-label="Postęp wypełniania ankiety"
         />
-        {hotelStep && (
-          <fieldset className={styles.choiceGroup}>
-            <legend>
-              Czy korzystałeś/aś z proponowanego hotelu Presidential?
-            </legend>
-            {(
-              [
-                ["yes", "Tak"],
-                ["no", "Nie"],
-              ] as const
-            ).map(([value, label]) => (
-              <label className={styles.option} key={value}>
-                <input
-                  type="radio"
-                  name="hotel"
-                  checked={hotel === value}
-                  onChange={() => {
-                    setHotel(value);
-                    setAnswers((old) =>
-                      old.map((a, i) => (i >= 9 ? emptyAnswer() : a)),
-                    );
-                    setError("");
-                  }}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-        )}
-        {(!hotelStep || hotel) && (
+        {
           <>
             <h2 className={styles.questionTitle} ref={heading} tabIndex={-1}>
               {modern ? index + 1 : step + 1}. {q.title}
@@ -364,7 +323,7 @@ export function SurveyForm({
               </div>
             )}
           </>
-        )}
+        }
         {error && <p role="alert">{error}</p>}
         <div className={styles.navigation}>
           {step > 0 && (

@@ -13,7 +13,7 @@ export const surveyIntro =
   "Dziękujemy za udział! Poświęć nam do 5 minut. Twoje odpowiedzi pomogą nam ulepszać kolejne wydarzenia, planować dalsze wsparcie i przedstawiać efekty konferencji. Liczy się szczera opinia.";
 export const surveyThanks =
   "Dziękujemy! Twoja opinia pomoże nam zdecydować, co rozwijać dalej.";
-export const surveyDefinition: QuestionDefinition[] = [
+const historicalSurveyDefinition: QuestionDefinition[] = [
   {
     title: "W jakiej roli przede wszystkim uczestniczysz w konferencji?",
     kind: "single",
@@ -166,6 +166,27 @@ export const surveyDefinition: QuestionDefinition[] = [
     ],
   },
 ];
+export const surveyDefinition: QuestionDefinition[] = historicalSurveyDefinition
+  .slice(0, 9)
+  .map((q, i) =>
+    i === 2
+      ? {
+          ...q,
+          rows: [
+            "Lepiej rozumiem własne granice w pomaganiu.",
+            "Naładowałem/am swoje baterie na nowo.",
+            "Zrozumiałem/am, że ja też jestem ważny/a.",
+            "Poznałem/am sposoby dbania o własne zasoby i obniżania napięcia.",
+            "Spojrzałem/am na wsparcie z perspektywy młodej osoby.",
+            "Poznałem/am nowe pomysły na wspieranie usamodzielniania młodzieży.",
+            "Otworzyłem/am się na nowe rozwiązania i zyskałem/am wiele inspiracji.",
+          ],
+        }
+      : q,
+  );
+export function currentSurveyQuestions(questions: string[]) {
+  return questions.length === 11 ? questions.slice(0, 9) : questions;
+}
 export type SurveyAnswer = {
   text: string;
   selected: string[];
@@ -178,9 +199,11 @@ export const emptyAnswer = (): SurveyAnswer => ({
 });
 export function definitionFor(questions: string[]): QuestionDefinition[] {
   return questions.map((title, index) =>
-    questions.length === 11
+    questions.length === 9
       ? { ...surveyDefinition[index], title }
-      : { title, kind: "text" },
+      : questions.length === 11
+        ? { ...historicalSurveyDefinition[index], title }
+        : { title, kind: "text" },
   );
 }
 export function answerError(

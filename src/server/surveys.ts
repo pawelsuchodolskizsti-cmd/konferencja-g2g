@@ -17,6 +17,7 @@ import { assert } from "./errors";
 
 import {
   surveyDefinition,
+  currentSurveyQuestions,
   definitionFor,
   answerError,
   formatAnswer,
@@ -24,7 +25,7 @@ import {
 export const defaultSurveyQuestions = surveyDefinition.map((q) => q.title);
 const questionList = z
   .array(z.string().trim().min(1).max(500))
-  .refine((q) => q.length === 10 || q.length === 11);
+  .refine((q) => [9, 10, 11].includes(q.length));
 const answerSchema = z
   .object({
     text: z.string().max(5000),
@@ -34,6 +35,7 @@ const answerSchema = z
   .strict();
 const answersList = z.union([
   z.array(z.string().trim().max(5000)).length(10),
+  z.array(answerSchema).length(9),
   z.array(answerSchema).length(11),
 ]);
 export function surveyUnlockAt(event: { endsAt: Date }) {
@@ -56,7 +58,9 @@ export async function surveyOverview(
   ]);
   assert(event, 404, "Brak konferencji.");
   return {
-    questions: survey?.questions ?? defaultSurveyQuestions,
+    questions: currentSurveyQuestions(
+      survey?.questions ?? defaultSurveyQuestions,
+    ),
     published: survey?.published ?? false,
     responseCount: total.value,
     unlockAt: surveyUnlockAt(event).toISOString(),
@@ -89,7 +93,8 @@ export async function saveSurvey(
       .limit(1);
     assert(
       !response ||
-        JSON.stringify(existing?.questions) === JSON.stringify(data.questions),
+        JSON.stringify(currentSurveyQuestions(existing?.questions ?? [])) ===
+          JSON.stringify(data.questions),
       409,
       "Po otrzymaniu odpowiedzi nie można zmieniać pytań. Możesz zamknąć lub ponownie udostępnić ankietę.",
     );
@@ -157,37 +162,21 @@ export async function submitSurvey(
       .where(eq(surveys.eventId, person.eventId));
     assert(survey?.published, 403, "Ankieta nie jest obecnie dostępna.");
     assert(
-      JSON.stringify(survey.questions) === JSON.stringify(data.questions),
+      JSON.stringify(currentSurveyQuestions(survey.questions)) ===
+        JSON.stringify(data.questions),
       409,
       "Pytania zostały zmienione. Odśwież stronę przed wysłaniem odpowiedzi.",
     );
     let formatted: string[];
-    if (survey.questions.length === 11) {
+    if (data.questions.length === 9) {
       assert(
-        data.hotel,
-        400,
-        "Wskaż, czy korzystałeś/aś z proponowanego hotelu.",
-      );
-      assert(
-        data.answers.length === 11 &&
+        data.answers.length === 9 &&
           data.answers.every((a) => typeof a !== "string"),
         400,
         "Nieprawidłowy format odpowiedzi.",
       );
-      const definitions = definitionFor(survey.questions);
-      formatted = definitions.map((q, i) => {
-        const skipped =
-          (i === 9 && data.hotel === "no") ||
-          (i === 10 && data.hotel === "yes");
+      formatted = definitionFor(data.questions).map((q, i) => {
         const answer = answerSchema.parse(data.answers[i]);
-        if (skipped) {
-          assert(
-            !answer.text && !answer.selected.length && !answer.ratings.length,
-            400,
-            "Odpowiedz tylko na właściwe pytanie o hotel.",
-          );
-          return "Nie dotyczy";
-        }
         const error = answerError(q, answer);
         assert(!error, 400, `Pytanie ${i + 1}: ${error}`);
         return formatAnswer(q, answer);
@@ -209,7 +198,7 @@ export async function submitSurvey(
     assert(completed, 409, "Twoja ankieta została już wysłana.");
     await tx.insert(surveyResponses).values({
       eventId: person.eventId,
-      questions: survey.questions,
+      questions: data.questions,
       answersEncrypted: encrypt(JSON.stringify(formatted)),
     });
     return { saved: true };
@@ -221,14 +210,26 @@ export async function exportSurvey(
   format: "xlsx" | "csv" = "xlsx",
 ) {
   const responses = await db()
-    .select({ answersEncrypted: surveyResponses.answersEncrypted })
+    .select({
+      questions: surveyResponses.questions,
+      answersEncrypted: surveyResponses.answersEncrypted,
+    })
     .from(surveyResponses)
     .where(eq(surveyResponses.eventId, eventId))
     .orderBy(asc(surveyResponses.id));
   const info = await surveyOverview(eventId);
+  const headers = [
+    ...new Set([...info.questions, ...responses.flatMap((r) => r.questions)]),
+  ];
   const rows = [
-    info.questions,
-    ...responses.map((r) => JSON.parse(decrypt(r.answersEncrypted))),
+    headers,
+    ...responses.map((r) => {
+      const answers = JSON.parse(decrypt(r.answersEncrypted)) as string[];
+      return headers.map((title) => {
+        const index = r.questions.indexOf(title);
+        return index < 0 ? "" : (answers[index] ?? "");
+      });
+    }),
   ];
   if (format === "csv") {
     await db()
@@ -247,7 +248,7 @@ export async function exportSurvey(
     );
   }
   const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet["!cols"] = info.questions.map(() => ({ wch: 60 }));
+  sheet["!cols"] = headers.map(() => ({ wch: 60 }));
   sheet["!autofilter"] = { ref: sheet["!ref"]! };
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, "Odpowiedzi ankiety");
