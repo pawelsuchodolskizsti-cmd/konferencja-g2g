@@ -59,6 +59,26 @@ test("participant sees entry QR while courses stay locked and can download a PDF
   await page.getByRole("button", { name: "Wejdź do strefy" }).click();
   await expect(page.getByRole("heading", { name: "Kod QR do wejścia" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Indywidualny kod QR do potwierdzenia obecności" })).toBeVisible();
+  // Keep the whole "Certyfikat" label inside its single navigation cell on narrow phones.
+  const initialViewport = page.viewportSize()!;
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    const fits = await page.locator('nav[aria-label="Sekcje strefy uczestnika"] a[href="#certyfikat"]')
+      .evaluate((element) => {
+        const label = [...element.childNodes].find((node) =>
+          node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+        );
+        if (!label) return false;
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const text = range.getBoundingClientRect();
+        const cell = element.getBoundingClientRect();
+        return getComputedStyle(element).whiteSpace === "nowrap" &&
+          text.width > 0 && text.left >= cell.left - 1 && text.right <= cell.right + 1;
+      });
+    expect(fits, `Certyfikat must fit at ${width}px without wrapping`).toBe(true);
+  }
+  await page.setViewportSize(initialViewport);
   await expect(page.getByRole("heading", { name: "Dostęp do szkoleń" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Przejdź do kursu" })).toHaveCount(0);
   const download = page.waitForEvent("download");
