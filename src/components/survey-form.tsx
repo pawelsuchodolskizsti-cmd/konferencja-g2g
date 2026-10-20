@@ -74,17 +74,19 @@ export function SurveyForm({
     return (
       <div>
         <h1>Głowa do Góry - ankieta</h1>
-        <p>{surveyIntro}</p>
-        {preview && (
-          <p role="status">Podgląd ankiety. Odpowiedzi nie są zapisywane.</p>
-        )}
-        <button
-          type="button"
-          className={styles.action}
-          onClick={() => setStarted(true)}
-        >
-          Start →
-        </button>
+        <div className={styles.introCard}>
+          <p>{surveyIntro}</p>
+          {preview && (
+            <p role="status">Podgląd ankiety. Odpowiedzi nie są zapisywane.</p>
+          )}
+          <button
+            type="button"
+            className={`${styles.action} ${styles.introAction}`}
+            onClick={() => setStarted(true)}
+          >
+            Start →
+          </button>
+        </div>
       </div>
     );
   return (

@@ -245,3 +245,32 @@
     align-items: start;
   }
 }
+
+.introCard {
+  padding: 24px;
+  border: 1px solid #ffffffb3;
+  border-radius: 16px;
+  background: #fff;
+  color: #123e59;
+  box-shadow: 0 12px 32px #123e5926;
+}
+.introCard p {
+  color: #35546a;
+  margin: 0 0 18px;
+  line-height: 1.6;
+}
+.introCard .introAction {
+  width: 100%;
+  border-color: #123e59;
+  border-radius: 12px;
+  background: #123e59;
+  color: #fff;
+  text-align: left;
+}
+.introCard .introAction:hover {
+  background: #1a5272;
+}
+.introCard .introAction:focus-visible {
+  outline: 3px solid #123e59;
+  outline-offset: 4px;
+}
