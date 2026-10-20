@@ -1,3 +1,4 @@
+import { formatMailBody } from "@/lib/mail-format";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
@@ -59,11 +60,11 @@ export async function invitation(
       timeZone: event.timezone,
     }).format(event.startsAt),
   };
-  const body = renderTemplate(event.mailBody, values);
-  const panelUrl = escapeHtml(`${appUrl()}/uczestnik`);
-  const htmlBody = escapeHtml(body)
-    .replaceAll(panelUrl, `<a href="${panelUrl}">${panelUrl}</a>`)
-    .replace(/\r?\n/g, "<br>");
+  const htmlBody = formatMailBody(
+    event.mailBody,
+    values,
+    `${appUrl()}/uczestnik`,
+  );
   return {
     from: event.mailFrom,
     to: person.email,

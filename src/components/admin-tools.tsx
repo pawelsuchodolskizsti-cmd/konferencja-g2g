@@ -375,13 +375,6 @@ export function ExportCenter({
             <DownloadButton href={`${base}/codes-export?format=csv&${params}`}>
               CSV z kodami
             </DownloadButton>
-            {selected.length === 1 && (
-              <DownloadButton
-                href={`${base}/codes-export?format=pdf&${params}`}
-              >
-                Zaproszenie PDF — podgląd do pobrania
-              </DownloadButton>
-            )}
             {!invitations && (
               <>
                 <DownloadButton
@@ -399,15 +392,6 @@ export function ExportCenter({
                 </DownloadButton>
               </>
             )}
-            {Array.from({ length: Math.ceil(selected.length / 50) }, (_, i) => (
-              <DownloadButton
-                key={i}
-                href={`${base}/codes-export?format=zip&offset=${i * 50}&${params}`}
-              >
-                Zaproszenia {i * 50 + 1}–
-                {Math.min((i + 1) * 50, selected.length)} ZIP
-              </DownloadButton>
-            ))}
           </div>
         )}
         {!invitations && (
@@ -421,9 +405,8 @@ export function ExportCenter({
           </p>
         )}
         <p className="muted">
-          ZIP zawiera indywidualne PDF oraz pasujące CSV i Excel. Excel
-          zachowuje zera na początku kodów. Plików z kodami nie udostępniaj
-          publicznie.
+          Excel zachowuje zera na początku kodów. Plików z kodami nie
+          udostępniaj publicznie.
         </p>
         <div className="tablewrap">
           <table>
@@ -612,7 +595,12 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
         const result = await api<PrivacyInfo>(`${base}/privacy`);
         if (active) setData(result);
       } catch (error) {
-        if (active) setNotice(error instanceof Error ? error.message : "Nie udało się odświeżyć potwierdzeń.");
+        if (active)
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Nie udało się odświeżyć potwierdzeń.",
+          );
       } finally {
         pending = false;
       }
@@ -653,10 +641,17 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
   return (
     <section className="card">
       <h2>RODO i zarządzanie danymi</h2>
-      <button type="button" className="secondary" onClick={() => setRevision((v) => v + 1)}>
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => setRevision((v) => v + 1)}
+      >
         Odśwież potwierdzenia RODO
       </button>
-      <p className="muted">Status odświeża się co 30 sekund i po powrocie do karty. Potwierdzenie zapisuje się po poprawnym zalogowaniu uczestnika z zaznaczoną klauzulą.</p>
+      <p className="muted">
+        Status odświeża się co 30 sekund i po powrocie do karty. Potwierdzenie
+        zapisuje się po poprawnym zalogowaniu uczestnika z zaznaczoną klauzulą.
+      </p>
       <p role="status">{notice}</p>
       {data && (
         <>

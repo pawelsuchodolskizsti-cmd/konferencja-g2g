@@ -1,4 +1,5 @@
 "use client";
+import { formatMailBody } from "@/lib/mail-format";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Overview, type Person } from "./api";
 
@@ -372,6 +373,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
           {"{{lastName}}"}, {"{{eventName}}"},{" {{location}}"}, {" {{date}}"},{" "}
           {" {{accessCode}}"}.
         </p>
+        <p>
+          Formatowanie treści: <code>{"<b>pogrubienie</b>"}</code> oraz{" "}
+          <code>{"<i>kursywa</i>"}</code>. Temat pozostaje zwykłym tekstem.
+        </p>
         <form onSubmit={saveTemplate}>
           <label>
             Temat wiadomości
@@ -396,6 +401,42 @@ export function AdminMail({ eventId }: { eventId: string }) {
           </label>
           <button disabled={busy || sending}>Zapisz szablon</button>
         </form>
+        <details>
+          <summary>Podgląd formatowania wiadomości</summary>
+          <p>
+            Podgląd bieżącego szkicu z przykładowymi danymi. Zapisz szablon
+            przed wysyłką.
+          </p>
+          <div
+            style={{
+              background: "#fff",
+              color: "#122c3a",
+              padding: 24,
+              borderRadius: 8,
+              overflowWrap: "anywhere",
+              fontFamily: "Arial,sans-serif",
+              maxWidth: 600,
+              lineHeight: 1.5,
+            }}
+          >
+            <div
+              dangerouslySetInnerHTML={{
+                __html: formatMailBody(
+                  body,
+                  {
+                    firstName: "Anna",
+                    lastName: "Kowalska",
+                    accessCode: "ABC123",
+                    eventName: "GŁOWA DO GÓRY",
+                    location: "Teatr Garnizon Sztuki, Warszawa",
+                    date: "27 października 2026, 10:00",
+                  },
+                  "https://konferencja-g2g.pl/uczestnik",
+                ),
+              }}
+            />
+          </div>
+        </details>
         <p className="muted">
           Wiadomość zawiera indywidualny kod i link do panelu uczestnika. Bez
           plików i kodów QR.

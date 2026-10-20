@@ -30,7 +30,6 @@ const sections = [
   ["import", "Import"],
   ["data", "Dane"],
   ["mail", "Eksporty"],
-  ["invitations", "Zaproszenia"],
   ["wysylka", "Wysyłka"],
   ["materials", "Materiały"],
   ["privacy", "RODO i dane"],
@@ -57,7 +56,9 @@ export function Admin({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [eventId, setEventId] = useState(initialEvents[0]?.id || "");
-  const [section, setSection] = useState(initialSection);
+  const [section, setSection] = useState(
+    initialSection === "invitations" ? "wysylka" : initialSection,
+  );
   const configuring = !eventId;
   const [data, setData] = useState<Overview | null>(null);
   const [revision, setRevision] = useState(0);
@@ -428,9 +429,6 @@ export function Admin({
               )}
               {section === "mail" && (
                 <ExportCenter eventId={eventId} people={people} />
-              )}
-              {section === "invitations" && (
-                <ExportCenter eventId={eventId} people={people} invitations />
               )}
               {section === "wysylka" && (
                 <AdminMail key={eventId} eventId={eventId} />
