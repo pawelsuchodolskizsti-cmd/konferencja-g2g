@@ -75,11 +75,6 @@ export function SurveyForm({
       <div>
         <h1>Głowa do Góry - ankieta</h1>
         <p>{surveyIntro}</p>
-        <p>
-          Ankieta jest anonimowa. Odpowiedzi nie są łączone z Twoim profilem. W
-          odpowiedziach otwartych nie podawaj imienia, nazwiska ani innych
-          danych osobowych.
-        </p>
         {preview && (
           <p role="status">Podgląd ankiety. Odpowiedzi nie są zapisywane.</p>
         )}
