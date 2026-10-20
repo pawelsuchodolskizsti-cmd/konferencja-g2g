@@ -171,7 +171,7 @@ test("locks answered questions and exports ten answers without participant ident
 });
 
 test("nine-question survey validates seven ratings, stores answers and exports without hotel", async () => {
-  const { surveyDefinition, emptyAnswer, formatAnswer } =
+  const { surveyDefinition, emptyAnswer } =
     await import("../src/lib/survey-definition");
   const questions = surveyDefinition.map((q) => q.title);
   const [source] = await database.select().from(schema.events);
@@ -180,17 +180,15 @@ test("nine-question survey validates seven ratings, stores answers and exports w
     .values({ ...source, id: undefined, slug: "current-survey" })
     .returning();
   // An existing published 11-question form is projected to the current form.
-  await database
-    .insert(schema.surveys)
-    .values({
-      eventId: event.id,
-      questions: [
-        ...questions,
-        "Hotel Presidential",
-        "Powód rezygnacji z hotelu",
-      ],
-      published: true,
-    });
+  await database.insert(schema.surveys).values({
+    eventId: event.id,
+    questions: [
+      ...questions,
+      "Hotel Presidential",
+      "Powód rezygnacji z hotelu",
+    ],
+    published: true,
+  });
   const [p] = await database
     .insert(schema.participants)
     .values({
@@ -210,7 +208,7 @@ test("nine-question survey validates seven ratings, stores answers and exports w
     ...(q.kind === "text"
       ? { text: q.optional ? "" : "Ćwiczenia" }
       : q.kind === "matrix"
-        ? { ratings: q.rows!.map(() => q.options![4]) }
+        ? { ratings: q.rows!.map((_, i) => q.options![i % q.options!.length]) }
         : { selected: [q.options![0]] }),
   }));
   await expect(
@@ -237,7 +235,18 @@ test("nine-question survey validates seven ratings, stores answers and exports w
     book.Sheets[book.SheetNames[0]],
     { header: 1 },
   );
-  expect(rows[0]).toEqual(questions);
-  expect(rows[1][2]).toBe(formatAnswer(surveyDefinition[2], answers[2]));
-  expect(rows[1]).toHaveLength(9);
+  expect(rows[0]).toEqual([
+    ...questions.slice(0, 2),
+    ...surveyDefinition[2].rows!.map((row) => `${questions[2]} - ${row}`),
+    ...questions.slice(3),
+  ]);
+  expect(rows[1].slice(2, 9)).toEqual(answers[2].ratings);
+  expect(rows[1]).toHaveLength(15);
+  const csv = await (await exportSurvey(event.id, adminId, "csv")).text();
+  const csvBook = XLSX.read(csv, { type: "string", FS: ";", raw: true });
+  const csvRows = XLSX.utils.sheet_to_json<string[]>(
+    csvBook.Sheets[csvBook.SheetNames[0]],
+    { header: 1, defval: "" },
+  );
+  expect(csvRows).toEqual(rows);
 });

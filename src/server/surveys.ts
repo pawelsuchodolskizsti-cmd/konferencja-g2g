@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { encrypt, decrypt } from "./crypto";
 import { assert } from "./errors";
+import { surveyExportRows } from "@/lib/survey-export";
 
 import {
   surveyDefinition,
@@ -218,19 +219,14 @@ export async function exportSurvey(
     .where(eq(surveyResponses.eventId, eventId))
     .orderBy(asc(surveyResponses.id));
   const info = await surveyOverview(eventId);
-  const headers = [
-    ...new Set([...info.questions, ...responses.flatMap((r) => r.questions)]),
-  ];
-  const rows = [
-    headers,
-    ...responses.map((r) => {
-      const answers = JSON.parse(decrypt(r.answersEncrypted)) as string[];
-      return headers.map((title) => {
-        const index = r.questions.indexOf(title);
-        return index < 0 ? "" : (answers[index] ?? "");
-      });
-    }),
-  ];
+  const rows = surveyExportRows(
+    info.questions,
+    responses.map((r) => ({
+      questions: r.questions,
+      answers: JSON.parse(decrypt(r.answersEncrypted)) as string[],
+    })),
+  );
+  const headers = rows[0];
   if (format === "csv") {
     await db()
       .insert(auditLogs)
