@@ -156,6 +156,7 @@ test.each([250, 500])(
       .insert(s.events)
       .values({
         slug: `smtp-stress-${count}`,
+        mailBody: "Witaj {{firstName}}, kod: {{accessCode}}. https://conference.example.org/uczestnik",
         name: "Głowa do Góry",
         organizer: "Fundacja",
         location: "Sala",
@@ -237,7 +238,7 @@ test.each([250, 500])(
   180000,
 );
 
-test("invitation identifies the recipient and organizer without duplicating a code already in the template", async () => {
+test("invitation respects the draft without automatically appended text", async () => {
   const { invitation } = await import("../src/server/mail");
   const { htmlToText } = await import("../src/server/smtp-message");
   const [event] = await database
@@ -258,13 +259,8 @@ test("invitation identifies the recipient and organizer without duplicating a co
       { ...event, mailBody },
     );
     const text = htmlToText(mail.html);
-    expect(text).toContain(`Zaproszenie dla: <Anna> ${person.lastName}`);
-    expect(text.split(code)).toHaveLength(2);
-    expect(text.split("https://conference.example.org/uczestnik")).toHaveLength(
-      2,
-    );
-    expect(text).toContain("Fundacja One Day");
-    expect(text).toContain("konferencja@oneday.com.pl");
+    expect(text).not.toContain("Zaproszenie dla:");
+    expect(text).toBe(mailBody.includes("{{accessCode}}") ? `Witaj <Anna>, Twój kod: ${code}` : `Zapraszamy na ${event.name}.`);
     expect(mail.html).not.toContain("<Anna>");
     expect(mail.html).toContain('<html lang="pl">');
   }

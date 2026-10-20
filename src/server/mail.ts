@@ -61,15 +61,14 @@ export async function invitation(
   };
   const body = renderTemplate(event.mailBody, values);
   const panelUrl = escapeHtml(`${appUrl()}/uczestnik`);
-  const code = escapeHtml(credentials.accessCode);
-  const codeParagraph = body.includes(credentials.accessCode)
-    ? ""
-    : `<p>Twój indywidualny kod dostępu: <strong>${code}</strong></p>`;
+  const htmlBody = escapeHtml(body)
+    .replaceAll(panelUrl, `<a href="${panelUrl}">${panelUrl}</a>`)
+    .replace(/\r?\n/g, "<br>");
   return {
     from: event.mailFrom,
     to: person.email,
     subject: renderTemplate(event.mailSubject, values),
-    html: `<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.5"><h1>${escapeHtml(event.name)}</h1><p>Zaproszenie dla: ${escapeHtml(person.firstName)} ${escapeHtml(person.lastName)}</p><p>${escapeHtml(body).replace(/\r?\n/g, "<br>")}</p>${codeParagraph}<p>Strefa uczestnika: <a href="${panelUrl}">${panelUrl}</a></p><p>Zachowaj wiadomość. Materiały i szkolenia będą dostępne po potwierdzeniu obecności, a certyfikat po zakończeniu konferencji.</p><p>Fundacja One Day<br>Organizator konferencji ${escapeHtml(event.name)}<br>Kontakt: konferencja@oneday.com.pl</p><p>W razie pytań możesz odpowiedzieć na tę wiadomość.</p></div></body></html>`,
+    html: `<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.5"><p>${htmlBody}</p></div></body></html>`,
   };
 }
 export async function queueInvitations(
