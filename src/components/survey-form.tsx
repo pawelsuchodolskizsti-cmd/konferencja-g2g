@@ -154,10 +154,12 @@ export function SurveyForm({
         />
         {
           <>
-            <h2 className={styles.questionTitle} ref={heading} tabIndex={-1}>
-              {modern ? index + 1 : step + 1}. {q.title}
-            </h2>
-            {q.hint && <p>{q.hint}</p>}
+            <div className={styles.questionHeader}>
+              <h2 className={styles.questionTitle} ref={heading} tabIndex={-1}>
+                {modern ? index + 1 : step + 1}. {q.title}
+              </h2>
+              {q.hint && <p>{q.hint}</p>}
+            </div>
             {q.kind === "text" && (
               <label className={styles.question}>
                 <span className={styles.legend}>Twoja odpowiedź</span>

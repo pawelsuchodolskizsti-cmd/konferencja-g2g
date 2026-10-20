@@ -274,3 +274,21 @@
   outline: 3px solid #123e59;
   outline-offset: 4px;
 }
+
+.questionHeader {
+  margin: 28px 0 20px;
+  padding: 24px;
+  border: 1px solid #ffffffb3;
+  border-radius: 16px;
+  background: #fff;
+  color: #123e59;
+  box-shadow: 0 12px 32px #123e5926;
+}
+.questionHeader .questionTitle {
+  margin: 0;
+  color: #123e59;
+}
+.questionHeader p {
+  margin: 12px 0 0;
+  color: #35546a;
+}
