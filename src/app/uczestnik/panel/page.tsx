@@ -174,6 +174,7 @@ export default async function Page({
           <div className={styles.communityBenefits}>
             <span>Zdjęcia z konferencji</span>
             <span>Ciekawostki i inspiracje</span>
+            <span>Bonusowe treści</span>
           </div>
           <a
             className={styles.communityAction}
