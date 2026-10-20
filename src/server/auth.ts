@@ -143,6 +143,7 @@ export async function requireParticipant() {
     .where(
       and(
         eq(auditLogs.targetId, person.id),
+        eq(auditLogs.eventId, person.eventId),
         eq(auditLogs.action, PARTICIPANT_PRIVACY_ACTION),
       ),
     )
@@ -186,10 +187,17 @@ export async function loginParticipant(
   ip: string,
   privacyAcknowledged = false,
   privacyVersion = "",
+  loginMode: "first" | "returning" = "first",
 ) {
   assert(
-    privacyAcknowledged === true &&
-      privacyVersion === PARTICIPANT_PRIVACY_VERSION,
+    loginMode === "first" || loginMode === "returning",
+    400,
+    "Nieprawidłowy tryb logowania.",
+  );
+  assert(
+    loginMode === "returning" ||
+      (privacyAcknowledged === true &&
+        privacyVersion === PARTICIPANT_PRIVACY_VERSION),
     400,
     "Potwierdź zapoznanie się z aktualną klauzulą informacyjną.",
   );
@@ -217,13 +225,34 @@ export async function loginParticipant(
           .from(participants)
           .where(eq(participants.accessHash, hashToken(normalized)));
         assert(person, 401, "Nieprawidłowy kod uczestnika.");
+        if (loginMode === "returning") {
+          const [acknowledged] = await tx
+            .select({ id: auditLogs.id })
+            .from(auditLogs)
+            .where(
+              and(
+                eq(auditLogs.eventId, person.eventId),
+                eq(auditLogs.targetId, person.id),
+                eq(auditLogs.action, PARTICIPANT_PRIVACY_ACTION),
+              ),
+            )
+            .limit(1);
+          assert(
+            acknowledged,
+            403,
+            "Brak potwierdzenia aktualnej klauzuli RODO. Wybierz „Loguję się pierwszy raz” i potwierdź zapoznanie się z klauzulą.",
+          );
+        }
         await tx
           .insert(auditLogs)
           .values({
             id: auditId,
             eventId: person.eventId,
             targetId: person.id,
-            action: PARTICIPANT_PRIVACY_ACTION,
+            action:
+              loginMode === "first"
+                ? PARTICIPANT_PRIVACY_ACTION
+                : "PARTICIPANT_LOGIN",
           })
           .onConflictDoNothing();
         await tx

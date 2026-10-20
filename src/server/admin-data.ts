@@ -34,7 +34,7 @@ export async function participantList(eventId: string) {
     .where(
       and(
         eq(auditLogs.eventId, eventId),
-        sql`starts_with(${auditLogs.action}, 'PARTICIPANT_PRIVACY_ACK_')`,
+        sql`(starts_with(${auditLogs.action}, 'PARTICIPANT_PRIVACY_ACK_') OR ${auditLogs.action} = 'PARTICIPANT_LOGIN')`,
       ),
     )
     .groupBy(auditLogs.targetId)

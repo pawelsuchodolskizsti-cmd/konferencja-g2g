@@ -14,6 +14,7 @@ export function ParticipantLogin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [loginMode, setLoginMode] = useState<"first" | "returning">("first");
 
   return (
     <form
@@ -31,7 +32,8 @@ export function ParticipantLogin() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               code: data.get("code"),
-              privacyAcknowledged: acknowledged,
+              loginMode,
+              privacyAcknowledged: loginMode === "first" && acknowledged,
               privacyVersion: PARTICIPANT_PRIVACY_VERSION,
             }),
           });
@@ -52,6 +54,27 @@ export function ParticipantLogin() {
         }
       }}
     >
+      <div
+        className={styles.loginModes}
+        role="group"
+        aria-label="Sposób logowania"
+      >
+        {(["first", "returning"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={loginMode === mode}
+            disabled={busy}
+            onClick={() => {
+              setLoginMode(mode);
+              setAcknowledged(false);
+              setError("");
+            }}
+          >
+            {mode === "first" ? "Loguję się pierwszy raz" : "Wchodzę ponownie"}
+          </button>
+        ))}
+      </div>
       <label htmlFor="participant-code">Twój kod dostępu</label>
       <div className={styles.inputWrap}>
         <input
@@ -81,39 +104,52 @@ export function ParticipantLogin() {
         </svg>
       </div>
       <p id="code-hint" className={styles.hint}>
-        6 znaków: wielkie litery i cyfry. Kod znajdziesz w zaproszeniu.
+        6 znaków: wielkie litery i cyfry. Kod znajdziesz w wiadomości e-mail.
       </p>
-      <section className={styles.privacy} aria-labelledby="privacy-title">
-        <h2 id="privacy-title">Twoje dane w Strefie Uczestnika</h2>
-        <p>{participantPrivacySummary}</p>
-        <Link
-          className={styles.privacyLink}
-          href="/uczestnik/klauzula"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Przeczytaj pełną klauzulę informacyjną
-        </Link>
-      </section>
-      <label className={styles.privacyCheck}>
-        <input
-          type="checkbox"
-          name="privacyAcknowledged"
-          required
-          checked={acknowledged}
-          onChange={(event) => setAcknowledged(event.target.checked)}
-        />
-        <span>
-          Potwierdzam zapoznanie się z klauzulą informacyjną dotyczącą
-          przetwarzania moich danych w Strefie Uczestnika.
-        </span>
-      </label>
+      {loginMode === "first" && (
+        <>
+          <section className={styles.privacy} aria-labelledby="privacy-title">
+            <h2 id="privacy-title">Twoje dane w Strefie Uczestnika</h2>
+            <p>{participantPrivacySummary}</p>
+            <Link
+              className={styles.privacyLink}
+              href="/uczestnik/klauzula"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Przeczytaj pełną klauzulę informacyjną
+            </Link>
+          </section>
+          <label className={styles.privacyCheck}>
+            <input
+              type="checkbox"
+              name="privacyAcknowledged"
+              required
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+            />
+            <span>
+              Potwierdzam zapoznanie się z klauzulą informacyjną dotyczącą
+              przetwarzania moich danych w Strefie Uczestnika.
+            </span>
+          </label>
+        </>
+      )}
+      {loginMode === "returning" && (
+        <p className={styles.hint}>
+          Wpisz swój dotychczasowy kod. Ponowne wejście jest dostępne po
+          wcześniejszym potwierdzeniu klauzuli RODO.
+        </p>
+      )}
       {error && (
         <p id="code-error" role="alert" className={styles.error}>
           {error}
         </p>
       )}
-      <button type="submit" disabled={busy || !acknowledged}>
+      <button
+        type="submit"
+        disabled={busy || (loginMode === "first" && !acknowledged)}
+      >
         <span>{busy ? "Otwieranie strefy…" : "Wejdź do strefy"}</span>
       </button>
     </form>

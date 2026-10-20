@@ -227,3 +227,20 @@
   padding: 0;
   accent-color: #123e59;
 }
+
+.loginModes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.form .loginModes button {
+  padding: 12px 8px;
+  font-size: 13px;
+  background: transparent;
+  color: white;
+}
+.form .loginModes button[aria-pressed="true"] {
+  background: white;
+  color: #123e59;
+}

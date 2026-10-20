@@ -33,6 +33,7 @@ export async function POST(
       const input = z
         .object({
           code: z.string().min(1).max(100),
+          loginMode: z.enum(["first", "returning"]).default("first"),
           privacyAcknowledged: z.boolean().default(false),
           privacyVersion: z.string().max(100).default(""),
         })
@@ -42,6 +43,7 @@ export async function POST(
         clientKey(req),
         input.privacyAcknowledged,
         input.privacyVersion,
+        input.loginMode,
       );
     } else throw new AppError(404, "Nie znaleziono.");
     return Response.json({ ok: true });

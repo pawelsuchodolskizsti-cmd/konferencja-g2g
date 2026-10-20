@@ -33,9 +33,9 @@ export default function Page() {
             />
           </div>
           <p className={styles.intro}>
-            Twoje materiały, szkolenia i certyfikat.
+            Twoja indywidualna strefa związana z wydarzeniem.
             <br />
-            Wszystko w jednym miejscu.
+            Dobrze Cię tu widzieć!
           </p>
           <ParticipantLogin />
         </div>
