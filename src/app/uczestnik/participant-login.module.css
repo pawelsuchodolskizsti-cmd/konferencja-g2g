@@ -230,17 +230,51 @@
 
 .loginModes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 16px;
   margin-bottom: 24px;
 }
 .form .loginModes button {
-  padding: 12px 8px;
-  font-size: 13px;
-  background: transparent;
-  color: white;
-}
-.form .loginModes button[aria-pressed="true"] {
+  min-height: 60px;
+  padding: 16px 20px;
+  border-radius: 999px;
   background: white;
   color: #123e59;
+  font-size: 15px;
+  animation: loginGlow 3.2s ease-in-out infinite;
+}
+.form .loginModes button:nth-child(2) {
+  animation-delay: 0.8s;
+}
+.form .loginModes button:hover {
+  background: #eef8ff;
+}
+.form .loginModes button[aria-pressed="true"] {
+  outline: 2px solid white;
+  outline-offset: 4px;
+}
+.form .loginModes button:focus-visible {
+  outline: 3px solid #123e59;
+  outline-offset: 4px;
+}
+.form .loginModes button:disabled {
+  animation: none;
+}
+@keyframes loginGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0.08),
+      0 0 10px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(255, 255, 255, 0.16),
+      0 0 28px rgba(255, 255, 255, 0.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .form .loginModes button {
+    animation: none;
+  }
 }
