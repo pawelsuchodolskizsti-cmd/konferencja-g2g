@@ -94,6 +94,15 @@
   text-align: center;
   font-size: 13px;
 }
+@media (max-width: 699px) {
+  .navigation a,
+  .navigationLocked {
+    min-width: 0;
+    padding-inline: 2px;
+    font-size: clamp(9px, 2.8vw, 11px);
+    white-space: nowrap;
+  }
+}
 .navigation > * + * {
   border-left: 1px solid #bfeaff38;
 }
