@@ -278,3 +278,27 @@
     animation: none;
   }
 }
+
+/* Keep the alternative available without competing with the selected choice. */
+.form .loginModes button {
+  justify-self: center;
+  transition:
+    width 220ms ease,
+    min-height 220ms ease,
+    padding 220ms ease,
+    font-size 220ms ease;
+}
+.form
+  .loginModes:has(button[aria-pressed="true"])
+  button[aria-pressed="false"] {
+  width: 82%;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 13px;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .form .loginModes button {
+    transition: none;
+  }
+}
