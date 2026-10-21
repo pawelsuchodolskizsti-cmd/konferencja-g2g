@@ -6,3 +6,10 @@ export function isDemoParticipant(person: { id: string; eventId: string }) {
     person.eventId === "69de8147-7c7a-4a92-948f-60164f0cbba0"
   );
 }
+
+export function coursesAvailableForParticipant(
+  person: { id: string; eventId: string },
+  event: { coursesUnlocked: boolean },
+) {
+  return event.coursesUnlocked || isDemoParticipant(person);
+}

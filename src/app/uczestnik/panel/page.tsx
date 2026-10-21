@@ -1,7 +1,10 @@
 import { materialsUnlocked } from "@/server/material-access";
 import { ParticipantMaterials } from "@/components/participant-materials";
 import { ParticipantProgram } from "@/components/participant-program";
-import { isDemoParticipant } from "@/server/demo-participant";
+import {
+  isDemoParticipant,
+  coursesAvailableForParticipant,
+} from "@/server/demo-participant";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { decrypt } from "@/server/crypto";
@@ -56,8 +59,9 @@ export default async function Page({
       .from(attendance)
       .where(eq(attendance.participantId, person.id)),
   ]);
+  const coursesUnlocked = coursesAvailableForParticipant(person, event);
   const courses =
-    preview && !!present && event.coursesUnlocked
+    preview && !demo && !!present && coursesUnlocked
       ? [
           {
             id: "preview",
@@ -76,7 +80,7 @@ export default async function Page({
             available: true,
           },
         ]
-      : present && event.coursesUnlocked
+      : present && coursesUnlocked
         ? await participantCourses(person.id)
         : [];
   courses.sort(
@@ -84,7 +88,7 @@ export default async function Page({
   );
   const trainingArtwork =
     !!present &&
-    event.coursesUnlocked &&
+    coursesUnlocked &&
     courses.some((course) => course.available && isOnMyWayCourse(course.url))
       ? await onMyWayArtwork()
       : null;
@@ -149,10 +153,7 @@ export default async function Page({
           </div>
           <p className={styles.greeting}>Cześć, {person.firstName}!</p>
           {preview && !!present && (
-            <p role="status">
-              Podgląd testowy: wszystkie sekcje są widoczne. Kody i certyfikat
-              są przykładowe.
-            </p>
+            <p role="status">Konto testowe. Certyfikat jest przykładowy.</p>
           )}
         </header>
         {qrImage && (
@@ -265,7 +266,7 @@ export default async function Page({
               number: "05",
               label: "Szkolenia",
               href: "#szkolenia",
-              available: !!present && event.coursesUnlocked,
+              available: !!present && coursesUnlocked,
             },
             {
               number: "06",
@@ -390,7 +391,7 @@ export default async function Page({
             </a>
           </section>
         )}
-        {!!present && event.coursesUnlocked && (
+        {!!present && coursesUnlocked && (
           <>
             <section
               id="szkolenia"

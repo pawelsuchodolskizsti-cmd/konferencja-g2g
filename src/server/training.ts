@@ -1,3 +1,4 @@
+import { coursesAvailableForParticipant } from "./demo-participant";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Database } from "@/db";
@@ -149,7 +150,11 @@ export async function participantCourses(
   database: Database = db(),
 ) {
   const { person, event } = await presentParticipant(participantId, database);
-  assert(event.coursesUnlocked, 403, "Szkolenia będą dostępne po ręcznym odblokowaniu przez organizatora.");
+  assert(
+    coursesAvailableForParticipant(person, event),
+    403,
+    "Szkolenia będą dostępne po ręcznym odblokowaniu przez organizatora.",
+  );
   const courses = await database
     .select()
     .from(trainingCourses)
@@ -229,13 +234,16 @@ export async function setCoursesUnlocked(
   database: Database = db(),
 ) {
   return database.transaction(async (tx) => {
-    const [event] = await tx.update(events)
+    const [event] = await tx
+      .update(events)
       .set({ coursesUnlocked: unlocked })
       .where(eq(events.id, eventId))
       .returning({ id: events.id });
     assert(event, 404, "Nie znaleziono konferencji.");
     await tx.insert(auditLogs).values({
-      eventId, adminId, targetId: eventId,
+      eventId,
+      adminId,
+      targetId: eventId,
       action: unlocked ? "COURSES_UNLOCKED" : "COURSES_LOCKED",
     });
     return { coursesUnlocked: unlocked };
