@@ -1,3 +1,4 @@
+import { ScannerLogout } from "@/components/scanner-logout";
 import { CheckinSearch } from "@/components/checkin-search";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -32,9 +33,12 @@ export default async function Page({
   return (
     <ConferenceShell current="participant">
       <div className="scanner-page">
-        <Link className="scanner-back" href="/admin">
-          ← Panel administratora
-        </Link>
+        <div className="scanner-toolbar">
+          <Link className="scanner-back" href="/admin">
+            ← Panel administratora
+          </Link>
+          <ScannerLogout />
+        </div>
         <p className="scanner-label">Konferencja Głowa do Góry</p>
         <h1>
           Skaner
