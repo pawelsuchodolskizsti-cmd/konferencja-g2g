@@ -75,6 +75,19 @@ beforeAll(async () => {
   person = participant;
 });
 afterAll(async () => pg.close());
+test("test accounts complete the survey once without adding anonymous results", async () => {
+  await saveSurvey(eventId, adminId, { questions: defaultSurveyQuestions, published: true });
+  const [p] = await database.insert(schema.participants).values({ eventId, firstName: "Demo", lastName: "Test", email: "demo@example.test", ...newCredentials() }).returning();
+  await database.insert(schema.auditLogs).values({ eventId, targetId: p.id, action: "PARTICIPANT_TEST_ACCOUNT" });
+  await database.insert(schema.attendance).values({ participantId: p.id, method: "QR" });
+  const before = await database.select().from(schema.surveyResponses);
+  await expect(submitSurvey(p, input, atUnlock)).resolves.toEqual({ saved: true, test: true });
+  await expect(submitSurvey(p, input, atUnlock)).rejects.toMatchObject({ status: 409 });
+  expect(await database.select().from(schema.surveyResponses)).toEqual(before);
+  expect((await participantSurvey(p, atUnlock)).submitted).toBe(true);
+  // Keep the shared fixture's completion assertions independent of this test.
+  await database.delete(schema.participants).where((await import("drizzle-orm")).eq(schema.participants.id, p.id));
+});
 test("requires ten questions and explicit publication", async () => {
   await expect(
     saveSurvey(eventId, adminId, { questions: ["Jedno"], published: true }),

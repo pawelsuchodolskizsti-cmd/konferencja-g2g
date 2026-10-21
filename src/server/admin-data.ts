@@ -1,3 +1,4 @@
+import { realParticipant, testParticipant } from "./participant-scope";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Database } from "@/db";
@@ -19,7 +20,7 @@ import {
 import { assert } from "./errors";
 import { decrypt } from "./crypto";
 import { safeCsv } from "./imports";
-export async function participantList(eventId: string) {
+export async function participantList(eventId: string, includeTest = false) {
   const logins = db()
     .select({
       participantId: auditLogs.targetId,
@@ -42,6 +43,7 @@ export async function participantList(eventId: string) {
   const rows = await db()
     .select({
       id: participants.id,
+      isTest: testParticipant,
       credentials: participants.credentials,
       firstName: participants.firstName,
       lastName: participants.lastName,
@@ -67,8 +69,18 @@ export async function participantList(eventId: string) {
       ),
     )
     .leftJoin(certificates, eq(certificates.participantId, participants.id))
-    .where(eq(participants.eventId, eventId));
-  rows.sort((a, b) => a.lastName.localeCompare(b.lastName, "pl") || a.firstName.localeCompare(b.firstName, "pl") || a.id.localeCompare(b.id));
+    .where(
+      and(
+        eq(participants.eventId, eventId),
+        includeTest ? undefined : realParticipant,
+      ),
+    );
+  rows.sort(
+    (a, b) =>
+      a.lastName.localeCompare(b.lastName, "pl") ||
+      a.firstName.localeCompare(b.firstName, "pl") ||
+      a.id.localeCompare(b.id),
+  );
   return rows.map(({ credentials, ...person }) => ({
     ...person,
     accessCode: String(JSON.parse(decrypt(credentials)).accessCode),
@@ -81,7 +93,7 @@ export async function eventOverview(eventId: string) {
     .where(eq(events.id, eventId));
   assert(event, 404, "Nie znaleziono wydarzenia.");
   const [people, courses, audit, files] = await Promise.all([
-    participantList(eventId),
+    participantList(eventId, true),
     db()
       .select({
         id: trainingCourses.id,
@@ -90,7 +102,7 @@ export async function eventOverview(eventId: string) {
         url: trainingCourses.url,
         mode: trainingCourses.mode,
         total: sql<number>`(SELECT COUNT(*)::int FROM training_codes c WHERE c.course_id = ${trainingCourses.id} AND c.retired_at IS NULL)`,
-        assigned: sql<number>`(SELECT COUNT(*)::int FROM participant_training_access a WHERE a.course_id = ${trainingCourses.id})`,
+        assigned: sql<number>`(SELECT COUNT(*)::int FROM participant_training_access a WHERE a.course_id = ${trainingCourses.id} AND NOT EXISTS (SELECT 1 FROM audit_logs ta WHERE ta.target_id=a.participant_id AND ta.action='PARTICIPANT_TEST_ACCOUNT'))`,
       })
       .from(trainingCourses)
       .where(eq(trainingCourses.eventId, eventId)),

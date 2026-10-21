@@ -1,3 +1,4 @@
+import { markTestParticipants } from "./mark-test-participants";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
@@ -15,6 +16,10 @@ try {
   console.log(
     "PII encryption verified:",
     JSON.stringify(await migrateParticipantPii(database)),
+  );
+  console.log(
+    "Test accounts marked:",
+    JSON.stringify(await markTestParticipants(database)),
   );
   console.log("Migracje zakończone.");
 } finally {

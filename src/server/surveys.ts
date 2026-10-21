@@ -1,10 +1,12 @@
 import "server-only";
+import { testParticipant } from "./participant-scope";
 import { safeCsv } from "./imports";
 import { asc, eq, count } from "drizzle-orm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { db, type Database } from "@/db";
 import {
+  participants,
   attendance,
   events,
   surveyCompletions,
@@ -197,6 +199,11 @@ export async function submitSurvey(
       .onConflictDoNothing()
       .returning({ id: surveyCompletions.participantId });
     assert(completed, 409, "Twoja ankieta została już wysłana.");
+    const [account] = await tx
+      .select({ isTest: testParticipant })
+      .from(participants)
+      .where(eq(participants.id, person.id));
+    if (account?.isTest) return { saved: true, test: true };
     await tx.insert(surveyResponses).values({
       eventId: person.eventId,
       questions: data.questions,

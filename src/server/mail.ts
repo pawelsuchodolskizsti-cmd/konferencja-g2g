@@ -1,3 +1,4 @@
+import { realParticipant } from "./participant-scope";
 import { formatMailBody } from "@/lib/mail-format";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
@@ -81,7 +82,7 @@ export async function queueInvitations(
     const people = await tx
       .select({ id: participants.id })
       .from(participants)
-      .where(eq(participants.eventId, eventId));
+      .where(and(eq(participants.eventId, eventId), realParticipant));
     if (!people.length) return { queued: 0 };
     const inserted = await tx
       .insert(emailLogs)
@@ -125,6 +126,11 @@ export async function queueInvitations(
   });
 }
 export async function queueCertificate(participantId: string) {
+  const [eligible] = await db()
+    .select({ id: participants.id })
+    .from(participants)
+    .where(and(eq(participants.id, participantId), realParticipant));
+  assert(eligible, 403, "Konto testowe jest wyłączone z wysyłki.");
   const { event } = await presentParticipant(participantId);
   assert(
     certificateAvailable(event),
@@ -244,7 +250,7 @@ export async function processMail() {
         .select({ person: participants, event: events })
         .from(participants)
         .innerJoin(events, eq(events.id, participants.eventId))
-        .where(eq(participants.id, job.participantId));
+        .where(and(eq(participants.id, job.participantId), realParticipant));
       assert(context, 404, "Brak uczestnika.");
       let payload: MailPayload;
       if (job.kind === "CERTIFICATE") {

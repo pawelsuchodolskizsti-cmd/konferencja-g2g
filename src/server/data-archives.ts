@@ -1,3 +1,4 @@
+import { realParticipant } from "./participant-scope";
 import "server-only";
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -48,7 +49,7 @@ export async function createArchive(
   const people = await db()
     .select({ id: participants.id })
     .from(participants)
-    .where(eq(participants.eventId, eventId));
+    .where(and(eq(participants.eventId, eventId), realParticipant));
   assert(people.length <= 2000, 400, "Archiwum obsługuje do 2000 uczestników.");
   const files: Record<string, Uint8Array> = {};
   const json = (value: unknown) =>

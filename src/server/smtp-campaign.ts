@@ -1,4 +1,5 @@
 import "server-only";
+import { realParticipant } from "./participant-scope";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, lt, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -44,7 +45,7 @@ export async function smtpOverview(eventId: string) {
     db()
       .select({ id: participants.id, email: participants.email })
       .from(participants)
-      .where(eq(participants.eventId, eventId)),
+      .where(and(eq(participants.eventId, eventId), realParticipant)),
     db()
       .select({
         participantId: emailLogs.participantId,
@@ -60,6 +61,7 @@ export async function smtpOverview(eventId: string) {
       .where(
         and(
           eq(participants.eventId, eventId),
+          realParticipant,
           eq(emailLogs.kind, "INVITATION"),
         ),
       ),
@@ -203,7 +205,7 @@ export async function startSmtpCampaign(eventId: string, adminId: string) {
     const people = await tx
       .select()
       .from(participants)
-      .where(eq(participants.eventId, eventId));
+      .where(and(eq(participants.eventId, eventId), realParticipant));
     assert(people.length, 400, "Brak uczestników do wysyłki.");
     const prior = await tx
       .select({ person: participants })
@@ -212,6 +214,7 @@ export async function startSmtpCampaign(eventId: string, adminId: string) {
       .where(
         and(
           eq(participants.eventId, eventId),
+          realParticipant,
           eq(emailLogs.kind, "INVITATION"),
         ),
       );
@@ -261,6 +264,7 @@ async function claimNext(eventId: string) {
       .where(
         and(
           eq(participants.eventId, eventId),
+          realParticipant,
           eq(emailLogs.kind, "INVITATION"),
           eq(emailLogs.status, "QUEUED"),
         ),
@@ -282,6 +286,7 @@ async function claimNext(eventId: string) {
       .where(
         and(
           eq(participants.eventId, eventId),
+          realParticipant,
           eq(emailLogs.kind, "INVITATION"),
         ),
       );

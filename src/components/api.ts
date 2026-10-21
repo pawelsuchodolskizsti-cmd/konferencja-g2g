@@ -45,6 +45,7 @@ export type EventData = {
   agenda: AgendaItem[];
 };
 export type Person = {
+  isTest?: boolean;
   firstLoginAt?: string | null;
   lastLoginAt?: string | null;
   accessCode: string;

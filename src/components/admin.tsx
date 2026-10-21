@@ -91,7 +91,8 @@ export function Admin({
     };
   }, [eventId, revision]);
   const overview = data?.event.id === eventId ? data : null;
-  const people = overview?.people || [];
+  const allPeople = overview?.people || [];
+  const people = allPeople.filter((p) => !p.isTest);
   const present = people.filter((p) => p.checkedInAt).length;
   async function action(path: string, body?: unknown, method = "POST") {
     setBusy(true);
@@ -393,7 +394,7 @@ export function Admin({
               )}
               {section === "participants" && (
                 <Participants
-                  people={people}
+                  people={allPeople}
                   eventId={eventId}
                   busy={busy}
                   action={action}
@@ -418,7 +419,7 @@ export function Admin({
                   <section className="card">
                     <h2>Ręczne potwierdzenie obecności</h2>
                     <Participants
-                      people={people}
+                      people={allPeople}
                       eventId={eventId}
                       busy={busy}
                       action={action}
@@ -610,6 +611,11 @@ function PeopleTable({
                 <strong>
                   {p.firstName} {p.lastName}
                 </strong>
+                {p.isTest && (
+                  <span className="badge">
+                    Konto testowe - poza raportami i wysyłką
+                  </span>
+                )}
                 <br />
                 <span className="muted">{p.email}</span>
               </td>
