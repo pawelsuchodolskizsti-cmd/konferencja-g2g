@@ -525,6 +525,16 @@ export function MaterialsManager({
     <section className="card">
       <h2>Materiały uczestników</h2>
       <p>
+        <a
+          className="button secondary"
+          href={`/admin/materialy-podglad?event=${data.event.id}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Podgląd kart w panelu uczestnika
+        </a>
+      </p>
+      <p>
         {data.event.materialsUnlocked
           ? "Materiały odblokowane"
           : "Materiały zablokowane dla uczestników"}

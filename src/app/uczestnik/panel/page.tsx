@@ -1,5 +1,5 @@
 import { materialsUnlocked } from "@/server/material-access";
-import { materialNotice } from "@/lib/material-notice";
+import { ParticipantMaterials } from "@/components/participant-materials";
 import { ParticipantProgram } from "@/components/participant-program";
 import { isDemoParticipant } from "@/server/demo-participant";
 import Image from "next/image";
@@ -316,22 +316,7 @@ export default async function Page({
         </section>
 
         {!!present && files.length > 0 && (
-          <section className={styles.card} aria-labelledby="files-title">
-            <div className={styles.materials}>
-              <h2 id="files-title">Materiały konferencyjne</h2>
-              <p>{materialNotice}</p>
-              {files.map((file) => (
-                <a
-                  key={file.id}
-                  href={`/api/participant/materials/${file.id}`}
-                  download
-                >
-                  {file.title}
-                  <span>PDF ↓</span>
-                </a>
-              ))}
-            </div>
-          </section>
+          <ParticipantMaterials files={files} />
         )}
         {!!present && survey.available && (
           <section

@@ -3,7 +3,13 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import styles from "@/app/uczestnik/panel/panel.module.css";
 
-export function TrainingCarousel({ children }: { children: ReactNode }) {
+export function TrainingCarousel({
+  children,
+  label = "Szkolenia, przewijaj w lewo i w prawo",
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
   const track = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,7 +45,7 @@ export function TrainingCarousel({ children }: { children: ReactNode }) {
         className={styles.courseTrack}
         tabIndex={0}
         role="region"
-        aria-label="Szkolenia, przewijaj w lewo i w prawo"
+        aria-label={label}
       >
         {children}
       </div>
