@@ -102,9 +102,7 @@ export const participants = pgTable(
     createdAt: created(),
     updatedAt: created("updated_at"),
   },
-  (t) => [
-    index("participant_event").on(t.eventId),
-  ],
+  (t) => [index("participant_event").on(t.eventId)],
 );
 export const attendance = pgTable(
   "attendance",
@@ -171,7 +169,9 @@ export type MailPayload = {
   attachments?: { filename: string; content: string; content_id?: string }[];
 };
 export const smtpSettings = pgTable("smtp_settings", {
-  eventId: uuid("event_id").primaryKey().references(() => events.id, { onDelete: "cascade" }),
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
   passwordEncrypted: text("password_encrypted").notNull(),
   updatedAt: created("updated_at"),
 });
@@ -281,6 +281,32 @@ export const materials = pgTable("materials", {
   encryptedContent: text("encrypted_content").notNull(),
   createdAt: created(),
 });
+export const materialUploads = pgTable(
+  "material_uploads",
+  {
+    id: uuid("id").primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    adminId: uuid("admin_id")
+      .notNull()
+      .references(() => admins.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    size: integer("size").notNull(),
+    sha256: text("sha256").notNull(),
+    chunks: jsonb("chunks").$type<string[]>().notNull().default([]),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    materialId: uuid("material_id").references(() => materials.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (t) => [
+    check(
+      "material_uploads_size_check",
+      sql`${t.size} > 0 AND ${t.size} <= 20971520`,
+    ),
+  ],
+);
 export const surveys = pgTable("surveys", {
   eventId: uuid("event_id")
     .primaryKey()

@@ -24,6 +24,7 @@ import { requireEvent } from "../src/server/auth";
 import { decrypt, encrypt, hashToken } from "../src/server/crypto";
 import { participantList, updateParticipant } from "../src/server/admin-data";
 import { downloadMaterial } from "../src/server/materials";
+import { setMaterialsUnlocked } from "../src/server/material-access";
 import { filterParticipants } from "../src/lib/participant-filter";
 const pg = new PGlite();
 const database = drizzle(pg);
@@ -271,6 +272,10 @@ test("hidden materials are unavailable even by direct URL; published materials r
     .insert(s.attendance)
     .values({ participantId: personId, method: "MANUAL" });
   await expect(downloadMaterial(personId, m.id, db)).rejects.toMatchObject({
+    status: 403,
+  });
+  await setMaterialsUnlocked(eventId, adminId, true);
+  await expect(downloadMaterial(personId, m.id, db)).rejects.toMatchObject({
     status: 404,
   });
   await manageMaterial(eventId, adminId, m.id, "PATCH", {
@@ -362,33 +367,31 @@ test("activity uses all successful login records, isolates events and keeps shar
   );
   const first = new Date("2026-10-01T08:00:00Z");
   const last = new Date("2026-10-20T08:00:00Z");
-  await database
-    .insert(s.auditLogs)
-    .values([
-      {
-        eventId,
-        targetId: a.id,
-        action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
-        createdAt: first,
-      },
-      {
-        eventId,
-        targetId: a.id,
-        action: "PARTICIPANT_PRIVACY_ACK_future-version",
-        createdAt: last,
-      },
-      {
-        eventId: otherEventId,
-        targetId: b.id,
-        action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
-      },
-      { eventId, targetId: b.id, action: "PARTICIPANT_CREATED" },
-      ...Array.from({ length: 60 }, () => ({
-        eventId,
-        targetId: b.id,
-        action: "SMTP_EMAIL_ACCEPTED",
-      })),
-    ]);
+  await database.insert(s.auditLogs).values([
+    {
+      eventId,
+      targetId: a.id,
+      action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
+      createdAt: first,
+    },
+    {
+      eventId,
+      targetId: a.id,
+      action: "PARTICIPANT_PRIVACY_ACK_future-version",
+      createdAt: last,
+    },
+    {
+      eventId: otherEventId,
+      targetId: b.id,
+      action: "PARTICIPANT_PRIVACY_ACK_2026-10-15-v1",
+    },
+    { eventId, targetId: b.id, action: "PARTICIPANT_CREATED" },
+    ...Array.from({ length: 60 }, () => ({
+      eventId,
+      targetId: b.id,
+      action: "SMTP_EMAIL_ACCEPTED",
+    })),
+  ]);
   const people = await participantList(eventId);
   const active = people.filter((p) => p.id === a.id);
   expect(active).toHaveLength(1);

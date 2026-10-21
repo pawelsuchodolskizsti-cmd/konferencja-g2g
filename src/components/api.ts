@@ -37,6 +37,7 @@ export type EventData = {
   timezone: string;
   published: boolean;
   coursesUnlocked: boolean;
+  materialsUnlocked?: boolean;
   info: string;
   mailSubject: string;
   mailBody: string;

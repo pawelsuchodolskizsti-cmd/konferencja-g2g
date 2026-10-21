@@ -1,3 +1,4 @@
+import { pdfStream } from "./incremental-pdf";
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -653,7 +654,9 @@ export async function manageMaterial(
   assert(item, 404, "Brak materiału.");
   if (method === "GET")
     return new Response(
-      new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
+      pdfStream([
+        new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
+      ]),
       {
         headers: {
           "Content-Type": "application/pdf",

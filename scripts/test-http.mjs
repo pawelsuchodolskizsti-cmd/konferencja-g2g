@@ -159,26 +159,34 @@ try {
   const [person] =
     await sql`SELECT * FROM participants WHERE event_id=${eventId} ORDER BY email LIMIT 1`;
   const credentials = JSON.parse(decrypt(person.credentials));
-  await checked("logowanie przed skanem udostępnia tylko bilet QR i program", async () => {
-    const login = await call("/api/auth/participant", {
-      auth: "",
-      method: "POST",
-      body: {
-        privacyAcknowledged: true,
-        privacyVersion: PARTICIPANT_PRIVACY_VERSION,
-        code: credentials.accessCode,
-      },
-    });
-    pcookie = login.headers.get("set-cookie").split(";")[0];
-    const page = await (await call("/uczestnik/panel", { auth: pcookie })).text();
-    assert(page.includes("Kod QR do wejścia"));
-    assert(page.includes("Program"));
-    assert(!page.includes("Dostęp do szkoleń"));
-    assert(!page.includes("Kliknij i odbierz certyfikat"));
-    await call("/api/participant/courses", { auth: pcookie, expected: 403 });
-    await call("/api/participant/certificate", { auth: pcookie, expected: 403 });
-    await call("/api/participant/survey", { auth: pcookie, expected: 403 });
-  });
+  await checked(
+    "logowanie przed skanem udostępnia tylko bilet QR i program",
+    async () => {
+      const login = await call("/api/auth/participant", {
+        auth: "",
+        method: "POST",
+        body: {
+          privacyAcknowledged: true,
+          privacyVersion: PARTICIPANT_PRIVACY_VERSION,
+          code: credentials.accessCode,
+        },
+      });
+      pcookie = login.headers.get("set-cookie").split(";")[0];
+      const page = await (
+        await call("/uczestnik/panel", { auth: pcookie })
+      ).text();
+      assert(page.includes("Kod QR do wejścia"));
+      assert(page.includes("Program"));
+      assert(!page.includes("Dostęp do szkoleń"));
+      assert(!page.includes("Kliknij i odbierz certyfikat"));
+      await call("/api/participant/courses", { auth: pcookie, expected: 403 });
+      await call("/api/participant/certificate", {
+        auth: pcookie,
+        expected: 403,
+      });
+      await call("/api/participant/survey", { auth: pcookie, expected: 403 });
+    },
+  );
   await checked(
     "QR: powtórne i równoległe skanowanie bez duplikatów",
     async () => {
@@ -258,7 +266,10 @@ try {
     "obecny uczestnik otrzymuje dwa kursy dopiero po ręcznym włączeniu",
     async () => {
       await call("/api/participant/courses", { auth: pcookie, expected: 403 });
-      await call(`${base}/courses-unlock`, { method: "POST", body: { unlocked: true } });
+      await call(`${base}/courses-unlock`, {
+        method: "POST",
+        body: { unlocked: true },
+      });
       const one = await (
         await call("/api/participant/courses", { auth: pcookie })
       ).json();
@@ -268,7 +279,10 @@ try {
       assert.equal(one.length, 2);
       assert(one.every((c) => c.available && c.code));
       assert.deepEqual(one, two);
-      await call(`${base}/courses-unlock`, { method: "POST", body: { unlocked: false } });
+      await call(`${base}/courses-unlock`, {
+        method: "POST",
+        body: { unlocked: false },
+      });
       await call("/api/participant/courses", { auth: pcookie, expected: 403 });
     },
   );
@@ -314,7 +328,27 @@ try {
       auth: "",
       expected: 401,
     });
+    await call(`/api/participant/materials/${item.id}`, {
+      auth: pcookie,
+      expected: 403,
+    });
+    await call(`${base}/materials-unlock`, {
+      method: "POST",
+      body: { unlocked: true },
+    });
     await call(`/api/participant/materials/${item.id}`, { auth: pcookie });
+    await call(`${base}/materials-unlock`, {
+      method: "POST",
+      body: { unlocked: false },
+    });
+    await call(`/api/participant/materials/${item.id}`, {
+      auth: pcookie,
+      expected: 403,
+    });
+    await call(`${base}/materials-unlock`, {
+      method: "POST",
+      body: { unlocked: true },
+    });
     const [absent] =
       await sql`SELECT credentials FROM participants p WHERE event_id=${eventId} AND NOT EXISTS(SELECT 1 FROM attendance a WHERE a.participant_id=p.id) LIMIT 1`;
     const absentLogin = await call("/api/auth/participant", {

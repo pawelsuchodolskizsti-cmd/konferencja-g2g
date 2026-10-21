@@ -72,13 +72,11 @@ beforeAll(async () => {
       .insert(s.adminEvents)
       .values({ adminId: a.id, eventId, role });
     tokens[role] = String(i).repeat(43);
-    await database
-      .insert(s.sessions)
-      .values({
-        adminId: a.id,
-        tokenHash: hashToken(tokens[role]),
-        expiresAt: new Date(Date.now() + 3600000),
-      });
+    await database.insert(s.sessions).values({
+      adminId: a.id,
+      tokenHash: hashToken(tokens[role]),
+      expiresAt: new Date(Date.now() + 3600000),
+    });
   }
   const [disabled] = await database
     .insert(s.admins)
@@ -89,13 +87,11 @@ beforeAll(async () => {
     })
     .returning();
   tokens.disabled = "d".repeat(43);
-  await database
-    .insert(s.sessions)
-    .values({
-      adminId: disabled.id,
-      tokenHash: hashToken(tokens.disabled),
-      expiresAt: new Date(Date.now() + 3600000),
-    });
+  await database.insert(s.sessions).values({
+    adminId: disabled.id,
+    tokenHash: hashToken(tokens.disabled),
+    expiresAt: new Date(Date.now() + 3600000),
+  });
   tokens.participant = "p".repeat(43);
   tokens.expired = "x".repeat(43);
   await database.insert(s.sessions).values([
@@ -110,13 +106,11 @@ beforeAll(async () => {
       expiresAt: new Date(0),
     },
   ]);
-  await database
-    .insert(s.auditLogs)
-    .values({
-      eventId,
-      targetId: personId,
-      action: PARTICIPANT_PRIVACY_ACTION,
-    });
+  await database.insert(s.auditLogs).values({
+    eventId,
+    targetId: personId,
+    action: PARTICIPANT_PRIVACY_ACTION,
+  });
   await database
     .insert(s.attendance)
     .values({ participantId: personId, method: "MANUAL" });
@@ -236,6 +230,10 @@ test("participant material download is bound to their conference and session", a
       params: Promise.resolve({ id }),
     });
   state.token = tokens.participant;
+  expect((await get(ownMaterial)).status).toBe(403);
+  await database
+    .insert(s.auditLogs)
+    .values({ eventId, action: "MATERIALS_UNLOCKED" });
   expect((await get(ownMaterial)).status).toBe(200);
   expect((await get(otherMaterial)).status).toBe(404);
   state.token = tokens.expired;

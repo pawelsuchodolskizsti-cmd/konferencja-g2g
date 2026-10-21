@@ -1,3 +1,4 @@
+import { materialsUnlocked } from "./material-access";
 import { realParticipant, testParticipant } from "./participant-scope";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -122,7 +123,7 @@ export async function eventOverview(eventId: string) {
       .where(eq(materials.eventId, eventId)),
   ]);
   return {
-    event,
+    event: { ...event, materialsUnlocked: await materialsUnlocked(eventId) },
     people,
     courses,
     audit,

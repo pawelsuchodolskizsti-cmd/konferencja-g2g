@@ -1,4 +1,5 @@
 "use client";
+import { materialNotice } from "@/lib/material-notice";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, dateTime, type Overview, type Person } from "./api";
@@ -459,12 +460,91 @@ export function MaterialsManager({
   busy: boolean;
 }) {
   const base = `/api/admin/events/${data.event.id}`;
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
+  async function upload(form: HTMLFormElement) {
+    const file = new FormData(form).get("file");
+    if (!(file instanceof File)) return;
+    setUploading(true);
+    try {
+      if (!file.size || file.size > 20 * 1024 * 1024)
+        throw new Error("Limit pliku: 20 MB.");
+      setUploadStatus("Sprawdzanie sumy kontrolnej pliku…");
+      const hash = await crypto.subtle.digest(
+        "SHA-256",
+        await file.arrayBuffer(),
+      );
+      const sha256 = Array.from(new Uint8Array(hash), (b) =>
+        b.toString(16).padStart(2, "0"),
+      ).join("");
+      const session = await api<{ id: string; chunkSize: number }>(
+        `${base}/material-uploads`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            filename: file.name,
+            size: file.size,
+            sha256,
+          }),
+        },
+      );
+      for (
+        let offset = 0, index = 0;
+        offset < file.size;
+        offset += session.chunkSize, index++
+      ) {
+        setUploadStatus(
+          `Przesyłanie: ${Math.round((offset / file.size) * 100)}%`,
+        );
+        const response = await fetch(
+          `${base}/material-uploads/${session.id}/${index}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: file.slice(offset, offset + session.chunkSize),
+          },
+        );
+        if (!response.ok)
+          throw new Error((await response.json()).error || "Błąd przesyłania.");
+      }
+      if (await action(`material-uploads/${session.id}/finish`)) {
+        form.reset();
+        setUploadStatus(
+          "Plik zapisany. Zgodność z oryginałem potwierdzona sumą SHA-256.",
+        );
+      } else setUploadStatus("Nie udało się zatwierdzić pliku.");
+    } catch (error) {
+      setUploadStatus(
+        error instanceof Error ? error.message : "Błąd przesyłania.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
   return (
     <section className="card">
       <h2>Materiały uczestników</h2>
       <p>
-        Opublikowane materiały są dostępne na dotychczasowych zasadach: po
-        potwierdzeniu obecności.
+        {data.event.materialsUnlocked
+          ? "Materiały odblokowane"
+          : "Materiały zablokowane dla uczestników"}
+      </p>
+      <button
+        disabled={busy || uploading}
+        onClick={() =>
+          void action("materials-unlock", {
+            unlocked: !data.event.materialsUnlocked,
+          })
+        }
+      >
+        {data.event.materialsUnlocked
+          ? "Zablokuj materiały"
+          : "Odblokuj materiały dla uczestników"}
+      </button>
+      <p>{materialNotice}</p>
+      <p>
+        Materiały są dostępne po ręcznym odblokowaniu przez organizatora i
+        potwierdzeniu obecności uczestnika.
       </p>
       {data.materials.map((file) => (
         <div
@@ -545,14 +625,17 @@ export function MaterialsManager({
         onSubmit={async (e) => {
           e.preventDefault();
           const form = e.currentTarget;
-          if (await action("materials", new FormData(form))) form.reset();
+          await upload(form);
         }}
       >
         <label>
-          Nowy materiał PDF (do 2 MB)
+          Nowy materiał PDF (do 20 MB)
           <input type="file" name="file" accept=".pdf" required />
         </label>
-        <button disabled={busy}>Dodaj materiał</button>
+        <button disabled={busy || uploading}>
+          {uploading ? "Przesyłanie…" : "Dodaj materiał"}
+        </button>
+        <p role="status">{uploadStatus}</p>
       </form>
     </section>
   );

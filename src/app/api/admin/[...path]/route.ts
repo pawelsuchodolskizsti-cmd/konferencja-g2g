@@ -1,3 +1,10 @@
+import { setMaterialsUnlocked } from "@/server/material-access";
+import {
+  beginMaterialUpload,
+  appendMaterialChunk,
+  finishMaterialUpload,
+} from "@/server/material-uploads";
+import { readBody } from "@/server/http";
 import { pdfDownload } from "@/server/pdf-download";
 import {
   smtpOverview,
@@ -281,6 +288,39 @@ async function handle(req: Request, ctx: Context) {
         offset,
         selection(),
       );
+    }
+    if (
+      action === "materials-unlock" &&
+      path.length === 3 &&
+      req.method === "POST"
+    ) {
+      const { unlocked } = z
+        .object({ unlocked: z.boolean() })
+        .parse(await jsonBody(req));
+      return Response.json(
+        await setMaterialsUnlocked(eventId, admin.id, unlocked),
+      );
+    }
+    if (action === "material-uploads" && req.method === "POST") {
+      if (path.length === 3)
+        return Response.json(
+          await beginMaterialUpload(eventId, admin.id, await jsonBody(req)),
+        );
+      const uploadId = z.uuid().parse(path[3]);
+      if (path.length === 5 && path[4] === "finish")
+        return Response.json(
+          await finishMaterialUpload(eventId, admin.id, uploadId),
+        );
+      if (path.length === 5)
+        return Response.json(
+          await appendMaterialChunk(
+            eventId,
+            admin.id,
+            uploadId,
+            z.coerce.number().int().min(0).max(19).parse(path[4]),
+            await readBody(req, 1024 * 1024),
+          ),
+        );
     }
     if (action === "materials" && path[3])
       return await manageMaterial(

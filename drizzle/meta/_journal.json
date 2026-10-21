@@ -71,6 +71,13 @@
       "when": 1792429500000,
       "tag": "0009_courses_unlock",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792590000000,
+      "tag": "0010_material_uploads",
+      "breakpoints": true
     }
   ]
 }

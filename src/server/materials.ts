@@ -1,3 +1,5 @@
+import { materialsUnlocked } from "./material-access";
+import { pdfStream } from "./incremental-pdf";
 import { and, eq } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { auditLogs, materials } from "@/db/schema";
@@ -48,6 +50,11 @@ export async function downloadMaterial(
   database: Database = db(),
 ) {
   const { person } = await presentParticipant(participantId, database);
+  assert(
+    await materialsUnlocked(person.eventId, database),
+    403,
+    "Materiały oczekują na odblokowanie przez organizatora.",
+  );
   const [item] = await database
     .select()
     .from(materials)
@@ -60,7 +67,9 @@ export async function downloadMaterial(
     );
   assert(item, 404, "Nie znaleziono materiału.");
   return new Response(
-    new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
+    pdfStream([
+      new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
+    ]),
     {
       headers: {
         "Content-Type": item.mimeType,
