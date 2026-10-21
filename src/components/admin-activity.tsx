@@ -18,6 +18,13 @@ export function ActivityPanel({ people }: { people: Person[] }) {
         .toLocaleLowerCase("pl")
         .includes(query.trim().toLocaleLowerCase("pl")),
   );
+  if (status === "active") {
+    visible.sort(
+      (a, b) =>
+        (Date.parse(b.firstLoginAt || "") || 0) -
+        (Date.parse(a.firstLoginAt || "") || 0),
+    );
+  }
   return (
     <section className="card">
       <h2>Aktywność uczestników</h2>
