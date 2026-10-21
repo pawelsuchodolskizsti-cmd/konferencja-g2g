@@ -54,6 +54,12 @@ test("participant sees entry QR while courses stay locked and can download a PDF
     await readFile(".local/participant-access.json", "utf8"),
   );
   await page.goto("/uczestnik");
+  await expect(page.getByLabel("Twój kod dostępu")).toHaveCount(0);
+  await page.getByRole("button", { name: "Wchodzę ponownie", exact: true }).click();
+  await expect(page.getByLabel("Twój kod dostępu")).toBeVisible();
+  await expect(page.locator('input[name="privacyAcknowledged"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Loguję się pierwszy raz", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Wejdź do strefy" })).toBeDisabled();
   await page.getByLabel("Twój kod dostępu").fill(access.code);
   await page.locator('input[name="privacyAcknowledged"]').check();
   await page.getByRole("button", { name: "Wejdź do strefy" }).click();
