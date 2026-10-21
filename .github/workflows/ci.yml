@@ -29,6 +29,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm security:audit
+      - name: Audit development tools (warnings remain visible)
+        continue-on-error: true
+        run: pnpm security:audit:all
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { enforcedCsp, reportOnlyCsp } from "./src/lib/security-headers";
 const config: NextConfig = {
   experimental: {
     workerThreads: true,
@@ -24,6 +25,8 @@ const config: NextConfig = {
       {
         source: "/:path*",
         headers: [
+          { key: "Content-Security-Policy", value: enforcedCsp },
+          { key: "Content-Security-Policy-Report-Only", value: reportOnlyCsp },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "no-referrer" },
