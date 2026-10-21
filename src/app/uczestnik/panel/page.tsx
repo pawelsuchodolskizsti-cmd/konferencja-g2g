@@ -1,4 +1,4 @@
-import { materialsUnlocked } from "@/server/material-access";
+import { materialsAvailableForParticipant } from "@/server/material-access";
 import { ParticipantMaterials } from "@/components/participant-materials";
 import { ParticipantProgram } from "@/components/participant-program";
 import {
@@ -103,7 +103,7 @@ export default async function Page({
   if (preview && present) survey.available = true;
   const ready = !!present && (preview || certificateAvailable(event));
   const files =
-    present && (await materialsUnlocked(event.id))
+    present && (await materialsAvailableForParticipant(person))
       ? await db()
           .select({ id: materials.id, title: materials.title })
           .from(materials)

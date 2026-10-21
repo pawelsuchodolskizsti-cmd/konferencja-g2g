@@ -86,7 +86,7 @@
   background: white;
   overflow: hidden;
 }
-.navigation a,
+.navigation .navigationRevealed,
 .navigationLocked {
   color: #123e59;
   padding: 14px 8px;
@@ -95,7 +95,7 @@
   font-size: 13px;
 }
 @media (max-width: 699px) {
-  .navigation a,
+  .navigation .navigationRevealed,
   .navigationLocked {
     min-width: 0;
     padding-inline: 2px;
@@ -391,7 +391,7 @@
   .card {
     padding: 36px;
   }
-  .navigation a {
+  .navigation .navigationRevealed {
     font-size: 15px;
   }
 }

@@ -1,3 +1,4 @@
+import { isDemoParticipant } from "./demo-participant";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { auditLogs, events } from "@/db/schema";
@@ -31,13 +32,21 @@ export async function setMaterialsUnlocked(
       .where(eq(events.id, eventId))
       .for("update");
     assert(event, 404, "Brak konferencji.");
-    await tx
-      .insert(auditLogs)
-      .values({
-        eventId,
-        adminId,
-        action: unlocked ? "MATERIALS_UNLOCKED" : "MATERIALS_LOCKED",
-      });
+    await tx.insert(auditLogs).values({
+      eventId,
+      adminId,
+      action: unlocked ? "MATERIALS_UNLOCKED" : "MATERIALS_LOCKED",
+    });
     return { unlocked };
   });
+}
+
+export async function materialsAvailableForParticipant(
+  person: { id: string; eventId: string },
+  database: Database = db(),
+) {
+  return (
+    isDemoParticipant(person) ||
+    (await materialsUnlocked(person.eventId, database))
+  );
 }

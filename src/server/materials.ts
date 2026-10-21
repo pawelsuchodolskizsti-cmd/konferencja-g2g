@@ -1,4 +1,4 @@
-import { materialsUnlocked } from "./material-access";
+import { materialsAvailableForParticipant } from "./material-access";
 import { pdfStream } from "./incremental-pdf";
 import { and, eq } from "drizzle-orm";
 import { db, type Database } from "@/db";
@@ -51,7 +51,7 @@ export async function downloadMaterial(
 ) {
   const { person } = await presentParticipant(participantId, database);
   assert(
-    await materialsUnlocked(person.eventId, database),
+    await materialsAvailableForParticipant(person, database),
     403,
     "Materiały oczekują na odblokowanie przez organizatora.",
   );
