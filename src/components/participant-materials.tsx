@@ -10,7 +10,12 @@ export function ParticipantMaterials({
   adminEventId?: string;
 }) {
   return (
-    <section className={styles.card} aria-labelledby="files-title">
+    <section
+      id="materialy"
+      className={styles.card}
+      aria-labelledby="files-title"
+    >
+      <div className={styles.sectionLabel}>06 / Materiały dla Ciebie</div>
       <h2 id="files-title">Materiały konferencyjne</h2>
       <p>{materialNotice}</p>
       <TrainingCarousel label="E-booki, przewijaj w lewo i w prawo">

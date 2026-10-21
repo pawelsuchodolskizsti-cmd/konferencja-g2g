@@ -262,6 +262,12 @@ export default async function Page({
               href: "#szkolenia",
               available: !!present && event.coursesUnlocked,
             },
+            {
+              number: "06",
+              label: "Materiały",
+              href: "#materialy",
+              available: !!present && files.length > 0,
+            },
           ].map((section) =>
             section.available ? (
               <a
@@ -315,9 +321,6 @@ export default async function Page({
           {event.info && <p className={styles.info}>{event.info}</p>}
         </section>
 
-        {!!present && files.length > 0 && (
-          <ParticipantMaterials files={files} />
-        )}
         {!!present && survey.available && (
           <section
             id="ankieta"
@@ -449,6 +452,9 @@ export default async function Page({
               </>
             </section>
           </>
+        )}
+        {!!present && files.length > 0 && (
+          <ParticipantMaterials files={files} />
         )}
       </div>
     </ConferenceShell>

@@ -99,7 +99,7 @@
   .navigationLocked {
     min-width: 0;
     padding-inline: 2px;
-    font-size: clamp(9px, 2.8vw, 11px);
+    font-size: clamp(8px, 2.3vw, 11px);
     white-space: nowrap;
   }
 }
