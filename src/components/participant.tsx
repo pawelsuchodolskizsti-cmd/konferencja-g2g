@@ -33,7 +33,13 @@ export function CheckinRefresh() {
       if (document.visibilityState === "visible") router.refresh();
     };
     const interval = window.setInterval(check, 12000);
-    return () => window.clearInterval(interval);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
   }, [router]);
   return null;
 }

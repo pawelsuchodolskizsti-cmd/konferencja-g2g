@@ -107,15 +107,18 @@ export default async function Page({
             and(eq(materials.eventId, event.id), eq(materials.published, true)),
           )
       : [];
-  const credentials = JSON.parse(decrypt(person.credentials)) as {
-    qrToken: string;
-  };
-  const qrUrl = `${new URL(process.env.APP_URL!).origin}/checkin/${credentials.qrToken}`;
-  const qrImage = await QRCode.toDataURL(qrUrl, {
-    width: 360,
-    margin: 3,
-    errorCorrectionLevel: "M",
-  });
+  let qrImage: string | null = null;
+  if (!present) {
+    const credentials = JSON.parse(decrypt(person.credentials)) as {
+      qrToken: string;
+    };
+    const qrUrl = `${new URL(process.env.APP_URL!).origin}/checkin/${credentials.qrToken}`;
+    qrImage = await QRCode.toDataURL(qrUrl, {
+      width: 360,
+      margin: 3,
+      errorCorrectionLevel: "M",
+    });
+  }
   const unlockedAt = event.certificateUnlockAt;
   const dateTime = new Intl.DateTimeFormat("pl-PL", {
     dateStyle: "long",
@@ -152,35 +155,37 @@ export default async function Page({
             </p>
           )}
         </header>
-        <section
-          id="bilet"
-          className={`${styles.card} ${styles.qrCard}`}
-          aria-labelledby="qr-title"
-        >
-          <div className={styles.sectionLabel}>
-            01 / Twój bilet elektroniczny
-          </div>
-          <h2 id="qr-title">Kod QR do wejścia</h2>
-          <p>
-            Przy wejściu pokaż ten kod QR obsłudze konferencji. Skan potwierdzi
-            Twoją obecność.
-          </p>
-          <div className={styles.qrImage}>
-            <Image
-              src={qrImage}
-              alt="Indywidualny kod QR do potwierdzenia obecności"
-              width={360}
-              height={360}
-              unoptimized
-              priority
-            />
-          </div>
-          {!present && (
-            <p className={styles.qrStatus}>
-              Oczekuje na zeskanowanie przez obsługę
+        {qrImage && (
+          <section
+            id="bilet"
+            className={`${styles.card} ${styles.qrCard}`}
+            aria-labelledby="qr-title"
+          >
+            <div className={styles.sectionLabel}>
+              01 / Twój bilet elektroniczny
+            </div>
+            <h2 id="qr-title">Kod QR do wejścia</h2>
+            <p>
+              Przy wejściu pokaż ten kod QR obsłudze konferencji. Skan
+              potwierdzi Twoją obecność.
             </p>
-          )}
-        </section>
+            <div className={styles.qrImage}>
+              <Image
+                src={qrImage}
+                alt="Indywidualny kod QR do potwierdzenia obecności"
+                width={360}
+                height={360}
+                unoptimized
+                priority
+              />
+            </div>
+            {!present && (
+              <p className={styles.qrStatus}>
+                Oczekuje na zeskanowanie przez obsługę
+              </p>
+            )}
+          </section>
+        )}
         {!!present && (
           <section
             className={`${styles.card} ${styles.community}`}
@@ -269,7 +274,16 @@ export default async function Page({
               available: !!present && files.length > 0,
             },
           ].map((section) =>
-            section.available ? (
+            section.number === "01" && present ? (
+              <div
+                key={section.number}
+                className={styles.navigationRevealed}
+                aria-label="Bilet wykorzystany"
+              >
+                <span>{section.number}</span>
+                {section.label}
+              </div>
+            ) : section.available ? (
               <a
                 key={section.number}
                 href={section.href}
