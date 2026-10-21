@@ -11,6 +11,7 @@ import {
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { protectedText, protectedImportRows } from "./pii.ts";
 
 const id = () => uuid("id").defaultRandom().primaryKey();
 const created = (name = "created_at") =>
@@ -91,10 +92,10 @@ export const participants = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
-    firstName: text("first_name").notNull(),
-    lastName: text("last_name").notNull(),
-    certificateNameOverride: text("certificate_name_override"),
-    email: text("email").notNull(),
+    firstName: protectedText("first_name").notNull(),
+    lastName: protectedText("last_name").notNull(),
+    certificateNameOverride: protectedText("certificate_name_override"),
+    email: protectedText("email").notNull(),
     accessHash: text("access_hash").notNull().unique(),
     qrHash: text("qr_hash").notNull().unique(),
     credentials: text("credentials").notNull(),
@@ -157,7 +158,7 @@ export const importBatches = pgTable("import_batches", {
   adminId: uuid("admin_id")
     .notNull()
     .references(() => admins.id),
-  rows: jsonb("rows").$type<ImportRow[]>().notNull(),
+  rows: protectedImportRows("rows").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   committedAt: timestamp("committed_at", { withTimezone: true }),
   createdAt: created(),

@@ -67,8 +67,8 @@ export async function participantList(eventId: string) {
       ),
     )
     .leftJoin(certificates, eq(certificates.participantId, participants.id))
-    .where(eq(participants.eventId, eventId))
-    .orderBy(participants.lastName, participants.firstName);
+    .where(eq(participants.eventId, eventId));
+  rows.sort((a, b) => a.lastName.localeCompare(b.lastName, "pl") || a.firstName.localeCompare(b.firstName, "pl") || a.id.localeCompare(b.id));
   return rows.map(({ credentials, ...person }) => ({
     ...person,
     accessCode: String(JSON.parse(decrypt(credentials)).accessCode),

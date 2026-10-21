@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { newCredentials, decrypt } from "../src/server/crypto.ts";
+import { sealPii } from "../src/db/pii.ts";
 import { PARTICIPANT_PRIVACY_VERSION } from "../src/lib/participant-privacy.ts";
 process.loadEnvFile(".env.local");
 assert.equal(process.env.APP_ENV, "development");
@@ -24,9 +25,9 @@ const rows = Array.from({ length: count }, (_, i) => {
   return {
     id: randomUUID(),
     event_id: event.id,
-    first_name: i % 2 ? "Anna" : "Łukasz",
-    last_name: `Testowy ${String(i + 1).padStart(3, "0")}`,
-    email: `load-${runId}-${i}@example.test`,
+    first_name: sealPii(i % 2 ? "Anna" : "Łukasz", "first_name"),
+    last_name: sealPii(`Testowy ${String(i + 1).padStart(3, "0")}`, "last_name"),
+    email: sealPii(`load-${runId}-${i}@example.test`, "email"),
     access_hash: c.accessHash,
     qr_hash: c.qrHash,
     credentials: c.credentials,
