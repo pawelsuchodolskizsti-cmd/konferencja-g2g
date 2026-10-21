@@ -102,6 +102,17 @@ test("legacy data remains readable before migration", async () => {
   expect(people[0].firstName).toBe("Żaneta");
   expect((await db.select().from(s.importBatches))[0].rows).toEqual(imports);
 });
+test("wrong key is rejected even before legacy plaintext has been migrated", async () => {
+  process.env.DATA_ENCRYPTION_KEY = "cd".repeat(32);
+  try {
+    await expect(migrate()).rejects.toThrow();
+  } finally {
+    process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
+  }
+  expect(
+    (await pg.query("SELECT * FROM participants ORDER BY id")).rows,
+  ).toEqual(original);
+});
 test("failure during updates rolls back every already encrypted row", async () => {
   await pg.exec(`CREATE FUNCTION fail_pii_test_update() RETURNS trigger AS $$ BEGIN
     IF NEW.last_name <> OLD.last_name AND OLD.id = (SELECT id FROM participants ORDER BY id OFFSET 1 LIMIT 1) THEN

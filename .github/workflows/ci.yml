@@ -37,6 +37,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm setup:local
+      - name: Verify PII migration and database write guards
+        run: node --env-file=.env.local --import tsx scripts/migrate.ts
       - run: pnpm build
       - run: pnpm start > /tmp/conference-server.log 2>&1 &
       - name: Wait for application

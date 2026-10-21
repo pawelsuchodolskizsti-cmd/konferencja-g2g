@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Database } from "./index";
+import { participants, importBatches } from "./schema";
+import { decrypt } from "../server/crypto";
 import {
   openPii,
   sealPii,
@@ -50,6 +52,22 @@ export async function migrateParticipantPii(
       await tx.execute(sql`SELECT * FROM import_batches ORDER BY id`),
     );
     const original = before.map(logicalPerson);
+    // Legacy plaintext alone cannot prove that the existing master key is correct.
+    // Verify it against the already encrypted participant credentials first.
+    for (const person of before) {
+      try {
+        const credentials = JSON.parse(decrypt(String(person.credentials)));
+        if (
+          typeof credentials.accessCode !== "string" ||
+          typeof credentials.qrToken !== "string"
+        )
+          throw new Error();
+      } catch {
+        throw new Error(
+          "Existing credential key verification failed; transaction rolled back",
+        );
+      }
+    }
     const originalBatches = batches.map((b) => ({
       ...b,
       rows: openImportRows(b.rows),
@@ -105,6 +123,36 @@ export async function migrateParticipantPii(
     )
       throw new Error(
         "PII migration left unprotected fields; transaction rolled back",
+      );
+    const applicationRows = await tx
+      .select()
+      .from(participants)
+      .orderBy(participants.id);
+    for (let i = 0; i < original.length; i++) {
+      const p = applicationRows[i],
+        expected = original[i];
+      if (
+        !p ||
+        p.id !== expected.id ||
+        p.firstName !== expected.first_name ||
+        p.lastName !== expected.last_name ||
+        p.email !== expected.email ||
+        p.certificateNameOverride !== expected.certificate_name_override
+      )
+        throw new Error(
+          "Application PII read verification failed; transaction rolled back",
+        );
+    }
+    const applicationBatches = await tx
+      .select()
+      .from(importBatches)
+      .orderBy(importBatches.id);
+    if (
+      JSON.stringify(applicationBatches.map((b) => b.rows)) !==
+      JSON.stringify(originalBatches.map((b) => b.rows))
+    )
+      throw new Error(
+        "Application import read verification failed; transaction rolled back",
       );
     // Prevent an outdated worker or raw import from reintroducing plaintext.
     await tx.execute(sql`DO $$ BEGIN
