@@ -6,5 +6,8 @@
       "schedule": "17 4 * * *"
     }
   ],
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:migrate && pnpm build; else pnpm build; fi"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:migrate && pnpm build; else pnpm build; fi",
+  "regions": [
+    "fra1"
+  ]
 }
