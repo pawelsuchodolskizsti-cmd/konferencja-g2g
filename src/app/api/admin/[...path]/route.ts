@@ -1,4 +1,55 @@
 import { privacyRecords, exportPrivacyRecords } from "@/server/privacy-records";
+import { setMaterialsUnlocked } from "@/server/material-access";
+import {
+  beginMaterialUpload,
+  appendMaterialChunk,
+  finishMaterialUpload,
+} from "@/server/material-uploads";
+import { readBody } from "@/server/http";
+import { pdfDownload } from "@/server/pdf-download";
+import {
+  smtpOverview,
+  saveSmtpPassword,
+  removeSmtpPassword,
+  saveSmtpTemplate,
+  startSmtpCampaign,
+  processSmtpBatch,
+  checkSmtpCredentials,
+  sendSmtpTest,
+} from "@/server/smtp-campaign";
+import {
+  listArchives,
+  createArchive,
+  downloadArchive,
+  removeArchive,
+  cleanupPreview,
+  clearSelectedParticipants,
+} from "@/server/data-archives";
+import { adminPermission } from "@/lib/admin-permissions";
+import {
+  audit,
+  cleanupData,
+  createParticipant,
+  csvResponse,
+  exportReport,
+  history,
+  invitationConfig,
+  manageMaterial,
+  participantRecord,
+  personalData,
+  privacyOverview,
+  resetCredentials,
+  removeTeamMember,
+  saveInvitation,
+  savePrivacyRequest,
+  saveTeamMember,
+  selectionFrom,
+  selectedPeople,
+  teamOverview,
+  undoAttendance,
+} from "@/server/admin-operations";
+import { generateCertificate } from "@/server/certificates";
+import { surveySummary } from "@/server/surveys";
 import { z } from "zod";
 import QRCode from "qrcode";
 import { and, eq } from "drizzle-orm";
@@ -8,13 +59,17 @@ import { requireAdmin, requireEvent, requestOrigin } from "@/server/auth";
 import { adminEventList, saveEvent } from "@/server/events";
 import { commitImport, previewImport } from "@/server/imports";
 import { checkIn } from "@/server/attendance";
-import { createCourse, importCodes, updateCourse } from "@/server/training";
+import {
+  createCourse,
+  importCodes,
+  updateCourse,
+  setCoursesUnlocked,
+} from "@/server/training";
 import { exportTickets } from "@/server/ticket-export";
 import {
   deleteEventData,
   deleteParticipant,
   eventOverview,
-  exportAttendance,
   updateParticipant,
 } from "@/server/admin-data";
 import { apiError, jsonBody, uploadBody } from "@/server/http";
@@ -38,19 +93,84 @@ async function handle(req: Request, ctx: Context) {
         "Panel obsługuje jedną konferencję. Użyj jej ustawień.",
       );
     }
-    if (path.length === 2 && path[1] === "setup" && req.method === "POST")
+    if (path.length === 2 && path[1] === "setup" && req.method === "POST") {
+      const memberships = await adminEventList(admin.id);
+      assert(
+        !memberships.length || memberships.some((e) => e.role === "ADMIN"),
+        403,
+        "Ta operacja wymaga administratora konferencji.",
+      );
       return Response.json(await saveEvent(admin.id, await jsonBody(req)), {
         status: 201,
       });
+    }
     const eventId = z.uuid().parse(path[1]);
-    await requireEvent(admin.id, eventId);
     const action = path[2];
-    if (action === "privacy" && req.method === "GET")
+    await requireEvent(
+      admin.id,
+      eventId,
+      db(),
+      adminPermission(req.method, path),
+    );
+    if (action === "privacy" && path[3] === "records" && req.method === "GET")
       return Response.json(await privacyRecords(eventId), {
         headers: { "Cache-Control": "private, no-store" },
       });
-    if (action === "privacy-export" && req.method === "GET")
-      return exportPrivacyRecords(eventId);
+    if (
+      action === "privacy" &&
+      path[3] === "records-export" &&
+      req.method === "GET"
+    )
+      return await exportPrivacyRecords(eventId);
+    if (action === "archives") {
+      if (path.length === 3 && req.method === "GET")
+        return Response.json(await listArchives(eventId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      if (path.length === 3 && req.method === "POST")
+        return Response.json(await createArchive(eventId, admin.id), {
+          status: 201,
+        });
+      if (path.length === 4 && req.method === "GET")
+        return await downloadArchive(
+          eventId,
+          admin.id,
+          z.uuid().parse(path[3]),
+        );
+      if (path.length === 4 && req.method === "DELETE")
+        return Response.json(
+          await removeArchive(
+            eventId,
+            admin.id,
+            z.uuid().parse(path[3]),
+            await jsonBody(req),
+          ),
+        );
+    }
+    if (action === "data-cleanup" && req.method === "POST") {
+      if (path.length === 4 && path[3] === "preview")
+        return Response.json(
+          await cleanupPreview(eventId, await jsonBody(req)),
+        );
+      if (path.length === 3)
+        return Response.json(
+          await clearSelectedParticipants(
+            eventId,
+            admin.id,
+            await jsonBody(req),
+          ),
+        );
+    }
+    const url = new URL(req.url);
+    const exportAction = ["export", "codes-export", "reports"].includes(action);
+    if (exportAction && req.method === "POST") {
+      const params = z
+        .record(z.string(), z.string().max(100000))
+        .parse(await jsonBody(req));
+      for (const [key, value] of Object.entries(params))
+        url.searchParams.set(key, value);
+    }
+    const selection = () => selectionFrom(url);
     if (action === "survey" && req.method === "GET")
       return Response.json(await surveyOverview(eventId), {
         headers: { "Cache-Control": "private, no-store" },
@@ -60,7 +180,11 @@ async function handle(req: Request, ctx: Context) {
         await saveSurvey(eventId, admin.id, await jsonBody(req)),
       );
     if (action === "survey-export" && req.method === "GET")
-      return await exportSurvey(eventId, admin.id);
+      return await exportSurvey(
+        eventId,
+        admin.id,
+        z.enum(["csv", "xlsx"]).parse(url.searchParams.get("format") || "xlsx"),
+      );
     if (!action && req.method === "GET")
       return Response.json(await eventOverview(eventId));
     if (!action && req.method === "PATCH")
@@ -84,8 +208,8 @@ async function handle(req: Request, ctx: Context) {
         },
       });
     }
-    if (action === "export" && req.method === "GET")
-      return exportAttendance(eventId);
+    if (action === "export" && ["GET", "POST"].includes(req.method))
+      return await exportReport(eventId, admin.id, "attendance", selection());
     if (action === "import" && req.method === "POST")
       return Response.json(
         await previewImport(eventId, admin.id, await uploadBody(req)),
@@ -96,6 +220,24 @@ async function handle(req: Request, ctx: Context) {
         .parse(await jsonBody(req));
       return Response.json(await commitImport(batchId, eventId, admin.id));
     }
+    if (action === "checkin-people" && req.method === "GET") {
+      const q = (url.searchParams.get("q") || "").trim();
+      assert(
+        q.length >= 2 && q.length <= 100,
+        400,
+        "Wpisz co najmniej 2 znaki.",
+      );
+      const people = await selectedPeople(eventId, { q });
+      return Response.json(
+        people.slice(0, 20).map((p) => ({
+          id: p.id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          checkedInAt: p.checkedInAt,
+        })),
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
     if (action === "checkin" && req.method === "POST") {
       const input = z
         .union([
@@ -105,15 +247,44 @@ async function handle(req: Request, ctx: Context) {
         .parse(await jsonBody(req));
       return Response.json(await checkIn(eventId, admin.id, input));
     }
+    if (action === "smtp" && path.length === 3) {
+      if (req.method === "GET")
+        return Response.json(await smtpOverview(eventId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      if (req.method === "POST")
+        return Response.json(
+          await saveSmtpPassword(eventId, admin.id, await jsonBody(req)),
+        );
+      if (req.method === "DELETE")
+        return Response.json(await removeSmtpPassword(eventId, admin.id));
+    }
+    if (action === "smtp-test" && path.length === 3 && req.method === "POST")
+      return Response.json(
+        await sendSmtpTest(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "smtp-verify" && path.length === 3 && req.method === "POST")
+      return Response.json(await checkSmtpCredentials(eventId));
+    if (
+      action === "smtp-template" &&
+      path.length === 3 &&
+      req.method === "POST"
+    )
+      return Response.json(
+        await saveSmtpTemplate(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "smtp-queue" && path.length === 3 && req.method === "POST")
+      return Response.json(await startSmtpCampaign(eventId, admin.id));
+    if (action === "smtp-process" && path.length === 3 && req.method === "POST")
+      return Response.json(await processSmtpBatch(eventId, admin.id));
     if (action === "mail" || action === "mail-preview")
       throw new AppError(
         410,
         "Wysyłka z panelu została wyłączona. Pobierz dane w sekcji Kody i eksport.",
       );
-    if (action === "codes-export" && req.method === "GET") {
-      const url = new URL(req.url);
+    if (action === "codes-export" && ["GET", "POST"].includes(req.method)) {
       const format = z
-        .enum(["xlsx", "csv", "zip"])
+        .enum(["xlsx", "csv", "zip", "pdf"])
         .parse(url.searchParams.get("format") || "xlsx");
       const offset = z.coerce
         .number()
@@ -121,12 +292,72 @@ async function handle(req: Request, ctx: Context) {
         .min(0)
         .max(1000000)
         .parse(url.searchParams.get("offset") || 0);
-      return await exportTickets(eventId, admin.id, format, offset);
+      return await exportTickets(
+        eventId,
+        admin.id,
+        format,
+        offset,
+        selection(),
+      );
     }
+    if (
+      action === "materials-unlock" &&
+      path.length === 3 &&
+      req.method === "POST"
+    ) {
+      const { unlocked } = z
+        .object({ unlocked: z.boolean() })
+        .parse(await jsonBody(req));
+      return Response.json(
+        await setMaterialsUnlocked(eventId, admin.id, unlocked),
+      );
+    }
+    if (action === "material-uploads" && req.method === "POST") {
+      if (path.length === 3)
+        return Response.json(
+          await beginMaterialUpload(eventId, admin.id, await jsonBody(req)),
+        );
+      const uploadId = z.uuid().parse(path[3]);
+      if (path.length === 5 && path[4] === "finish")
+        return Response.json(
+          await finishMaterialUpload(eventId, admin.id, uploadId),
+        );
+      if (path.length === 5)
+        return Response.json(
+          await appendMaterialChunk(
+            eventId,
+            admin.id,
+            uploadId,
+            z.coerce.number().int().min(0).max(19).parse(path[4]),
+            await readBody(req, 1024 * 1024),
+          ),
+        );
+    }
+    if (action === "materials" && path[3])
+      return await manageMaterial(
+        eventId,
+        admin.id,
+        z.uuid().parse(path[3]),
+        req.method,
+        req.method === "PATCH" ? await jsonBody(req) : undefined,
+        req.method === "POST" ? await uploadBody(req) : undefined,
+      );
     if (action === "materials" && req.method === "POST")
       return Response.json(
         await uploadMaterial(eventId, admin.id, await uploadBody(req)),
       );
+    if (
+      action === "courses-unlock" &&
+      path.length === 3 &&
+      req.method === "POST"
+    ) {
+      const { unlocked } = z
+        .object({ unlocked: z.boolean() })
+        .parse(await jsonBody(req));
+      return Response.json(
+        await setCoursesUnlocked(eventId, admin.id, unlocked),
+      );
+    }
     if (action === "courses" && !path[3] && req.method === "POST")
       return Response.json(
         await createCourse(eventId, admin.id, await jsonBody(req)),
@@ -149,6 +380,63 @@ async function handle(req: Request, ctx: Context) {
           await uploadBody(req),
         ),
       );
+    if (action === "survey-summary" && req.method === "GET")
+      return Response.json(await surveySummary(eventId));
+    if (action === "reports" && ["GET", "POST"].includes(req.method))
+      return await exportReport(
+        eventId,
+        admin.id,
+        z
+          .enum(["attendance", "certificates", "privacy"])
+          .parse(url.searchParams.get("kind")),
+        selection(),
+      );
+    if (action === "history" && req.method === "GET") {
+      const rows = await history(eventId, url);
+      return url.searchParams.get("format") === "csv"
+        ? csvResponse(
+            [
+              ["Data UTC", "Operacja", "Administrator", "Id rekordu"],
+              ...rows.map((r) => [
+                r.createdAt.toISOString(),
+                r.action,
+                r.adminEmail,
+                r.targetId,
+              ]),
+            ],
+            "historia.csv",
+          )
+        : Response.json(rows);
+    }
+    if (action === "privacy" && req.method === "GET")
+      return Response.json(await privacyOverview(eventId));
+    if (action === "privacy" && req.method === "POST")
+      return Response.json(
+        await savePrivacyRequest(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "cleanup" && req.method === "POST")
+      return Response.json(await cleanupData(eventId, admin.id));
+    if (action === "team" && path[3] && req.method === "DELETE")
+      return Response.json(
+        await removeTeamMember(eventId, admin.id, z.uuid().parse(path[3])),
+      );
+    if (action === "team" && req.method === "GET")
+      return Response.json(await teamOverview(eventId));
+    if (action === "team" && req.method === "POST")
+      return Response.json(
+        await saveTeamMember(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "invitation" && req.method === "GET")
+      return Response.json(await invitationConfig(eventId));
+    if (action === "invitation" && req.method === "POST")
+      return Response.json(
+        await saveInvitation(eventId, admin.id, await jsonBody(req)),
+      );
+    if (action === "participants" && !path[3] && req.method === "POST")
+      return Response.json(
+        await createParticipant(eventId, admin.id, await jsonBody(req)),
+        { status: 201 },
+      );
     if (action === "participants") {
       const id = z.uuid().parse(path[3]);
       const [p] = await db()
@@ -156,6 +444,23 @@ async function handle(req: Request, ctx: Context) {
         .from(participants)
         .where(and(eq(participants.id, id), eq(participants.eventId, eventId)));
       assert(p, 404, "Brak uczestnika.");
+      if (path[4] === "data" && req.method === "GET")
+        return await personalData(eventId, admin.id, id);
+      if (path[4] === "reset" && req.method === "POST")
+        return Response.json(
+          await resetCredentials(eventId, admin.id, id, await jsonBody(req)),
+        );
+      if (path[4] === "undo-checkin" && req.method === "POST")
+        return Response.json(
+          await undoAttendance(eventId, admin.id, id, await jsonBody(req)),
+        );
+      if (path[4] === "certificate" && req.method === "GET") {
+        await participantRecord(eventId, id);
+        const { parts } = await generateCertificate(id);
+        await audit(eventId, admin.id, "ADMIN_CERTIFICATE_DOWNLOADED", id);
+        return pdfDownload(req, parts);
+      }
+      assert(!path[4], 404, "Nie znaleziono operacji.");
       if (req.method === "PATCH")
         return Response.json(
           await updateParticipant(eventId, admin.id, id, await jsonBody(req)),

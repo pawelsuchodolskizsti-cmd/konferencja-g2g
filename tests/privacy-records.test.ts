@@ -18,7 +18,7 @@ let personId: string;
 beforeAll(async () => {
   process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
   process.env.TOKEN_PEPPER = "test".repeat(20);
-  for (const file of ["0000_initial", "0001_schema"])
+  for (const {tag: file} of JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8")).entries)
     await pg.exec(await readFile(`drizzle/${file}.sql`, "utf8"));
   for (const [index, slug] of ["privacy", "other-event"].entries()) {
     const [event] = await database
@@ -105,3 +105,4 @@ test("privacy export includes every version, escapes spreadsheet formulas and ex
   expect(csv).not.toContain("other@example.org");
   expect(csv).not.toContain("missing@example.org");
 });
+

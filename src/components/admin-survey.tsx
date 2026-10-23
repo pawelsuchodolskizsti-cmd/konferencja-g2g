@@ -1,4 +1,6 @@
 "use client";
+import { SurveyForm } from "./survey-form";
+import { DownloadButton } from "./admin-tools";
 import { useEffect, useState } from "react";
 import { api, dateTime } from "./api";
 import { definitionFor } from "@/lib/survey-definition";
@@ -12,17 +14,21 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [preview, setPreview] = useState(false);
+  const [summary, setSummary] = useState<{
+    count: number;
+    questions: { title: string; kind: string; values: [string, number][] }[];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [published, setPublished] = useState<boolean | null>(null);
   useEffect(() => {
     let current = true;
     const load = () =>
       api<Survey>(`/api/admin/events/${eventId}/survey`)
         .then((value) => {
-          if (current) {
-            setSurvey(value);
-            setError("");
-          }
+          if (current)
+            setSurvey((old) =>
+              old ? { ...old, responseCount: value.responseCount } : value,
+            );
         })
         .catch((e) => {
           if (current) setError(e.message);
@@ -48,10 +54,6 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
         Otrzymane ankiety: <strong>{survey.responseCount}</strong>
       </p>
       <p>
-        11 pytań w bazie, 10 kroków dla uczestnika. Pytania hotelowe wyświetlają
-        się zależnie od korzystania z noclegu.
-      </p>
-      <p>
         Ankieta jest anonimowa. Eksport zawiera wyłącznie odpowiedzi. Każdy
         obecny uczestnik może wysłać ankietę jeden raz.
       </p>
@@ -62,6 +64,65 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
       >
         Pobierz odpowiedzi Excel
       </a>
+      <p>
+        <DownloadButton
+          href={`/api/admin/events/${eventId}/survey-export?format=csv`}
+        >
+          Pobierz odpowiedzi CSV
+        </DownloadButton>
+      </p>
+      <div className="actions">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setPreview(!preview)}
+        >
+          {preview ? "Zamknij podgląd" : "Podgląd ankiety"}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={async () => {
+            try {
+              setSummary(
+                await api(`/api/admin/events/${eventId}/survey-summary`),
+              );
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Błąd wyników.");
+            }
+          }}
+        >
+          Pokaż podsumowanie wyników
+        </button>
+      </div>
+      {preview && (
+        <section className="card">
+          <p>Podgląd testowy — odpowiedzi nie są zapisywane.</p>
+          <SurveyForm
+            key={JSON.stringify(survey.questions)}
+            questions={survey.questions}
+            submitted={false}
+            preview
+          />
+        </section>
+      )}
+      {summary && (
+        <section className="card">
+          <h3>Podsumowanie: {summary.count} ankiet</h3>
+          {summary.questions.map((q, i) => (
+            <details key={i}>
+              <summary>
+                {i + 1}. {q.title}
+              </summary>
+              {q.values.map(([value, count]) => (
+                <p key={value}>
+                  {value} — <strong>{count}</strong>
+                </p>
+              ))}
+            </details>
+          ))}
+        </section>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -78,12 +139,10 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
             await api(`/api/admin/events/${eventId}/survey`, {
               method: "POST",
               body: JSON.stringify({
-                published: published ?? survey.published,
+                published: survey.published,
               }),
             });
-            setSurvey({ ...survey, published: published ?? survey.published });
-            setPublished(null);
-            setNotice("Dostępność ankiety została zapisana.");
+            setNotice("Ustawienia ankiety zostały zapisane.");
           } catch (e) {
             setError(
               e instanceof Error ? e.message : "Nie udało się zapisać ankiety.",
@@ -135,30 +194,18 @@ export function AdminSurvey({ eventId }: { eventId: string }) {
               ))}
             </ol>
           </details>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              margin: "18px 0",
-            }}
-          >
+          <label>
             <input
               type="checkbox"
-              style={{
-                width: 20,
-                height: 20,
-                minHeight: 20,
-                flexShrink: 0,
-                margin: 0,
-              }}
-              checked={published ?? survey.published}
-              onChange={(e) => setPublished(e.target.checked)}
+              checked={survey.published}
+              onChange={(e) =>
+                setSurvey({ ...survey, published: e.target.checked })
+              }
             />{" "}
-            Udostępnij ankietę od {dateTime(survey.unlockAt)}
+            Udostępnij ankietę uczestnikom od {dateTime(survey.unlockAt)}
           </label>
           <button type="submit">
-            {busy ? "Zapisywanie..." : "Zapisz dostępność"}
+            {busy ? "Zapisywanie..." : "Zapisz ankietę"}
           </button>
         </fieldset>
       </form>

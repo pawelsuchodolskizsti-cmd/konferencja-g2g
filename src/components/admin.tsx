@@ -1,7 +1,20 @@
 "use client";
-import { auditActionLabel } from "@/lib/audit-labels";
 import { AdminPrivacy } from "./admin-privacy";
-import { useEffect, useState } from "react";
+import { ActivityPanel } from "./admin-activity";
+import { DataPanel } from "./data-panel";
+import {
+  AddParticipant,
+  DownloadButton,
+  ExportCenter,
+  HistoryPanel,
+  MaterialsManager,
+  ParticipantActions,
+  PrivacyPanel,
+  TeamPanel,
+} from "./admin-tools";
+import { filterParticipants } from "@/lib/participant-filter";
+import { certificateName } from "@/lib/certificate-name";
+import { useEffect, useRef, useState } from "react";
 import "./admin-theme.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,16 +23,23 @@ import { EventForm } from "./event-form";
 import { ImportPanel } from "./import-panel";
 import { Scanner } from "./scanner";
 import { AdminSurvey } from "./admin-survey";
+import { AdminMail } from "./admin-mail";
 const sections = [
   ["dashboard", "Dashboard"],
   ["participants", "Uczestnicy"],
+  ["activity", "Aktywność"],
   ["import", "Import"],
-  ["mail", "Kody i eksport"],
+  ["data", "Dane"],
+  ["mail", "Eksporty"],
+  ["wysylka", "Wysyłka"],
+  ["materials", "Materiały"],
+  ["privacy", "RODO i dane"],
+  ["history", "Historia działań"],
+  ["team", "Zespół i role"],
   ["checkin", "Check-in"],
-  ["courses", "Kody szkoleniowe"],
   ["certificates", "Certyfikaty"],
+  ["courses", "Kody szkoleniowe"],
   ["survey", "Ankieta"],
-  ["privacy", "Potwierdzenia RODO"],
   ["settings", "Ustawienia konferencji"],
 ] as const;
 type EventOption = { id: string; name: string; slug: string };
@@ -37,7 +57,9 @@ export function Admin({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [eventId, setEventId] = useState(initialEvents[0]?.id || "");
-  const [section, setSection] = useState(initialSection);
+  const [section, setSection] = useState(
+    initialSection === "invitations" ? "wysylka" : initialSection,
+  );
   const configuring = !eventId;
   const [data, setData] = useState<Overview | null>(null);
   const [revision, setRevision] = useState(0);
@@ -70,7 +92,8 @@ export function Admin({
     };
   }, [eventId, revision]);
   const overview = data?.event.id === eventId ? data : null;
-  const people = overview?.people || [];
+  const allPeople = overview?.people || [];
+  const people = allPeople.filter((p) => !p.isTest);
   const present = people.filter((p) => p.checkedInAt).length;
   async function action(path: string, body?: unknown, method = "POST") {
     setBusy(true);
@@ -134,6 +157,7 @@ export function Admin({
                 if (key === "checkin") return;
                 e.preventDefault();
                 setSection(key);
+                window.history.replaceState(null, "", `?section=${key}`);
                 setMenuOpen(false);
                 setNotice("");
               }}
@@ -248,69 +272,6 @@ export function Admin({
                       note="gotowe do eksportu"
                     />
                   </div>
-                  <section className="card">
-                    <h2>Dostępność funkcji uczestnika</h2>
-                    <p>
-                      Potwierdzenia aktualnej klauzuli:{" "}
-                      <strong>{overview.privacyAcknowledgedCount}</strong> /{" "}
-                      {people.length}.{" "}
-                      <button
-                        className="secondary"
-                        onClick={() => setSection("privacy")}
-                      >
-                        Zobacz potwierdzenia
-                      </button>
-                    </p>
-                    <p>
-                      Ankieta:{" "}
-                      <strong>
-                        {overview.survey.published
-                          ? "Udostępniona"
-                          : "Wstrzymana"}
-                      </strong>
-                      , od {dateTime(overview.survey.unlockAt)}. Odpowiedzi:{" "}
-                      <strong>{overview.survey.responseCount}</strong>.
-                    </p>
-                    <p>
-                      Certyfikat: od{" "}
-                      {dateTime(overview.event.certificateUnlockAt)}.
-                      Wygenerowane PDF:{" "}
-                      <strong>
-                        {people.filter((p) => p.certificateGeneratedAt).length}
-                      </strong>
-                      .
-                    </p>
-                    <p>
-                      Szkolenia: {overview.courses.length}. Materiały PDF:{" "}
-                      {overview.materials.length} (w sekcji Kody szkoleniowe).
-                    </p>
-                    {overview.courses
-                      .filter(
-                        (c) =>
-                          c.mode === "INDIVIDUAL" &&
-                          c.total - c.assigned < people.length - c.assigned,
-                      )
-                      .map((c) => (
-                        <p className="notice" key={c.id}>
-                          Szkolenie {c.name}: pozostało{" "}
-                          {Math.max(0, c.total - c.assigned)} nieprzydzielonych
-                          kodów. Pula nie wystarcza dla całej listy uczestników.
-                        </p>
-                      ))}
-                    <p>
-                      Wysyłka poczty z panelu jest wyłączona. Zaproszenia
-                      przygotujesz w sekcji Kody i eksport.
-                    </p>
-                    <p>
-                      Termin przechowywania danych:{" "}
-                      <strong>
-                        {overview.event.retentionUntil
-                          ? dateTime(overview.event.retentionUntil)
-                          : "Nie ustawiono"}
-                      </strong>
-                      .
-                    </p>
-                  </section>
                   <div className="grid">
                     <section className="card">
                       <div className="row spread">
@@ -348,8 +309,7 @@ export function Admin({
                         </div>
                       </div>
                       <p className="muted">
-                        Dostęp do strefy wymaga potwierdzonej obecności i
-                        zapoznania się z klauzulą informacyjną.
+                        Potwierdzenie wejścia odblokowuje dostęp do szkoleń.
                       </p>
                       <button onClick={() => router.push("/skanowaniebiletow")}>
                         Otwórz skaner QR
@@ -358,8 +318,7 @@ export function Admin({
                     <section className="card">
                       <h2>Materiały i certyfikaty</h2>
                       <p>
-                        <strong>{present}</strong> osób spełniających warunek
-                        obecności dla kursów
+                        <strong>{present}</strong> osób z dostępem do kursów
                       </p>
                       <p>
                         <strong>
@@ -399,11 +358,7 @@ export function Admin({
                     )}
                   </section>
                   <section className="card">
-                    <h2>Ostatnie działania</h2>
-                    <p className="muted">
-                      Ostatnie 15 zdarzeń. Pełna historia potwierdzeń jest w
-                      zakładce Potwierdzenia RODO.
-                    </p>
+                    <h2>Dziennik działań</h2>
                     {overview.audit.length ? (
                       <div className="tablewrap">
                         <table>
@@ -411,25 +366,18 @@ export function Admin({
                             <tr>
                               <th>Kiedy</th>
                               <th>Działanie</th>
-                              <th>Wykonawca</th>
+                              <th>Administrator</th>
                             </tr>
                           </thead>
                           <tbody>
                             {overview.audit.slice(0, 15).map((log) => (
                               <tr key={log.id}>
                                 <td>{dateTime(log.createdAt)}</td>
+                                <td>{log.action}</td>
                                 <td>
-                                  {auditActionLabel(log.action)}
-                                  <br />
-                                  <small>{log.participantName}</small>
-                                </td>
-                                <td>
-                                  {log.adminEmail ||
-                                    (log.action.startsWith(
-                                      "PARTICIPANT_PRIVACY_ACK_",
-                                    )
-                                      ? "Uczestnik"
-                                      : "System")}
+                                  {log.adminId
+                                    ? log.adminId.slice(0, 8)
+                                    : "System"}
                                 </td>
                               </tr>
                             ))}
@@ -442,12 +390,16 @@ export function Admin({
                   </section>
                 </>
               )}
+              {section === "activity" && (
+                <ActivityPanel key={eventId} people={people} />
+              )}
               {section === "participants" && (
                 <Participants
-                  people={people}
+                  people={allPeople}
                   eventId={eventId}
                   busy={busy}
                   action={action}
+                  error={error}
                 />
               )}
               {section === "import" && (
@@ -468,7 +420,7 @@ export function Admin({
                   <section className="card">
                     <h2>Ręczne potwierdzenie obecności</h2>
                     <Participants
-                      people={people}
+                      people={allPeople}
                       eventId={eventId}
                       busy={busy}
                       action={action}
@@ -478,8 +430,29 @@ export function Admin({
                 </>
               )}
               {section === "mail" && (
-                <ExportPanel eventId={eventId} count={people.length} />
+                <ExportCenter eventId={eventId} people={people} />
               )}
+              {section === "wysylka" && (
+                <AdminMail key={eventId} eventId={eventId} />
+              )}
+              {section === "materials" && (
+                <MaterialsManager data={overview} action={action} busy={busy} />
+              )}
+              {section === "data" && (
+                <DataPanel
+                  eventId={eventId}
+                  people={overview.people}
+                  onChanged={reload}
+                />
+              )}
+              {section === "privacy" && (
+                <>
+                  <AdminPrivacy key={eventId} eventId={eventId} />
+                  <PrivacyPanel eventId={eventId} />
+                </>
+              )}
+              {section === "history" && <HistoryPanel eventId={eventId} />}
+              {section === "team" && <TeamPanel eventId={eventId} />}
               {section === "courses" && (
                 <Courses data={overview} busy={busy} action={action} />
               )}
@@ -510,15 +483,21 @@ export function Admin({
                       . Uczestnicy pobierają plik PDF w swojej strefie.
                     </p>
                     <p className="muted">
-                      Nazwisko, nazwa wydarzenia i numer certyfikatu są
-                      pobierane z bazy danych.
+                      Imię i nazwisko są nanoszone na zatwierdzony wzór. Wygląd
+                      certyfikatu i warunki dostępu pozostają bez zmian.
                     </p>
-                    <PeopleTable people={people.filter((p) => p.checkedInAt)} />
+                    <PeopleTable
+                      people={people.filter((p) => p.checkedInAt)}
+                      renderAction={(p) => (
+                        <DownloadButton
+                          href={`/api/admin/events/${eventId}/participants/${p.id}/certificate`}
+                        >
+                          Pobierz certyfikat
+                        </DownloadButton>
+                      )}
+                    />
                   </section>
                 </>
-              )}
-              {section === "privacy" && (
-                <AdminPrivacy key={eventId} eventId={eventId} />
               )}
               {section === "survey" && (
                 <AdminSurvey key={eventId} eventId={eventId} />
@@ -638,6 +617,11 @@ function PeopleTable({
                 <strong>
                   {p.firstName} {p.lastName}
                 </strong>
+                {p.isTest && (
+                  <span className="badge">
+                    Konto testowe - poza raportami i wysyłką
+                  </span>
+                )}
                 <br />
                 <span className="muted">{p.email}</span>
               </td>
@@ -690,28 +674,34 @@ function Participants({
   busy,
   action,
   compact = false,
+  error = "",
 }: {
   people: Person[];
   eventId: string;
   busy: boolean;
   action: Action;
   compact?: boolean;
+  error?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState<Person | null>(null);
-  const filtered = people.filter(
-    (p) =>
-      `${p.firstName} ${p.lastName} ${p.email}`
-        .toLowerCase()
-        .includes(query.toLowerCase()) &&
-      (filter === "all" ||
-        (filter === "present" && p.checkedInAt) ||
-        (filter === "absent" && !p.checkedInAt) ||
-        (filter === "certificate" && p.certificateGeneratedAt)),
-  );
+  const editor = useRef<HTMLDialogElement>(null);
+  const [saveStatus, setSaveStatus] = useState("");
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const editingId = editing?.id;
+  useEffect(() => {
+    if (editingId && editor.current && !editor.current.open)
+      editor.current.showModal();
+  }, [editingId]);
+  const filtered = filterParticipants(people, { q: query, filter });
+  const exportQuery = new URLSearchParams({ q: query, filter }).toString();
+  const currentPerson = editing
+    ? people.find((p) => p.id === editing.id) || editing
+    : null;
   return (
     <>
+      {!compact && <AddParticipant action={action} busy={busy} />}
       <div className={compact ? "" : "card"}>
         <div className="row" style={{ marginBottom: "1rem" }}>
           <input
@@ -719,7 +709,7 @@ function Participants({
             style={{ flex: 2, minWidth: 200 }}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj po imieniu, nazwisku lub e-mailu"
+            placeholder="Szukaj po imieniu, nazwisku, e-mailu lub kodzie"
           />
           <select
             aria-label="Filtr uczestników"
@@ -731,11 +721,12 @@ function Participants({
             <option value="present">Obecni</option>
             <option value="absent">Nieobecni</option>
             <option value="certificate">Certyfikat wygenerowany</option>
+            <option value="name-review">Odmiana do sprawdzenia</option>
           </select>
           {!compact && (
             <a
               className="button secondary"
-              href={`/api/admin/events/${eventId}/export`}
+              href={`/api/admin/events/${eventId}/export?${exportQuery}`}
             >
               Lista obecności CSV
             </a>
@@ -756,7 +747,14 @@ function Participants({
                 </button>
               )}
               {!compact && (
-                <button className="secondary" onClick={() => setEditing(p)}>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setSaveStatus("");
+                    setSaveAttempted(false);
+                    setEditing(p);
+                  }}
+                >
                   Edytuj
                 </button>
               )}
@@ -765,126 +763,168 @@ function Participants({
         />
       </div>
       {editing && (
-        <form
-          className="card"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const value = Object.fromEntries(new FormData(e.currentTarget));
-            if (await action(`participants/${editing.id}`, value, "PATCH"))
-              setEditing(null);
-          }}
+        <dialog
+          ref={editor}
+          className="participant-editor"
+          aria-labelledby="participant-editor-title"
+          onCancel={() => setEditing(null)}
         >
-          <h2>Edytuj uczestnika</h2>
-          <div className="formgrid">
-            <label>
-              Imię
-              <input
-                name="firstName"
-                defaultValue={editing.firstName}
-                required
-              />
-            </label>
-            <label>
-              Nazwisko
-              <input name="lastName" defaultValue={editing.lastName} required />
-            </label>
-            <label className="wide">
-              E-mail
-              <input
-                name="email"
-                type="email"
-                defaultValue={editing.email}
-                required
-              />
-            </label>
-          </div>
-          <div className="actions">
-            <button disabled={busy}>Zapisz</button>
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => setEditing(null)}
-            >
-              Anuluj
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={async () => {
-                if (
-                  window.confirm(
-                    "Usunąć uczestnika wraz z obecnością, sesjami i certyfikatem?",
-                  ) &&
-                  (await action(
-                    `participants/${editing.id}`,
-                    undefined,
-                    "DELETE",
-                  ))
-                )
-                  setEditing(null);
-              }}
-            >
-              Usuń uczestnika
-            </button>
-          </div>
-        </form>
+          <form
+            key={editing.id}
+            className="card"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const value = Object.fromEntries(new FormData(e.currentTarget));
+              setSaveStatus("");
+              setSaveAttempted(true);
+              if (await action(`participants/${editing.id}`, value, "PATCH"))
+                setSaveStatus("Dane uczestnika zostały zapisane.");
+            }}
+          >
+            <div className="participant-editor-heading">
+              <h2 id="participant-editor-title">Edytuj uczestnika</h2>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setEditing(null)}
+                aria-label="Zamknij edycję"
+              >
+                ×
+              </button>
+            </div>
+            <div className="formgrid">
+              <label>
+                Imię
+                <input
+                  name="firstName"
+                  value={editing.firstName}
+                  onChange={(e) =>
+                    setEditing({ ...editing, firstName: e.target.value })
+                  }
+                  maxLength={100}
+                  required
+                />
+              </label>
+              <label>
+                Nazwisko
+                <input
+                  name="lastName"
+                  value={editing.lastName}
+                  onChange={(e) =>
+                    setEditing({ ...editing, lastName: e.target.value })
+                  }
+                  maxLength={100}
+                  required
+                />
+              </label>
+              <label className="wide">
+                E-mail
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={editing.email}
+                  required
+                />
+              </label>
+              <div className="wide">
+                <h3>Imię i nazwisko na certyfikacie</h3>
+                <p>
+                  Automatyczna odmiana: dla{" "}
+                  <strong>
+                    {
+                      certificateName({
+                        ...editing,
+                        certificateNameOverride: null,
+                      }).automatic
+                    }
+                  </strong>
+                </p>
+                {certificateName(editing).needsReview && (
+                  <p role="status">
+                    Ta odmiana wymaga sprawdzenia. Nierozpoznane człony
+                    pozostały w formie podstawowej. W razie potrzeby wpisz
+                    poniżej poprawną formę.
+                  </p>
+                )}
+                <label>
+                  Ręczna korekta imienia i nazwiska na certyfikacie
+                  <input
+                    name="certificateNameOverride"
+                    value={editing.certificateNameOverride || ""}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        certificateNameOverride: e.target.value,
+                      })
+                    }
+                    maxLength={240}
+                    placeholder="np. Żanety Łąckiej-Świętochowskiej"
+                    aria-describedby="certificate-name-help"
+                  />
+                </label>
+                <p id="certificate-name-help">
+                  Wpisz pełne imię i nazwisko po odmianie, bez słowa „dla”.
+                  Puste pole przywraca automatyczną odmianę. Zmiana będzie
+                  widoczna przy kolejnym pobraniu certyfikatu.
+                </p>
+                <p aria-live="polite">
+                  Na certyfikacie: dla{" "}
+                  <strong>{certificateName(editing).value}</strong>
+                </p>
+              </div>
+            </div>
+            {saveAttempted && error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {saveStatus && (
+              <p className="notice" role="status">
+                {saveStatus}
+              </p>
+            )}
+            <div className="actions">
+              <button disabled={busy}>
+                {busy ? "Zapisywanie…" : "Zapisz"}
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      "Usunąć uczestnika wraz z obecnością, sesjami i certyfikatem?",
+                    ) &&
+                    (await action(
+                      `participants/${editing.id}`,
+                      undefined,
+                      "DELETE",
+                    ))
+                  )
+                    setEditing(null);
+                }}
+              >
+                Usuń uczestnika
+              </button>
+            </div>
+          </form>
+          {currentPerson && (
+            <ParticipantActions
+              person={currentPerson}
+              eventId={eventId}
+              action={action}
+              busy={busy}
+            />
+          )}
+        </dialog>
       )}
-    </>
-  );
-}
-function ExportPanel({ eventId, count }: { eventId: string; count: number }) {
-  const base = `/api/admin/events/${eventId}/codes-export`;
-  return (
-    <>
-      <section className="card">
-        <div className="eyebrow">Korespondencja seryjna</div>
-        <h2>Dane uczestników i kody</h2>
-        <p>
-          Po zatwierdzeniu importu każda osoba otrzymuje unikalny,
-          sześcioznakowy kod. Pobierz Excel i użyj go jako źródła danych w
-          swojej poczcie.
-        </p>
-        <p className="muted">
-          Plik zawiera imię, nazwisko, e-mail, kod, link do strefy i nazwę
-          indywidualnego biletu. Kolejne pobranie zachowuje te same kody.
-        </p>
-        {count ? (
-          <div className="actions">
-            <a className="button" href={base}>
-              Pobierz Excel z kodami ({count})
-            </a>
-            <a className="button secondary" href={`${base}?format=csv`}>
-              Pobierz CSV
-            </a>
-          </div>
-        ) : (
-          <p className="notice">Najpierw wgraj listę w sekcji Import.</p>
-        )}
-      </section>
-      <section className="card">
-        <h2>Bilety z QR do załączenia</h2>
-        <p>
-          Każda paczka ZIP zawiera osobne bilety PDF oraz Excel pasujący do tych
-          biletów. Po rozpakowaniu przypisz plik z kolumny „Plik biletu” do
-          odpowiedniej osoby w narzędziu do korespondencji seryjnej.
-        </p>
-        <div className="actions">
-          {Array.from({ length: Math.ceil(count / 50) }, (_, index) => (
-            <a
-              className="button secondary"
-              key={index}
-              href={`${base}?format=zip&offset=${index * 50}`}
-            >
-              Bilety {index * 50 + 1}-{Math.min((index + 1) * 50, count)} (ZIP)
-            </a>
-          ))}
-        </div>
-        <p className="muted">
-          Excel jest źródłem danych dla korespondencji, a załącznikiem dla
-          uczestnika jest jego własny bilet. Obsługa indywidualnych załączników
-          zależy od programu pocztowego.
-        </p>
-      </section>
     </>
   );
 }
@@ -899,6 +939,42 @@ function Courses({
 }) {
   return (
     <>
+      <section className="card">
+        <h2>Dostęp do szkoleń – ręczne odblokowanie</h2>
+        <p className="muted">
+          Dostęp do kursów jest domyślnie zablokowany i nie odblokowuje się po
+          skanowaniu QR ani po zakończeniu wydarzenia. Włącz go następnego dnia,
+          gdy kursy mają być dostępne.
+        </p>
+        <p>
+          <strong>
+            Status:{" "}
+            {data.event.coursesUnlocked
+              ? "Kursy odblokowane"
+              : "Kursy zablokowane"}
+          </strong>
+        </p>
+        <button
+          className={data.event.coursesUnlocked ? "secondary" : undefined}
+          disabled={busy}
+          onClick={() => {
+            const unlocked = !data.event.coursesUnlocked;
+            if (
+              !window.confirm(
+                unlocked
+                  ? "Odblokować kursy wszystkim uczestnikom z potwierdzoną obecnością?"
+                  : "Zablokować kursy wszystkim uczestnikom?",
+              )
+            )
+              return;
+            void action("courses-unlock", { unlocked });
+          }}
+        >
+          {data.event.coursesUnlocked
+            ? "Zablokuj kursy"
+            : "Odblokuj kursy uczestnikom"}
+        </button>
+      </section>
       <div className="grid">
         {data.courses.map((course) => (
           <section className="card" key={course.id}>
@@ -1055,13 +1131,13 @@ function AdminIcon({ name }: { name: string }) {
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M16 3a4 4 0 0 1 0 8",
     import: "M12 16V3m-5 5 5-5 5 5M3 15v6h18v-6",
     mail: "M3 5h18v14H3zM3 5l9 7 9-7",
+    wysylka: "M22 2 11 13M22 2 15 22l-4-9-9-4z",
     checkin:
       "M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z",
     courses: "m2 8 10-5 10 5-10 5L2 8m4 3v6l6 3 6-3v-6M22 8v8",
     certificates: "M5 3h14v13H5zM8 16v5l4-2 4 2v-5M8 7h8M8 11h5",
     settings: "M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M10 15v6",
     survey: "M5 3h14v18H5zM8 7h8M8 12h8M8 17h5",
-    privacy: "M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7zM8 12l3 3 5-6",
   };
   return (
     <svg

@@ -25,7 +25,7 @@ export function AdminPrivacy({ eventId }: { eventId: string }) {
     const load = async () => {
       try {
         const result = await api<Records>(
-          `/api/admin/events/${eventId}/privacy`,
+          `/api/admin/events/${eventId}/privacy/records`,
         );
         if (active) {
           setData(result);
@@ -105,7 +105,7 @@ export function AdminPrivacy({ eventId }: { eventId: string }) {
               Otwórz klauzulę
             </a>
             <a
-              href={`/api/admin/events/${eventId}/privacy-export`}
+              href={`/api/admin/events/${eventId}/privacy/records-export`}
               className="button secondary"
               download
             >
