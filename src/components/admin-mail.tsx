@@ -1,5 +1,9 @@
 "use client";
 import { formatMailBody } from "@/lib/mail-format";
+import {
+  mailAddresses,
+  participantMailRecipients,
+} from "@/lib/mail-recipients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Overview, type Person } from "./api";
 
@@ -706,7 +710,14 @@ export function AdminMail({ eventId }: { eventId: string }) {
             if (
               !window.confirm(
                 "Wysłać jedną wiadomość testową na " +
-                  testEmail +
+                  mailAddresses(
+                    participantMailRecipients({
+                      email: testEmail,
+                      secondaryEmail: testPeople.find(
+                        (p) => p.id === testParticipant,
+                      )?.secondaryEmail,
+                    }),
+                  ).join(", ") +
                   (testParticipant
                     ? " z imieniem i kodem uczestnika: " +
                       testPeople.find((p) => p.id === testParticipant)
@@ -780,6 +791,13 @@ export function AdminMail({ eventId }: { eventId: string }) {
               onChange={(e) => setTestEmail(e.target.value)}
             />
           </label>
+          {testPeople.find((p) => p.id === testParticipant)?.secondaryEmail && (
+            <p>
+              Test otrzyma również drugi adres uczestnika:{" "}
+              {testPeople.find((p) => p.id === testParticipant)?.secondaryEmail}
+              .
+            </p>
+          )}
           <button
             disabled={!ready || sending || busy || testPending || !!testResult}
           >

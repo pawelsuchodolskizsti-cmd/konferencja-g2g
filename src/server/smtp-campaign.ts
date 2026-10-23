@@ -580,7 +580,15 @@ async function sendSingleSmtp(
   const personalized = person
     ? {
         ...(await invitation(person, event)),
-        ...(!selected ? { to: email, cc: undefined } : {}),
+        ...(!selected
+          ? {
+              to: email,
+              cc: participantMailRecipients({
+                email,
+                secondaryEmail: person.secondaryEmail,
+              }).cc,
+            }
+          : {}),
       }
     : null;
   const recipientLabel = personalized

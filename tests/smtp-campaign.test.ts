@@ -533,7 +533,7 @@ test("personalized test sends exactly once to override address without changing 
   expect(fixture.sent).toHaveLength(count + 1);
 });
 
-test("secondary email is saved, validated and used for selected mail but not test overrides", async () => {
+test("secondary email is saved, validated and used for selected mail and personalized tests", async () => {
   const { updateParticipant } = await import("../src/server/admin-data");
   const { sendSelectedSmtp } = await import("../src/server/smtp-campaign");
   await saveSmtpPassword(eventId, adminId, {
@@ -585,6 +585,12 @@ test("secondary email is saved, validated and used for selected mail but not tes
     email: "preview@example.org",
   });
   expect(fixture.sent.at(-1)!.to).toBe("preview@example.org");
+  expect(fixture.sent.at(-1)!.cc).toBe("second@example.org");
+  await sendSmtpTest(eventId, adminId, {
+    ...request,
+    requestId: crypto.randomUUID(),
+    email: "second@example.org",
+  });
   expect(fixture.sent.at(-1)!.cc).toBeUndefined();
   await updateParticipant(
     eventId,
