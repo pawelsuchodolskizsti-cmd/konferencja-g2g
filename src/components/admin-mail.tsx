@@ -48,6 +48,14 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedPending, setSelectedPending] = useState(false);
+  const selectedLock = useRef(false);
+  const [selectedResults, setSelectedResults] = useState<
+    Record<string, string>
+  >({});
+  const [peopleError, setPeopleError] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [testParticipant, setTestParticipant] = useState("");
   const [testPeople, setTestPeople] = useState<Person[]>([]);
@@ -57,7 +65,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
       .then((data) => {
         if (current) setTestPeople(data.people);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (current)
+          setPeopleError("Nie udało się wczytać uczestników. Odśwież stronę.");
+      });
     return () => {
       current = false;
     };
@@ -224,6 +235,69 @@ export function AdminMail({ eventId }: { eventId: string }) {
       if (active.current) setSending(false);
     }
   }
+  const normalizedQuery = recipientQuery.trim().toLocaleLowerCase("pl");
+  const visiblePeople = testPeople.filter((p) =>
+    (p.firstName + " " + p.lastName + " " + p.email)
+      .toLocaleLowerCase("pl")
+      .includes(normalizedQuery),
+  );
+  async function sendSelected() {
+    if (selectedLock.current || sending || busy || testPending) return;
+    const people = testPeople.filter(
+      (p) => selectedIds.includes(p.id) && !selectedResults[p.id],
+    );
+    if (
+      !people.length ||
+      !window.confirm(
+        "Wysłać osobne wiadomości do " +
+          people.length +
+          " zaznaczonych osób? Każda otrzyma swój kod na adres zapisany na liście uczestników. Wiadomość zostanie wysłana także wtedy, gdy ta osoba otrzymała już wcześniejsze zaproszenie.",
+      )
+    )
+      return;
+    selectedLock.current = true;
+    setSelectedPending(true);
+    for (const person of people) {
+      if (!active.current) break;
+      const requestId = crypto.randomUUID();
+      setSelectedResults((old) => ({ ...old, [person.id]: "Wysyłanie..." }));
+      try {
+        const result = await api<{ status: string; diagnostic?: string }>(
+          base + "/smtp-selected",
+          {
+            method: "POST",
+            body: JSON.stringify({ participantId: person.id, requestId }),
+          },
+        );
+        if (result.status !== "ACCEPTED") {
+          setSelectedResults((old) => ({
+            ...old,
+            [person.id]:
+              "Wymaga sprawdzenia: " +
+              (result.diagnostic || "brak potwierdzenia") +
+              ". Próba: " +
+              requestId,
+          }));
+          break;
+        }
+        setSelectedResults((old) => ({
+          ...old,
+          [person.id]: "Przyjęta przez home.pl",
+        }));
+        if (person !== people[people.length - 1])
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+      } catch {
+        setSelectedResults((old) => ({
+          ...old,
+          [person.id]:
+            "Nie ponawiaj bez sprawdzenia historii. Próba: " + requestId,
+        }));
+        break;
+      }
+    }
+    selectedLock.current = false;
+    setSelectedPending(false);
+  }
   if (!status)
     return (
       <section className="card">
@@ -231,7 +305,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
       </section>
     );
   const ready =
-    status.passwordSaved && status.productionReady && status.senderValid;
+    status.passwordSaved &&
+    status.productionReady &&
+    status.senderValid &&
+    !selectedPending;
   return (
     <>
       <section className="card">
@@ -399,7 +476,9 @@ export function AdminMail({ eventId }: { eventId: string }) {
               required
             />
           </label>
-          <button disabled={busy || sending}>Zapisz szablon</button>
+          <button disabled={busy || sending || selectedPending}>
+            Zapisz szablon
+          </button>
         </form>
         <details>
           <summary>Podgląd formatowania wiadomości</summary>
@@ -441,6 +520,140 @@ export function AdminMail({ eventId }: { eventId: string }) {
           Wiadomość zawiera indywidualny kod i link do panelu uczestnika. Bez
           plików i kodów QR.
         </p>
+      </section>
+      <section className="card">
+        <h2>Wiadomości do wybranych uczestników</h2>
+        <p>
+          Wpisz imię, nazwisko lub e-mail i zaznacz odbiorców. Każda osoba
+          otrzyma osobną wiadomość z zapisanym szablonem i swoim dotychczasowym
+          kodem, na swój adres e-mail.
+        </p>
+        <p className="muted">
+          Ta wysyłka nie uruchamia kampanii do wszystkich i nie zmienia statusów
+          wcześniejszych zaproszeń. Przyjęcie przez home.pl nie oznacza
+          potwierdzonego doręczenia.
+        </p>
+        {peopleError && <p role="alert">{peopleError}</p>}
+        <label>
+          Wyszukaj uczestnika
+          <input
+            type="search"
+            value={recipientQuery}
+            onChange={(e) => setRecipientQuery(e.target.value)}
+            placeholder="Imię, nazwisko lub e-mail"
+            disabled={selectedPending}
+          />
+        </label>
+        <div className="actions">
+          <button
+            type="button"
+            className="secondary"
+            disabled={selectedPending || !visiblePeople.length}
+            onClick={() =>
+              setSelectedIds((old) => [
+                ...new Set([
+                  ...old,
+                  ...visiblePeople
+                    .filter((p) => !selectedResults[p.id])
+                    .map((p) => p.id),
+                ]),
+              ])
+            }
+          >
+            Zaznacz wyniki wyszukiwania ({visiblePeople.length})
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={selectedPending || !selectedIds.length}
+            onClick={() => setSelectedIds([])}
+          >
+            Wyczyść zaznaczenie
+          </button>
+        </div>
+        <p>
+          Wybrano: {selectedIds.length}. Do wysłania:{" "}
+          {selectedIds.filter((id) => !selectedResults[id]).length}. Zaznaczenia
+          pozostają po zmianie wyszukiwania.
+        </p>
+        {selectedIds.length > 0 && (
+          <details>
+            <summary>
+              Pokaż wszystkich zaznaczonych ({selectedIds.length})
+            </summary>
+            {testPeople
+              .filter((p) => selectedIds.includes(p.id))
+              .map((p) => (
+                <p key={p.id}>
+                  {p.firstName} {p.lastName} ({p.email})
+                </p>
+              ))}
+          </details>
+        )}
+        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+          {visiblePeople.map((person) => (
+            <label
+              key={person.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 0",
+              }}
+            >
+              <input
+                type="checkbox"
+                style={{
+                  width: 20,
+                  height: 20,
+                  minHeight: 20,
+                  flexShrink: 0,
+                  margin: 0,
+                }}
+                checked={selectedIds.includes(person.id)}
+                disabled={selectedPending || !!selectedResults[person.id]}
+                onChange={(e) =>
+                  setSelectedIds((old) =>
+                    e.target.checked
+                      ? [...old, person.id]
+                      : old.filter((id) => id !== person.id),
+                  )
+                }
+              />
+              <span>
+                {person.firstName} {person.lastName}
+                <br />
+                <small>{person.email}</small>
+              </span>
+            </label>
+          ))}
+          {!visiblePeople.length && <p>Brak pasujących uczestników.</p>}
+        </div>
+        <button
+          type="button"
+          disabled={
+            !ready ||
+            sending ||
+            busy ||
+            testPending ||
+            !selectedIds.some((id) => !selectedResults[id])
+          }
+          onClick={sendSelected}
+        >
+          {selectedPending ? "Wysyłanie..." : "Wyślij do zaznaczonych"}
+        </button>
+        {Object.keys(selectedResults).length > 0 && (
+          <div role="status" style={{ overflowWrap: "anywhere" }}>
+            {testPeople
+              .filter((p) => selectedResults[p.id])
+              .map((p) => (
+                <p key={p.id}>
+                  {p.firstName} {p.lastName} ({p.email}):{" "}
+                  {selectedResults[p.id]}
+                </p>
+              ))}
+          </div>
+        )}
       </section>
       <section className="card">
         <h2>Pojedyncza wiadomość testowa</h2>

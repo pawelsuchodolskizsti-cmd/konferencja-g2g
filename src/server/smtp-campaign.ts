@@ -498,6 +498,43 @@ export async function sendSmtpTest(
   adminId: string,
   input: unknown,
 ) {
+  return sendSingleSmtp(eventId, adminId, input, false);
+}
+
+export async function sendSelectedSmtp(
+  eventId: string,
+  adminId: string,
+  input: unknown,
+) {
+  const value = z
+    .object({ participantId: z.uuid(), requestId: z.uuid() })
+    .strict()
+    .parse(input);
+  const [person] = await db()
+    .select()
+    .from(participants)
+    .where(
+      and(
+        eq(participants.id, value.participantId),
+        eq(participants.eventId, eventId),
+      ),
+    );
+  assert(person, 404, "Nie znaleziono uczestnika w tej konferencji.");
+  return sendSingleSmtp(
+    eventId,
+    adminId,
+    { ...value, email: person.email },
+    true,
+  );
+}
+
+async function sendSingleSmtp(
+  eventId: string,
+  adminId: string,
+  input: unknown,
+  selected: boolean,
+) {
+  const prefix = selected ? "SMTP_SELECTED" : "SMTP_TEST";
   const { email, requestId, participantId } = z
     .object({
       email: z.email().max(254),
@@ -506,7 +543,7 @@ export async function sendSmtpTest(
     })
     .parse(input);
   const { password, event } = await assertSmtpReady(eventId);
-  const messageId = `<test-${requestId}@oneday.com.pl>`;
+  const messageId = `<${selected ? "selected" : "test"}-${requestId}@oneday.com.pl>`;
   const person = participantId
     ? (
         await db()
@@ -536,8 +573,8 @@ export async function sendSmtpTest(
       id: requestId,
       eventId,
       adminId,
-      targetId: requestId,
-      action: `SMTP_TEST_STARTED ${email}`,
+      targetId: selected ? participantId : requestId,
+      action: `${prefix}_STARTED ${email}`,
     })
     .onConflictDoNothing()
     .returning({ id: auditLogs.id });
@@ -555,7 +592,7 @@ export async function sendSmtpTest(
     assert(existing, 409, "Identyfikator próby jest już użyty.");
     return {
       messageId,
-      status: existing.action.startsWith("SMTP_TEST_ACCEPTED ")
+      status: existing.action.startsWith(`${prefix}_ACCEPTED `)
         ? "ACCEPTED"
         : "REVIEW_REQUIRED",
       duplicate: true,
@@ -577,14 +614,14 @@ export async function sendSmtpTest(
     );
     await db()
       .update(auditLogs)
-      .set({ action: `SMTP_TEST_ACCEPTED ${email}` })
+      .set({ action: `${prefix}_ACCEPTED ${email}` })
       .where(eq(auditLogs.id, requestId));
     return { messageId, status: "ACCEPTED", duplicate: false };
   } catch (error) {
     const diagnostic = smtpDiagnostic(error);
     await db()
       .update(auditLogs)
-      .set({ action: `SMTP_TEST_REVIEW ${diagnostic} ${email}` })
+      .set({ action: `${prefix}_REVIEW ${diagnostic} ${email}` })
       .where(eq(auditLogs.id, requestId));
     return {
       messageId,

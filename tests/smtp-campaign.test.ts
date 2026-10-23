@@ -19,6 +19,7 @@ const fixture = vi.hoisted(() => ({
   database: null as Database | null,
   sent: [] as { to: string; html: string; attachments?: unknown[] }[],
 }));
+vi.mock("../src/server/certificates", () => ({ generateCertificate: vi.fn() }));
 vi.mock("@/db", () => ({ db: () => fixture.database }));
 vi.mock("../src/server/smtp-transport", () => ({
   sendSmtp: vi.fn(
@@ -156,7 +157,8 @@ test.each([250, 500])(
       .insert(s.events)
       .values({
         slug: `smtp-stress-${count}`,
-        mailBody: "Witaj {{firstName}}, kod: {{accessCode}}. https://conference.example.org/uczestnik",
+        mailBody:
+          "Witaj {{firstName}}, kod: {{accessCode}}. https://conference.example.org/uczestnik",
         name: "Głowa do Góry",
         organizer: "Fundacja",
         location: "Sala",
@@ -260,7 +262,11 @@ test("invitation respects the draft without automatically appended text", async 
     );
     const text = htmlToText(mail.html);
     expect(text).not.toContain("Zaproszenie dla:");
-    expect(text).toBe(mailBody.includes("{{accessCode}}") ? `Witaj <Anna>, Twój kod: ${code}` : `Zapraszamy na ${event.name}.`);
+    expect(text).toBe(
+      mailBody.includes("{{accessCode}}")
+        ? `Witaj <Anna>, Twój kod: ${code}`
+        : `Zapraszamy na ${event.name}.`,
+    );
     expect(mail.html).not.toContain("<Anna>");
     expect(mail.html).toContain('<html lang="pl">');
   }
@@ -519,4 +525,83 @@ test("personalized test sends exactly once to override address without changing 
     }),
   ).rejects.toMatchObject({ status: 404 });
   expect(fixture.sent).toHaveLength(count + 1);
+});
+
+test("selected recipients receive their own codes at stored addresses exactly once", async () => {
+  const { sendSelectedSmtp } = await import("../src/server/smtp-campaign");
+  await saveSmtpPassword(eventId, adminId, {
+    password: "synthetic-test-password",
+  });
+  const people = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, eventId));
+  const pair = people.slice(0, 2);
+  const before = fixture.sent.length;
+  const logs = await database.select().from(s.emailLogs);
+  for (const person of pair) {
+    const input = { participantId: person.id, requestId: crypto.randomUUID() };
+    expect(await sendSelectedSmtp(eventId, adminId, input)).toMatchObject({
+      status: "ACCEPTED",
+      duplicate: false,
+    });
+    expect(await sendSelectedSmtp(eventId, adminId, input)).toMatchObject({
+      status: "ACCEPTED",
+      duplicate: true,
+    });
+    const payload = fixture.sent.at(-1)!;
+    expect(payload.to).toBe(person.email);
+    expect(payload.html).toContain(
+      JSON.parse(decrypt(person.credentials)).accessCode,
+    );
+    const other = pair.find((p) => p.id !== person.id)!;
+    expect(payload.html).not.toContain(
+      JSON.parse(decrypt(other.credentials)).accessCode,
+    );
+  }
+  expect(fixture.sent.length).toBe(before + 2);
+  expect(await database.select().from(s.emailLogs)).toEqual(logs);
+  await expect(
+    sendSelectedSmtp(eventId, adminId, {
+      participantId: pair[0].id,
+      requestId: crypto.randomUUID(),
+      email: "override@example.org",
+    }),
+  ).rejects.toThrow();
+  const otherEvent = await extraEvent("selected-other-event", [
+    "outside@example.org",
+  ]);
+  const [otherPerson] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, otherEvent));
+  await expect(
+    sendSelectedSmtp(eventId, adminId, {
+      participantId: otherPerson.id,
+      requestId: crypto.randomUUID(),
+    }),
+  ).rejects.toMatchObject({ status: 404 });
+  expect(fixture.sent.length).toBe(before + 2);
+});
+
+test("selected delivery with ambiguous SMTP result cannot be sent again on replay", async () => {
+  const { sendSelectedSmtp } = await import("../src/server/smtp-campaign");
+  await saveSmtpPassword(eventId, adminId, {
+    password: "synthetic-test-password",
+  });
+  const [person] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.eventId, eventId));
+  const input = { participantId: person.id, requestId: crypto.randomUUID() };
+  vi.mocked(sendSmtp).mockRejectedValueOnce(new SmtpFailure("ACCEPTANCE"));
+  const before = vi.mocked(sendSmtp).mock.calls.length;
+  expect(await sendSelectedSmtp(eventId, adminId, input)).toMatchObject({
+    status: "REVIEW_REQUIRED",
+  });
+  expect(await sendSelectedSmtp(eventId, adminId, input)).toMatchObject({
+    status: "REVIEW_REQUIRED",
+    duplicate: true,
+  });
+  expect(vi.mocked(sendSmtp).mock.calls.length).toBe(before + 1);
 });

@@ -16,6 +16,7 @@ import {
   processSmtpBatch,
   checkSmtpCredentials,
   sendSmtpTest,
+  sendSelectedSmtp,
 } from "@/server/smtp-campaign";
 import {
   listArchives,
@@ -259,6 +260,14 @@ async function handle(req: Request, ctx: Context) {
       if (req.method === "DELETE")
         return Response.json(await removeSmtpPassword(eventId, admin.id));
     }
+    if (
+      action === "smtp-selected" &&
+      path.length === 3 &&
+      req.method === "POST"
+    )
+      return Response.json(
+        await sendSelectedSmtp(eventId, admin.id, await jsonBody(req)),
+      );
     if (action === "smtp-test" && path.length === 3 && req.method === "POST")
       return Response.json(
         await sendSmtpTest(eventId, admin.id, await jsonBody(req)),
