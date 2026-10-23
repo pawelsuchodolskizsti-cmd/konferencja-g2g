@@ -34,6 +34,7 @@ beforeAll(async () => {
   process.env.TOKEN_PEPPER = "survey-test-".repeat(8);
   for (const file of [
     "0000_initial",
+    "0011_secondary_email",
     "0001_schema",
     "0002_schema",
     "0003_schema",

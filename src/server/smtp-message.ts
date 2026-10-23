@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { mailAddresses } from "@/lib/mail-recipients";
 
 type Payload = {
   from: string;
   to: string;
+  cc?: string;
   subject: string;
   html: string;
   attachments?: { filename: string; content: string; content_id?: string }[];
@@ -130,6 +132,7 @@ export function makeMessage(
   payload: Payload,
   messageId = "<" + randomUUID() + "@oneday.com.pl>",
 ) {
+  mailAddresses(payload).forEach(validAddress);
   validAddress(payload.to);
   if (payload.from.toLowerCase() !== "konferencja@oneday.com.pl")
     throw new Error("Adres nadawcy musi odpowiadać skonfigurowanej skrzynce.");
@@ -142,6 +145,7 @@ export function makeMessage(
     "From: Fundacja One Day <konferencja@oneday.com.pl>",
     "Reply-To: konferencja@oneday.com.pl",
     "To: " + payload.to,
+    ...(payload.cc ? ["Cc: " + validAddress(payload.cc)] : []),
     "Subject: " + mimeHeader(payload.subject),
     "Date: " + new Date().toUTCString(),
     "Message-ID: " + messageId,

@@ -20,6 +20,7 @@ type Status = {
   diagnostics: {
     participantId: string;
     email: string;
+    secondaryEmail?: string | null;
     status: string;
     errorCode: string | null;
     messageId: string | null;
@@ -237,12 +238,23 @@ export function AdminMail({ eventId }: { eventId: string }) {
     }
   }
   const normalizedQuery = recipientQuery.trim().toLocaleLowerCase("pl");
-  const visiblePeople = testPeople.filter((p) =>
-    (registrationFilter === "all" ||
-      (registrationFilter === "registered" ? !!p.firstLoginAt : !p.firstLoginAt)) &&
-    (p.firstName + " " + p.lastName + " " + p.email)
-      .toLocaleLowerCase("pl")
-      .includes(normalizedQuery),
+  const visiblePeople = testPeople.filter(
+    (p) =>
+      (registrationFilter === "all" ||
+        (registrationFilter === "registered"
+          ? !!p.firstLoginAt
+          : !p.firstLoginAt)) &&
+      (
+        p.firstName +
+        " " +
+        p.lastName +
+        " " +
+        p.email +
+        " " +
+        (p.secondaryEmail || "")
+      )
+        .toLocaleLowerCase("pl")
+        .includes(normalizedQuery),
   );
   async function sendSelected() {
     if (selectedLock.current || sending || busy || testPending) return;
@@ -254,7 +266,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
       !window.confirm(
         "Wysłać osobne wiadomości do " +
           people.length +
-          " zaznaczonych osób? Każda otrzyma swój kod na adres zapisany na liście uczestników. Wiadomość zostanie wysłana także wtedy, gdy ta osoba otrzymała już wcześniejsze zaproszenie.",
+          " zaznaczonych osób? Każda otrzyma swój kod na zapisane adresy e-mail uczestnika. Wiadomość zostanie wysłana także wtedy, gdy ta osoba otrzymała już wcześniejsze zaproszenie.",
       )
     )
       return;
@@ -529,7 +541,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
         <p>
           Wpisz imię, nazwisko lub e-mail i zaznacz odbiorców. Każda osoba
           otrzyma osobną wiadomość z zapisanym szablonem i swoim dotychczasowym
-          kodem, na swój adres e-mail.
+          kodem, na oba zapisane adresy e-mail, jeśli podano drugi adres.
         </p>
         <p className="muted">
           Ta wysyłka nie uruchamia kampanii do wszystkich i nie zmienia statusów
@@ -550,7 +562,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
           </select>
         </label>
         <p className="muted">
-          Zarejestrowani to osoby, które co najmniej raz zalogowały się do swojej strefy.
+          Zarejestrowani to osoby, które co najmniej raz zalogowały się do
+          swojej strefy.
         </p>
         <label>
           Wyszukaj uczestnika
@@ -603,7 +616,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
               .filter((p) => selectedIds.includes(p.id))
               .map((p) => (
                 <p key={p.id}>
-                  {p.firstName} {p.lastName} ({p.email})
+                  {p.firstName} {p.lastName} ({p.email}
+                  {p.secondaryEmail ? `, ${p.secondaryEmail}` : ""})
                 </p>
               ))}
           </details>
@@ -641,7 +655,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
               <span>
                 {person.firstName} {person.lastName}
                 <br />
-                <small>{person.email}</small>
+                <small>
+                  {person.email}
+                  {person.secondaryEmail ? `, ${person.secondaryEmail}` : ""}
+                </small>
               </span>
             </label>
           ))}
@@ -666,7 +683,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
               .filter((p) => selectedResults[p.id])
               .map((p) => (
                 <p key={p.id}>
-                  {p.firstName} {p.lastName} ({p.email}):{" "}
+                  {p.firstName} {p.lastName} ({p.email}
+                  {p.secondaryEmail ? `, ${p.secondaryEmail}` : ""}):{" "}
                   {selectedResults[p.id]}
                 </p>
               ))}
@@ -745,7 +763,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
               <option value="">Ogólny test bez kodu</option>
               {testPeople.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName} ({p.email})
+                  {p.firstName} {p.lastName} ({p.email}
+                  {p.secondaryEmail ? `, ${p.secondaryEmail}` : ""})
                 </option>
               ))}
             </select>
@@ -880,7 +899,10 @@ export function AdminMail({ eventId }: { eventId: string }) {
               <tbody>
                 {status.diagnostics?.map((item) => (
                   <tr key={item.participantId}>
-                    <td>{item.email}</td>
+                    <td>
+                      {item.email}
+                      {item.secondaryEmail ? `, ${item.secondaryEmail}` : ""}
+                    </td>
                     <td>{deliveryLabels[item.status] || item.status}</td>
                     <td>
                       {item.sentAt || item.attemptedAt

@@ -826,6 +826,19 @@ function Participants({
                   required
                 />
               </label>
+              <label className="wide">
+                Drugi e-mail (opcjonalnie)
+                <input
+                  name="secondaryEmail"
+                  type="email"
+                  maxLength={254}
+                  defaultValue={editing.secondaryEmail || ""}
+                />
+                <small>
+                  Wiadomości do uczestnika będą wysyłane na oba adresy z tym
+                  samym kodem dostępu.
+                </small>
+              </label>
               <div className="wide">
                 <h3>Imię i nazwisko na certyfikacie</h3>
                 <p>

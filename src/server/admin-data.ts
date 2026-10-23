@@ -50,6 +50,7 @@ export async function participantList(eventId: string, includeTest = false) {
       lastName: participants.lastName,
       certificateNameOverride: participants.certificateNameOverride,
       email: participants.email,
+      secondaryEmail: participants.secondaryEmail,
       firstLoginAt: logins.firstLoginAt,
       lastLoginAt: logins.lastLoginAt,
       checkedInAt: attendance.checkedInAt,
@@ -183,6 +184,11 @@ export async function updateParticipant(
       firstName: z.string().trim().min(1).max(100),
       lastName: z.string().trim().min(1).max(100),
       email: z.email().transform((v) => v.toLowerCase()),
+      secondaryEmail: z
+        .union([z.email().max(254), z.literal("")])
+        .transform((v) => v.toLowerCase() || null)
+        .nullable()
+        .optional(),
       certificateNameOverride: z
         .string()
         .max(240)
@@ -211,7 +217,11 @@ export async function updateParticipant(
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
       .for("update");
     assert(current, 404, "Brak uczestnika.");
-    if (current.email !== value.email) {
+    if (
+      current.email !== value.email ||
+      (value.secondaryEmail !== undefined &&
+        current.secondaryEmail !== value.secondaryEmail)
+    ) {
       const [mail] = await tx
         .select({ id: emailLogs.id })
         .from(emailLogs)

@@ -273,6 +273,7 @@ export async function personalData(
         firstName: p.firstName,
         lastName: p.lastName,
         email: p.email,
+        secondaryEmail: p.secondaryEmail,
         certificateNameOverride: p.certificateNameOverride,
         createdAt: p.createdAt,
       },

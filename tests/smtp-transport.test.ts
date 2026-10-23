@@ -13,6 +13,8 @@ const scenario = vi.hoisted(() => ({
   quitDisconnect: false,
   dataCode: 250,
   sent: 0,
+  recipients: [] as string[],
+  rejectedAddress: "",
 }));
 vi.mock("node:tls", async () => {
   const { Duplex } = await import("node:stream");
@@ -34,10 +36,15 @@ vi.mock("node:tls", async () => {
           } else if (step === 2) {
             step = 0;
             reply = "235 authenticated";
-          } else if (line.startsWith("RCPT"))
+          } else if (line.startsWith("RCPT")) {
+            scenario.recipients.push(line);
             reply =
-              scenario.recipient + " 5.1.1 private@example.org sensitive reply";
-          else if (line === "DATA\r\n") reply = "354 continue";
+              (scenario.rejectedAddress &&
+              line.includes(scenario.rejectedAddress)
+                ? 550
+                : scenario.recipient) +
+              " 5.1.1 private@example.org sensitive reply";
+          } else if (line === "DATA\r\n") reply = "354 continue";
           else if (line.startsWith("From:")) {
             scenario.sent++;
             reply =
@@ -72,6 +79,35 @@ const payload = {
   subject: "Zaproszenie: Łódź",
   html: '<p>Cześć Łukasz &amp; Ewa</p><p>Kod: TEST</p><a href="https://example.org/uczestnik">Panel</a>',
 };
+
+test("both recipients are accepted before a single message is submitted", async () => {
+  scenario.recipient = 250;
+  scenario.recipients = [];
+  scenario.sent = 0;
+  await sendSmtp({ ...payload, cc: "second@example.org" }, "synthetic");
+  expect(scenario.recipients).toEqual([
+    "RCPT TO:<test@example.org>\r\n",
+    "RCPT TO:<second@example.org>\r\n",
+  ]);
+  expect(scenario.sent).toBe(1);
+  expect(makeMessage({ ...payload, cc: "second@example.org" })).toContain(
+    "Cc: second@example.org",
+  );
+});
+
+test("second recipient rejection sends no body to either recipient", async () => {
+  scenario.recipient = 250;
+  scenario.rejectedAddress = "second@example.org";
+  scenario.sent = 0;
+  try {
+    await expect(
+      sendSmtp({ ...payload, cc: "second@example.org" }, "synthetic"),
+    ).rejects.toMatchObject({ stage: "RECIPIENT", smtpCode: 550 });
+    expect(scenario.sent).toBe(0);
+  } finally {
+    scenario.rejectedAddress = "";
+  }
+});
 test("multipart alternative contains readable plain text and original HTML with valid metadata", () => {
   const mail = makeMessage(payload, "<invitation-test@oneday.com.pl>");
   expect(mail).toContain("Content-Type: multipart/alternative;");

@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  mailAddresses,
+  participantMailRecipients,
+} from "@/lib/mail-recipients";
 import { realParticipant } from "./participant-scope";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, lt, sql } from "drizzle-orm";
@@ -43,7 +47,11 @@ export async function smtpOverview(eventId: string) {
       .from(smtpSettings)
       .where(eq(smtpSettings.eventId, eventId)),
     db()
-      .select({ id: participants.id, email: participants.email })
+      .select({
+        id: participants.id,
+        email: participants.email,
+        secondaryEmail: participants.secondaryEmail,
+      })
       .from(participants)
       .where(and(eq(participants.eventId, eventId), realParticipant)),
     db()
@@ -55,6 +63,7 @@ export async function smtpOverview(eventId: string) {
         sentAt: emailLogs.sentAt,
         attemptedAt: emailLogs.firstAttemptAt,
         email: participants.email,
+        secondaryEmail: participants.secondaryEmail,
       })
       .from(emailLogs)
       .innerJoin(participants, eq(emailLogs.participantId, participants.id))
@@ -82,11 +91,11 @@ export async function smtpOverview(eventId: string) {
     errors: logs.filter((log) => log.status === "ERROR").length,
   };
   const emailCount = new Map<string, number>();
-  people.forEach((p) =>
-    emailCount.set(
-      p.email.toLowerCase(),
-      (emailCount.get(p.email.toLowerCase()) || 0) + 1,
-    ),
+  const addresses = people.flatMap((p) =>
+    mailAddresses(participantMailRecipients(p)),
+  );
+  addresses.forEach((email) =>
+    emailCount.set(email, (emailCount.get(email) || 0) + 1),
   );
   const duplicateEmailAddresses = [...emailCount.values()].filter(
     (count) => count > 1,
@@ -101,7 +110,7 @@ export async function smtpOverview(eventId: string) {
     total: people.length,
     uniqueEmails: emailCount.size,
     duplicateEmailAddresses,
-    duplicateRecipients: people.length - emailCount.size,
+    duplicateRecipients: addresses.length - emailCount.size,
     ...statuses,
     diagnostics: logs,
     notQueued: people.length - logs.length,
@@ -323,34 +332,40 @@ async function claimNext(eventId: string) {
     const now = Date.now();
     if (globalLimit.resetsAt.getTime() > now)
       return { retryAfterMs: globalLimit.resetsAt.getTime() - now };
-    const mailboxKey = `smtp:mailbox:${createHash("sha256").update(person.email.trim().toLowerCase()).digest("hex")}`;
-    const [mailboxLimit] = await tx
-      .select()
-      .from(rateLimits)
-      .where(eq(rateLimits.key, mailboxKey));
-    if (mailboxLimit && mailboxLimit.resetsAt.getTime() > now) {
-      await tx
-        .update(emailLogs)
-        .set({ nextAttemptAt: mailboxLimit.resetsAt })
-        .where(eq(emailLogs.id, match.mail.id));
-      // Let other ready addresses advance instead of blocking the whole queue.
-      return { retryAfterMs: 1 };
+    const mailboxKeys = mailAddresses(participantMailRecipients(person)).map(
+      (email) =>
+        `smtp:mailbox:${createHash("sha256").update(email).digest("hex")}`,
+    );
+    for (const mailboxKey of mailboxKeys) {
+      const [mailboxLimit] = await tx
+        .select()
+        .from(rateLimits)
+        .where(eq(rateLimits.key, mailboxKey));
+      if (mailboxLimit && mailboxLimit.resetsAt.getTime() > now) {
+        await tx
+          .update(emailLogs)
+          .set({ nextAttemptAt: mailboxLimit.resetsAt })
+          .where(eq(emailLogs.id, match.mail.id));
+        // Let other ready addresses advance instead of blocking the whole queue.
+        return { retryAfterMs: 1 };
+      }
     }
     await tx
       .update(rateLimits)
       .set({ resetsAt: new Date(now + 3000) })
       .where(eq(rateLimits.key, globalKey));
-    await tx
-      .insert(rateLimits)
-      .values({
-        key: mailboxKey,
-        count: 0,
-        resetsAt: new Date(now + 30000),
-      })
-      .onConflictDoUpdate({
-        target: rateLimits.key,
-        set: { resetsAt: new Date(now + 30000) },
-      });
+    for (const mailboxKey of mailboxKeys)
+      await tx
+        .insert(rateLimits)
+        .values({
+          key: mailboxKey,
+          count: 0,
+          resetsAt: new Date(now + 30000),
+        })
+        .onConflictDoUpdate({
+          target: rateLimits.key,
+          set: { resetsAt: new Date(now + 30000) },
+        });
     const leaseToken = randomUUID();
     const [claimed] = await tx
       .update(emailLogs)
@@ -563,8 +578,14 @@ async function sendSingleSmtp(
     "Nie znaleziono uczestnika w tej konferencji.",
   );
   const personalized = person
-    ? { ...(await invitation(person, event)), to: email }
+    ? {
+        ...(await invitation(person, event)),
+        ...(!selected ? { to: email, cc: undefined } : {}),
+      }
     : null;
+  const recipientLabel = personalized
+    ? mailAddresses(personalized).join(", ")
+    : email;
   // Persist the claim before SMTP. A repeated request never sends twice,
   // including when the first HTTP response is lost after SMTP acceptance.
   const [claim] = await db()
@@ -574,7 +595,7 @@ async function sendSingleSmtp(
       eventId,
       adminId,
       targetId: selected ? participantId : requestId,
-      action: `${prefix}_STARTED ${email}`,
+      action: `${prefix}_STARTED ${recipientLabel}`,
     })
     .onConflictDoNothing()
     .returning({ id: auditLogs.id });
@@ -614,14 +635,14 @@ async function sendSingleSmtp(
     );
     await db()
       .update(auditLogs)
-      .set({ action: `${prefix}_ACCEPTED ${email}` })
+      .set({ action: `${prefix}_ACCEPTED ${recipientLabel}` })
       .where(eq(auditLogs.id, requestId));
     return { messageId, status: "ACCEPTED", duplicate: false };
   } catch (error) {
     const diagnostic = smtpDiagnostic(error);
     await db()
       .update(auditLogs)
-      .set({ action: `${prefix}_REVIEW ${diagnostic} ${email}` })
+      .set({ action: `${prefix}_REVIEW ${diagnostic} ${recipientLabel}` })
       .where(eq(auditLogs.id, requestId));
     return {
       messageId,

@@ -6,6 +6,7 @@ export function filterParticipants<
     firstName: string;
     lastName: string;
     email: string;
+    secondaryEmail?: string | null;
     accessCode?: string;
     checkedInAt?: unknown;
     certificateGeneratedAt?: unknown;
@@ -16,7 +17,7 @@ export function filterParticipants<
   return people.filter(
     (p) =>
       (!selection.ids || selection.ids.includes(p.id)) &&
-      `${p.firstName} ${p.lastName} ${p.email} ${p.accessCode || ""}`
+      `${p.firstName} ${p.lastName} ${p.email} ${p.secondaryEmail || ""} ${p.accessCode || ""}`
         .toLocaleLowerCase("pl")
         .includes(q) &&
       (!selection.filter ||

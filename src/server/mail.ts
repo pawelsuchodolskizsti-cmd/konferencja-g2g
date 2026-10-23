@@ -1,4 +1,5 @@
 import { realParticipant } from "./participant-scope";
+import { participantMailRecipients } from "@/lib/mail-recipients";
 import { formatMailBody } from "@/lib/mail-format";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
@@ -68,7 +69,7 @@ export async function invitation(
   );
   return {
     from: event.mailFrom,
-    to: person.email,
+    ...participantMailRecipients(person),
     subject: renderTemplate(event.mailSubject, values),
     html: `<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.5"><p>${htmlBody}</p></div></body></html>`,
   };
@@ -270,7 +271,7 @@ export async function processMail() {
           const { pdf } = await generateCertificate(job.participantId);
           payload = {
             from: context.event.mailFrom,
-            to: context.person.email,
+            ...participantMailRecipients(context.person),
             subject: `Certyfikat: ${context.event.name}`,
             html: "<p>Dziękujemy za udział. Twój certyfikat znajduje się w załączniku.</p>",
             attachments: [

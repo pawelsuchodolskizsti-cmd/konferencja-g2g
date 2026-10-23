@@ -17,7 +17,12 @@ import { decrypt, newCredentials } from "../src/server/crypto";
 
 const fixture = vi.hoisted(() => ({
   database: null as Database | null,
-  sent: [] as { to: string; html: string; attachments?: unknown[] }[],
+  sent: [] as {
+    to: string;
+    cc?: string;
+    html: string;
+    attachments?: unknown[];
+  }[],
 }));
 vi.mock("../src/server/certificates", () => ({ generateCertificate: vi.fn() }));
 vi.mock("@/db", () => ({ db: () => fixture.database }));
@@ -60,6 +65,7 @@ beforeAll(async () => {
   process.env.APP_ENV = "production";
   process.env.APP_URL = "https://conference.example.org";
   await pg.exec(await readFile("drizzle/0000_initial.sql", "utf8"));
+  await pg.exec(await readFile("drizzle/0011_secondary_email.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
   await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
@@ -525,6 +531,76 @@ test("personalized test sends exactly once to override address without changing 
     }),
   ).rejects.toMatchObject({ status: 404 });
   expect(fixture.sent).toHaveLength(count + 1);
+});
+
+test("secondary email is saved, validated and used for selected mail but not test overrides", async () => {
+  const { updateParticipant } = await import("../src/server/admin-data");
+  const { sendSelectedSmtp } = await import("../src/server/smtp-campaign");
+  await saveSmtpPassword(eventId, adminId, {
+    password: "synthetic-test-password",
+  });
+  const [person] = await database.select().from(s.participants);
+  const input = {
+    firstName: person.firstName,
+    lastName: person.lastName,
+    email: person.email,
+    secondaryEmail: "SECOND@example.org",
+  };
+  await updateParticipant(
+    eventId,
+    adminId,
+    person.id,
+    input,
+    database as unknown as Database,
+  );
+  const [saved] = await database
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.id, person.id));
+  expect(saved.secondaryEmail).toBe("second@example.org");
+  await expect(
+    updateParticipant(
+      eventId,
+      adminId,
+      person.id,
+      { ...input, secondaryEmail: "bad" },
+      database as unknown as Database,
+    ),
+  ).rejects.toThrow();
+  const request = { participantId: person.id, requestId: crypto.randomUUID() };
+  await sendSelectedSmtp(eventId, adminId, request);
+  expect(fixture.sent.at(-1)).toMatchObject({
+    to: person.email,
+    cc: "second@example.org",
+  });
+  expect(fixture.sent.at(-1)!.html).toContain(
+    JSON.parse(decrypt(person.credentials)).accessCode,
+  );
+  const count = fixture.sent.length;
+  await sendSelectedSmtp(eventId, adminId, request);
+  expect(fixture.sent).toHaveLength(count);
+  await sendSmtpTest(eventId, adminId, {
+    ...request,
+    requestId: crypto.randomUUID(),
+    email: "preview@example.org",
+  });
+  expect(fixture.sent.at(-1)!.to).toBe("preview@example.org");
+  expect(fixture.sent.at(-1)!.cc).toBeUndefined();
+  await updateParticipant(
+    eventId,
+    adminId,
+    person.id,
+    { ...input, secondaryEmail: "" },
+    database as unknown as Database,
+  );
+  expect(
+    (
+      await database
+        .select()
+        .from(s.participants)
+        .where(eq(s.participants.id, person.id))
+    )[0].secondaryEmail,
+  ).toBeNull();
 });
 
 test("selected recipients receive their own codes at stored addresses exactly once", async () => {

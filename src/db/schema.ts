@@ -96,6 +96,7 @@ export const participants = pgTable(
     lastName: protectedText("last_name").notNull(),
     certificateNameOverride: protectedText("certificate_name_override"),
     email: protectedText("email").notNull(),
+    secondaryEmail: protectedText("secondary_email"),
     accessHash: text("access_hash").notNull().unique(),
     qrHash: text("qr_hash").notNull().unique(),
     credentials: text("credentials").notNull(),
@@ -164,6 +165,7 @@ export const importBatches = pgTable("import_batches", {
 export type MailPayload = {
   from: string;
   to: string;
+  cc?: string;
   subject: string;
   html: string;
   attachments?: { filename: string; content: string; content_id?: string }[];

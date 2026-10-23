@@ -1,4 +1,5 @@
 import "server-only";
+import { mailAddresses } from "@/lib/mail-recipients";
 import { connect, type TLSSocket } from "node:tls";
 import {
   makeMessage,
@@ -93,8 +94,10 @@ async function smtpSession(
       command(`MAIL FROM:<${LOGIN}>`);
       await response([250]);
       stage = "RECIPIENT";
-      command(`RCPT TO:<${validAddress(payload.to)}>`);
-      await response([250, 251]);
+      for (const address of mailAddresses(payload)) {
+        command(`RCPT TO:<${validAddress(address)}>`);
+        await response([250, 251]);
+      }
       stage = "DATA";
       command("DATA");
       await response([354]);
