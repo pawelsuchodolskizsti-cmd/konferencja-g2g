@@ -49,13 +49,13 @@ const pg = new PGlite();
 const database = drizzle(pg);
 let eventId: string;
 let adminId: string;
-let clock = Date.now() + 60000;
+let clock = Date.now() + 600001;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(clock);
 });
 afterEach(() => {
-  clock = Date.now() + 60000;
+  clock = Date.now() + 600001;
   vi.useRealTimers();
 });
 
@@ -579,6 +579,7 @@ test("secondary email is saved, validated and used for selected mail and persona
   const count = fixture.sent.length;
   await sendSelectedSmtp(eventId, adminId, request);
   expect(fixture.sent).toHaveLength(count);
+  vi.setSystemTime(Date.now() + 30001);
   await sendSmtpTest(eventId, adminId, {
     ...request,
     requestId: crypto.randomUUID(),
@@ -586,6 +587,7 @@ test("secondary email is saved, validated and used for selected mail and persona
   });
   expect(fixture.sent.at(-1)!.to).toBe("preview@example.org");
   expect(fixture.sent.at(-1)!.cc).toBe("second@example.org");
+  vi.setSystemTime(Date.now() + 30001);
   await sendSmtpTest(eventId, adminId, {
     ...request,
     requestId: crypto.randomUUID(),
@@ -622,6 +624,7 @@ test("selected recipients receive their own codes at stored addresses exactly on
   const before = fixture.sent.length;
   const logs = await database.select().from(s.emailLogs);
   for (const person of pair) {
+    vi.setSystemTime(Date.now() + 30001);
     const input = { participantId: person.id, requestId: crypto.randomUUID() };
     expect(await sendSelectedSmtp(eventId, adminId, input)).toMatchObject({
       status: "ACCEPTED",

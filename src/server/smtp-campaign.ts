@@ -1,4 +1,5 @@
 import "server-only";
+import { claimSingleSmtp } from "./smtp-guard";
 import {
   mailAddresses,
   participantMailRecipients,
@@ -596,18 +597,27 @@ async function sendSingleSmtp(
     : email;
   // Persist the claim before SMTP. A repeated request never sends twice,
   // including when the first HTTP response is lost after SMTP acceptance.
-  const [claim] = await db()
-    .insert(auditLogs)
-    .values({
-      id: requestId,
-      eventId,
-      adminId,
-      targetId: selected ? participantId : requestId,
-      action: `${prefix}_STARTED ${recipientLabel}`,
-    })
-    .onConflictDoNothing()
-    .returning({ id: auditLogs.id });
-  if (!claim) {
+  const claim = await claimSingleSmtp({
+    requestId,
+    eventId,
+    adminId,
+    targetId: participantId || eventId,
+    action: `${prefix}_STARTED ${recipientLabel}`,
+    to: personalized?.to || email,
+    cc: personalized?.cc,
+    content: personalized
+      ? JSON.stringify([personalized.subject, personalized.html])
+      : "generic-test-v1",
+  });
+  if (claim.state === "WAIT")
+    return {
+      messageId,
+      status: "RATE_LIMITED",
+      retryAfterMs: claim.retryAfterMs,
+    };
+  if (claim.state === "DUPLICATE")
+    return { messageId, status: "DUPLICATE_BLOCKED" };
+  if (claim.state === "REPLAY") {
     const [existing] = await db()
       .select()
       .from(auditLogs)

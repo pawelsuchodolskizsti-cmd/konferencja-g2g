@@ -281,13 +281,39 @@ export function AdminMail({ eventId }: { eventId: string }) {
       const requestId = crypto.randomUUID();
       setSelectedResults((old) => ({ ...old, [person.id]: "Wysyłanie..." }));
       try {
-        const result = await api<{ status: string; diagnostic?: string }>(
-          base + "/smtp-selected",
-          {
-            method: "POST",
-            body: JSON.stringify({ participantId: person.id, requestId }),
-          },
-        );
+        const send = () =>
+          api<{ status: string; diagnostic?: string; retryAfterMs?: number }>(
+            base + "/smtp-selected",
+            {
+              method: "POST",
+              body: JSON.stringify({ participantId: person.id, requestId }),
+            },
+          );
+        let result = await send();
+        while (result.status === "RATE_LIMITED" && active.current) {
+          setSelectedResults((old) => ({
+            ...old,
+            [person.id]:
+              "Oczekiwanie na bezpieczny odstęp między wiadomościami...",
+          }));
+          await new Promise((resolve) =>
+            setTimeout(
+              resolve,
+              Math.min(30000, Math.max(1000, result.retryAfterMs || 3000)),
+            ),
+          );
+          if (!active.current) break;
+          result = await send();
+        }
+        if (!active.current) break;
+        if (result.status === "DUPLICATE_BLOCKED") {
+          setSelectedResults((old) => ({
+            ...old,
+            [person.id]:
+              "Pominięto: identyczna wiadomość była już zlecona w ciągu ostatnich 10 minut.",
+          }));
+          continue;
+        }
         if (result.status !== "ACCEPTED") {
           setSelectedResults((old) => ({
             ...old,
@@ -304,7 +330,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
           [person.id]: "Przyjęta przez home.pl",
         }));
         if (person !== people[people.length - 1])
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
       } catch {
         setSelectedResults((old) => ({
           ...old,
@@ -342,6 +368,11 @@ export function AdminMail({ eventId }: { eventId: string }) {
           adres co najmniej 30 sekund. Zostaw tę kartę otwartą do zakończenia
           wysyłki. Przyjęcie przez home.pl nie potwierdza doręczenia ani
           umieszczenia w skrzynce odbiorczej.
+        </p>
+        <p className="muted">
+          Te same limity obejmują testy i wysyłkę do wybranych osób, także w
+          kilku kartach panelu. Identyczna wiadomość ręczna do tej samej osoby i
+          na te same adresy jest blokowana przez 10 minut.
         </p>
         <div className="formgrid">
           <div>
@@ -736,6 +767,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
                 status: string;
                 messageId: string;
                 diagnostic?: string;
+                retryAfterMs?: number;
               }>(`${base}/smtp-test`, {
                 method: "POST",
                 body: JSON.stringify({
@@ -746,6 +778,18 @@ export function AdminMail({ eventId }: { eventId: string }) {
                     : {}),
                 }),
               });
+              if (result.status === "RATE_LIMITED") {
+                setError(
+                  `Wiadomość nie została wysłana. Odczekaj ${Math.ceil((result.retryAfterMs || 3000) / 1000)} s przed kolejnym testem.`,
+                );
+                return;
+              }
+              if (result.status === "DUPLICATE_BLOCKED") {
+                setError(
+                  "Nie wysłano kolejnej kopii. Identyczny test był już zlecony w ciągu ostatnich 10 minut.",
+                );
+                return;
+              }
               setTestResult(
                 (result.status === "ACCEPTED"
                   ? "Przyjęta przez home.pl. Doręczenie do skrzynki odbiorcy niepotwierdzone."
