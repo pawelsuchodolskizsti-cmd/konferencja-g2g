@@ -247,7 +247,7 @@ export default async function Page({
           <CertificateRefresh unlockAt={survey.unlockAt} />
         )}
         {!present && (
-          <p className={styles.detail}>
+          <p className={styles.presenceHint}>
             Potwierdzenie obecności odblokuje kolejne elementy Twojej strefy,
             zgodnie z harmonogramem konferencji.
           </p>

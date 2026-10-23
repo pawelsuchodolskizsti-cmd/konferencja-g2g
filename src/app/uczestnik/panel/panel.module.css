@@ -99,6 +99,12 @@
   border-radius: 0;
   padding: 7px 13px;
 }
+.presenceHint {
+  margin: 0 0 28px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .navigation {
   display: grid;
   grid-auto-flow: column;
