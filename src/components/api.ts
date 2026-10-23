@@ -36,8 +36,6 @@ export type EventData = {
   certificateUnlockAt: string;
   timezone: string;
   published: boolean;
-  coursesUnlocked: boolean;
-  materialsUnlocked?: boolean;
   info: string;
   mailSubject: string;
   mailBody: string;
@@ -46,14 +44,9 @@ export type EventData = {
   agenda: AgendaItem[];
 };
 export type Person = {
-  isTest?: boolean;
-  firstLoginAt?: string | null;
-  lastLoginAt?: string | null;
-  accessCode: string;
   id: string;
   firstName: string;
   lastName: string;
-  certificateNameOverride: string | null;
   email: string;
   checkedInAt: string | null;
   method: string | null;
@@ -79,8 +72,12 @@ export type Overview = {
     id: string;
     action: string;
     adminId: string | null;
+    adminEmail: string | null;
+    participantName: string | null;
     createdAt: string;
   }[];
+  survey: { published: boolean; responseCount: number; unlockAt: string };
+  privacyAcknowledgedCount: number;
   mailEnabled: boolean;
-  materials: { id: string; title: string; published: boolean }[];
+  materials: { id: string; title: string }[];
 };

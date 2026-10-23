@@ -1,12 +1,9 @@
 import "server-only";
-import { testParticipant } from "./participant-scope";
-import { safeCsv } from "./imports";
 import { asc, eq, count } from "drizzle-orm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { db, type Database } from "@/db";
 import {
-  participants,
   attendance,
   events,
   surveyCompletions,
@@ -16,11 +13,9 @@ import {
 } from "@/db/schema";
 import { encrypt, decrypt } from "./crypto";
 import { assert } from "./errors";
-import { surveyExportRows } from "@/lib/survey-export";
 
 import {
   surveyDefinition,
-  currentSurveyQuestions,
   definitionFor,
   answerError,
   formatAnswer,
@@ -28,7 +23,7 @@ import {
 export const defaultSurveyQuestions = surveyDefinition.map((q) => q.title);
 const questionList = z
   .array(z.string().trim().min(1).max(500))
-  .refine((q) => [9, 10, 11].includes(q.length));
+  .refine((q) => q.length === 10 || q.length === 11);
 const answerSchema = z
   .object({
     text: z.string().max(5000),
@@ -38,7 +33,6 @@ const answerSchema = z
   .strict();
 const answersList = z.union([
   z.array(z.string().trim().max(5000)).length(10),
-  z.array(answerSchema).length(9),
   z.array(answerSchema).length(11),
 ]);
 export function surveyUnlockAt(event: { endsAt: Date }) {
@@ -61,9 +55,7 @@ export async function surveyOverview(
   ]);
   assert(event, 404, "Brak konferencji.");
   return {
-    questions: currentSurveyQuestions(
-      survey?.questions ?? defaultSurveyQuestions,
-    ),
+    questions: survey?.questions ?? defaultSurveyQuestions,
     published: survey?.published ?? false,
     responseCount: total.value,
     unlockAt: surveyUnlockAt(event).toISOString(),
@@ -76,7 +68,7 @@ export async function saveSurvey(
   database: Database = db(),
 ) {
   const data = z
-    .object({ questions: questionList, published: z.boolean() })
+    .object({ questions: questionList.optional(), published: z.boolean() })
     .parse(input);
   return database.transaction(async (tx) => {
     // Serialize question changes and submissions for this conference.
@@ -89,24 +81,19 @@ export async function saveSurvey(
       .select()
       .from(surveys)
       .where(eq(surveys.eventId, eventId));
-    const [response] = await tx
-      .select({ id: surveyResponses.id })
-      .from(surveyResponses)
-      .where(eq(surveyResponses.eventId, eventId))
-      .limit(1);
+    const questions = existing?.questions ?? defaultSurveyQuestions;
     assert(
-      !response ||
-        JSON.stringify(currentSurveyQuestions(existing?.questions ?? [])) ===
-          JSON.stringify(data.questions),
+      !data.questions ||
+        JSON.stringify(data.questions) === JSON.stringify(questions),
       409,
-      "Po otrzymaniu odpowiedzi nie można zmieniać pytań. Możesz zamknąć lub ponownie udostępnić ankietę.",
+      "Treść ankiety jest zatwierdzona i nie można zmieniać pytań. Możesz zmienić tylko jej dostępność.",
     );
     await tx
       .insert(surveys)
-      .values({ eventId, ...data })
+      .values({ eventId, questions, published: data.published })
       .onConflictDoUpdate({
         target: surveys.eventId,
-        set: { ...data, updatedAt: new Date() },
+        set: { published: data.published, updatedAt: new Date() },
       });
     await tx
       .insert(auditLogs)
@@ -152,7 +139,7 @@ export async function submitSurvey(
     assert(
       event && now >= surveyUnlockAt(event),
       403,
-      "Ankieta jest dostępna od godziny przed zakończeniem konferencji.",
+      "Ankieta będzie dostępna od 17:00 w dniu konferencji.",
     );
     const [present] = await tx
       .select()
@@ -165,21 +152,37 @@ export async function submitSurvey(
       .where(eq(surveys.eventId, person.eventId));
     assert(survey?.published, 403, "Ankieta nie jest obecnie dostępna.");
     assert(
-      JSON.stringify(currentSurveyQuestions(survey.questions)) ===
-        JSON.stringify(data.questions),
+      JSON.stringify(survey.questions) === JSON.stringify(data.questions),
       409,
       "Pytania zostały zmienione. Odśwież stronę przed wysłaniem odpowiedzi.",
     );
     let formatted: string[];
-    if (data.questions.length === 9) {
+    if (survey.questions.length === 11) {
       assert(
-        data.answers.length === 9 &&
+        data.hotel,
+        400,
+        "Wskaż, czy korzystałeś/aś z proponowanego hotelu.",
+      );
+      assert(
+        data.answers.length === 11 &&
           data.answers.every((a) => typeof a !== "string"),
         400,
         "Nieprawidłowy format odpowiedzi.",
       );
-      formatted = definitionFor(data.questions).map((q, i) => {
+      const definitions = definitionFor(survey.questions);
+      formatted = definitions.map((q, i) => {
+        const skipped =
+          (i === 9 && data.hotel === "no") ||
+          (i === 10 && data.hotel === "yes");
         const answer = answerSchema.parse(data.answers[i]);
+        if (skipped) {
+          assert(
+            !answer.text && !answer.selected.length && !answer.ratings.length,
+            400,
+            "Odpowiedz tylko na właściwe pytanie o hotel.",
+          );
+          return "Nie dotyczy";
+        }
         const error = answerError(q, answer);
         assert(!error, 400, `Pytanie ${i + 1}: ${error}`);
         return formatAnswer(q, answer);
@@ -199,59 +202,27 @@ export async function submitSurvey(
       .onConflictDoNothing()
       .returning({ id: surveyCompletions.participantId });
     assert(completed, 409, "Twoja ankieta została już wysłana.");
-    const [account] = await tx
-      .select({ isTest: testParticipant })
-      .from(participants)
-      .where(eq(participants.id, person.id));
-    if (account?.isTest) return { saved: true, test: true };
     await tx.insert(surveyResponses).values({
       eventId: person.eventId,
-      questions: data.questions,
+      questions: survey.questions,
       answersEncrypted: encrypt(JSON.stringify(formatted)),
     });
     return { saved: true };
   });
 }
-export async function exportSurvey(
-  eventId: string,
-  adminId: string,
-  format: "xlsx" | "csv" = "xlsx",
-) {
+export async function exportSurvey(eventId: string, adminId: string) {
   const responses = await db()
-    .select({
-      questions: surveyResponses.questions,
-      answersEncrypted: surveyResponses.answersEncrypted,
-    })
+    .select({ answersEncrypted: surveyResponses.answersEncrypted })
     .from(surveyResponses)
     .where(eq(surveyResponses.eventId, eventId))
     .orderBy(asc(surveyResponses.id));
   const info = await surveyOverview(eventId);
-  const rows = surveyExportRows(
+  const rows = [
     info.questions,
-    responses.map((r) => ({
-      questions: r.questions,
-      answers: JSON.parse(decrypt(r.answersEncrypted)) as string[],
-    })),
-  );
-  const headers = rows[0];
-  if (format === "csv") {
-    await db()
-      .insert(auditLogs)
-      .values({ eventId, adminId, action: "SURVEY_EXPORTED_CSV" });
-    return new Response(
-      "\uFEFF" + rows.map((row) => row.map(safeCsv).join(";")).join("\r\n"),
-      {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition":
-            'attachment; filename="odpowiedzi-ankiety.csv"',
-          "Cache-Control": "private, no-store",
-        },
-      },
-    );
-  }
+    ...responses.map((r) => JSON.parse(decrypt(r.answersEncrypted))),
+  ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet["!cols"] = headers.map(() => ({ wch: 60 }));
+  sheet["!cols"] = info.questions.map(() => ({ wch: 60 }));
   sheet["!autofilter"] = { ref: sheet["!ref"]! };
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, "Odpowiedzi ankiety");
@@ -267,30 +238,4 @@ export async function exportSurvey(
       "Cache-Control": "private, no-store",
     },
   });
-}
-
-export async function surveySummary(eventId: string) {
-  const responses = await db()
-    .select({ answers: surveyResponses.answersEncrypted })
-    .from(surveyResponses)
-    .where(eq(surveyResponses.eventId, eventId));
-  const info = await surveyOverview(eventId);
-  const definitions = definitionFor(info.questions);
-  const answers = responses.map(
-    (r) => JSON.parse(decrypt(r.answers)) as string[],
-  );
-  return {
-    count: answers.length,
-    questions: info.questions.map((title, i) => ({
-      title,
-      kind: definitions[i].kind,
-      values: Object.entries(
-        answers.reduce<Record<string, number>>((acc, row) => {
-          const value = row[i] || "Brak";
-          acc[value] = (acc[value] || 0) + 1;
-          return acc;
-        }, {}),
-      ).sort((a, b) => b[1] - a[1]),
-    })),
-  };
 }

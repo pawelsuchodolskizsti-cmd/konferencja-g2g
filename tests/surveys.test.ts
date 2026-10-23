@@ -38,9 +38,6 @@ beforeAll(async () => {
     "0002_schema",
     "0003_schema",
     "0004_anonymous_survey",
-    "0005_schema",
-    "0006_schema",
-    "0009_courses_unlock",
   ])
     await pg.exec(await readFile(`drizzle/${file}.sql`, "utf8"));
   const [admin] = await database
@@ -73,21 +70,11 @@ beforeAll(async () => {
     })
     .returning();
   person = participant;
+  await database
+    .insert(schema.surveys)
+    .values({ eventId, questions: defaultSurveyQuestions, published: false });
 });
 afterAll(async () => pg.close());
-test("test accounts complete the survey once without adding anonymous results", async () => {
-  await saveSurvey(eventId, adminId, { questions: defaultSurveyQuestions, published: true });
-  const [p] = await database.insert(schema.participants).values({ eventId, firstName: "Demo", lastName: "Test", email: "demo@example.test", ...newCredentials() }).returning();
-  await database.insert(schema.auditLogs).values({ eventId, targetId: p.id, action: "PARTICIPANT_TEST_ACCOUNT" });
-  await database.insert(schema.attendance).values({ participantId: p.id, method: "QR" });
-  const before = await database.select().from(schema.surveyResponses);
-  await expect(submitSurvey(p, input, atUnlock)).resolves.toEqual({ saved: true, test: true });
-  await expect(submitSurvey(p, input, atUnlock)).rejects.toMatchObject({ status: 409 });
-  expect(await database.select().from(schema.surveyResponses)).toEqual(before);
-  expect((await participantSurvey(p, atUnlock)).submitted).toBe(true);
-  // Keep the shared fixture's completion assertions independent of this test.
-  await database.delete(schema.participants).where((await import("drizzle-orm")).eq(schema.participants.id, p.id));
-});
 test("requires ten questions and explicit publication", async () => {
   await expect(
     saveSurvey(eventId, adminId, { questions: ["Jedno"], published: true }),
@@ -105,6 +92,16 @@ test("requires ten questions and explicit publication", async () => {
     published: true,
   });
 });
+test("rejects question changes before any response and allows availability updates", async () => {
+  await expect(
+    saveSurvey(eventId, adminId, {
+      questions: defaultSurveyQuestions.map((q) => q + "!"),
+      published: true,
+    }),
+  ).rejects.toMatchObject({ status: 409 });
+  await saveSurvey(eventId, adminId, { published: true });
+});
+
 test("server enforces Warsaw 17:00 boundary and confirmed attendance", async () => {
   expect((await participantSurvey(person, beforeUnlock)).available).toBe(false);
   await expect(submitSurvey(person, input, beforeUnlock)).rejects.toMatchObject(
@@ -183,63 +180,69 @@ test("locks answered questions and exports ten answers without participant ident
   expect((await participantSurvey(person, atUnlock)).available).toBe(false);
 });
 
-test("nine-question survey validates seven ratings, stores answers and exports without hotel", async () => {
-  const { surveyDefinition, emptyAnswer } =
+test("mixed survey stores readable choices and ratings, validates hotel branches and exports", async () => {
+  const { surveyDefinition, emptyAnswer, formatAnswer } =
     await import("../src/lib/survey-definition");
   const questions = surveyDefinition.map((q) => q.title);
   const [source] = await database.select().from(schema.events);
   const [event] = await database
     .insert(schema.events)
-    .values({ ...source, id: undefined, slug: "current-survey" })
+    .values({ ...source, id: undefined, slug: "mixed-survey" })
     .returning();
-  // An existing published 11-question form is projected to the current form.
-  await database.insert(schema.surveys).values({
-    eventId: event.id,
-    questions: [
-      ...questions,
-      "Hotel Presidential",
-      "Powód rezygnacji z hotelu",
-    ],
-    published: true,
-  });
+  await saveSurvey(event.id, adminId, { questions, published: true });
+  const answers = surveyDefinition.map((q) => ({
+    ...emptyAnswer(),
+    ...(q.kind === "text"
+      ? { text: q.optional ? "" : "Wykorzystam ćwiczenia" }
+      : q.kind === "matrix"
+        ? { ratings: q.rows!.map(() => q.options![4]) }
+        : { selected: [q.options![0]] }),
+  }));
+  answers[10] = emptyAnswer();
   const [p] = await database
     .insert(schema.participants)
     .values({
       eventId: event.id,
       firstName: "Test",
-      lastName: "Ankiety",
-      email: "current@example.test",
+      lastName: "Hotel",
+      email: "mixed@example.org",
       ...newCredentials(),
     })
     .returning();
   await database
     .insert(schema.attendance)
     .values({ participantId: p.id, method: "QR" });
-  expect((await participantSurvey(p, atUnlock)).questions).toEqual(questions);
-  const answers = surveyDefinition.map((q) => ({
-    ...emptyAnswer(),
-    ...(q.kind === "text"
-      ? { text: q.optional ? "" : "Ćwiczenia" }
-      : q.kind === "matrix"
-        ? { ratings: q.rows!.map((_, i) => q.options![i % q.options!.length]) }
-        : { selected: [q.options![0]] }),
-  }));
+  const body = { questions, answers, hotel: "yes" };
+  await expect(
+    submitSurvey(p, { ...body, hotel: undefined }, atUnlock),
+  ).rejects.toMatchObject({ status: 400 });
   await expect(
     submitSurvey(
       p,
       {
-        questions,
+        ...body,
         answers: answers.map((a, i) =>
-          i === 2 ? { ...a, ratings: [...a.ratings, a.ratings[0]] } : a,
+          i === 3
+            ? { ...a, selected: surveyDefinition[3].options!.slice(0, 3) }
+            : a,
+        ),
+      },
+      atUnlock,
+    ),
+  ).rejects.toThrow();
+  await expect(
+    submitSurvey(
+      p,
+      {
+        ...body,
+        answers: answers.map((a, i) =>
+          i === 10 ? { ...a, selected: [surveyDefinition[10].options![0]] } : a,
         ),
       },
       atUnlock,
     ),
   ).rejects.toMatchObject({ status: 400 });
-  await expect(
-    submitSurvey(p, { questions, answers }, atUnlock),
-  ).resolves.toEqual({ saved: true });
-  await saveSurvey(event.id, adminId, { questions, published: false });
+  await submitSurvey(p, body, atUnlock);
   const exported = await exportSurvey(event.id, adminId);
   const book = XLSX.read(Buffer.from(await exported.arrayBuffer()), {
     type: "buffer",
@@ -248,18 +251,34 @@ test("nine-question survey validates seven ratings, stores answers and exports w
     book.Sheets[book.SheetNames[0]],
     { header: 1 },
   );
-  expect(rows[0]).toEqual([
-    ...questions.slice(0, 2),
-    ...surveyDefinition[2].rows!.map((row) => `${questions[2]} - ${row}`),
-    ...questions.slice(3),
-  ]);
-  expect(rows[1].slice(2, 9)).toEqual(answers[2].ratings);
-  expect(rows[1]).toHaveLength(15);
-  const csv = await (await exportSurvey(event.id, adminId, "csv")).text();
-  const csvBook = XLSX.read(csv, { type: "string", FS: ";", raw: true });
-  const csvRows = XLSX.utils.sheet_to_json<string[]>(
-    csvBook.Sheets[csvBook.SheetNames[0]],
-    { header: 1, defval: "" },
+  expect(rows[0]).toHaveLength(11);
+  expect(rows[1][2]).toBe(formatAnswer(surveyDefinition[2], answers[2]));
+  expect(rows[1][8]).toBe("");
+  expect(rows[1][10]).toBe("Nie dotyczy");
+  const [other] = await database
+    .insert(schema.participants)
+    .values({
+      eventId: event.id,
+      firstName: "Test",
+      lastName: "Bez hotelu",
+      email: "nohotel@example.org",
+      ...newCredentials(),
+    })
+    .returning();
+  await database
+    .insert(schema.attendance)
+    .values({ participantId: other.id, method: "QR" });
+  const noHotel = answers.map((a, i) =>
+    i === 9
+      ? emptyAnswer()
+      : i === 10
+        ? {
+            ...emptyAnswer(),
+            selected: surveyDefinition[10].options!.slice(0, 2),
+          }
+        : a,
   );
-  expect(csvRows).toEqual(rows);
+  await expect(
+    submitSurvey(other, { questions, answers: noHotel, hotel: "no" }, atUnlock),
+  ).resolves.toEqual({ saved: true });
 });

@@ -1,12 +1,12 @@
-import { materialsUnlocked } from "./material-access";
-import { realParticipant, testParticipant } from "./participant-scope";
+import { surveyOverview } from "./surveys";
+import { PARTICIPANT_PRIVACY_ACTION } from "@/lib/participant-privacy";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db, type Database } from "@/db";
+import { db } from "@/db";
 import {
+  admins,
   attendance,
   auditLogs,
-  dataArchives,
   certificates,
   emailLogs,
   events,
@@ -16,42 +16,16 @@ import {
   trainingCodes,
   materials,
   importBatches,
-  privacyRequests,
 } from "@/db/schema";
 import { assert } from "./errors";
-import { decrypt } from "./crypto";
 import { safeCsv } from "./imports";
-export async function participantList(eventId: string, includeTest = false) {
-  const logins = db()
-    .select({
-      participantId: auditLogs.targetId,
-      firstLoginAt: sql<string>`min(${auditLogs.createdAt})::text`.as(
-        "first_login_at",
-      ),
-      lastLoginAt: sql<string>`max(${auditLogs.createdAt})::text`.as(
-        "last_login_at",
-      ),
-    })
-    .from(auditLogs)
-    .where(
-      and(
-        eq(auditLogs.eventId, eventId),
-        sql`(starts_with(${auditLogs.action}, 'PARTICIPANT_PRIVACY_ACK_') OR ${auditLogs.action} = 'PARTICIPANT_LOGIN')`,
-      ),
-    )
-    .groupBy(auditLogs.targetId)
-    .as("participant_logins");
-  const rows = await db()
+export async function participantList(eventId: string) {
+  return db()
     .select({
       id: participants.id,
-      isTest: testParticipant,
-      credentials: participants.credentials,
       firstName: participants.firstName,
       lastName: participants.lastName,
-      certificateNameOverride: participants.certificateNameOverride,
       email: participants.email,
-      firstLoginAt: logins.firstLoginAt,
-      lastLoginAt: logins.lastLoginAt,
       checkedInAt: attendance.checkedInAt,
       method: attendance.method,
       emailStatus: emailLogs.status,
@@ -60,7 +34,6 @@ export async function participantList(eventId: string, includeTest = false) {
       certificateGeneratedAt: certificates.createdAt,
     })
     .from(participants)
-    .leftJoin(logins, eq(logins.participantId, participants.id))
     .leftJoin(attendance, eq(attendance.participantId, participants.id))
     .leftJoin(
       emailLogs,
@@ -70,22 +43,8 @@ export async function participantList(eventId: string, includeTest = false) {
       ),
     )
     .leftJoin(certificates, eq(certificates.participantId, participants.id))
-    .where(
-      and(
-        eq(participants.eventId, eventId),
-        includeTest ? undefined : realParticipant,
-      ),
-    );
-  rows.sort(
-    (a, b) =>
-      a.lastName.localeCompare(b.lastName, "pl") ||
-      a.firstName.localeCompare(b.firstName, "pl") ||
-      a.id.localeCompare(b.id),
-  );
-  return rows.map(({ credentials, ...person }) => ({
-    ...person,
-    accessCode: String(JSON.parse(decrypt(credentials)).accessCode),
-  }));
+    .where(eq(participants.eventId, eventId))
+    .orderBy(participants.lastName, participants.firstName);
 }
 export async function eventOverview(eventId: string) {
   const [event] = await db()
@@ -93,8 +52,8 @@ export async function eventOverview(eventId: string) {
     .from(events)
     .where(eq(events.id, eventId));
   assert(event, 404, "Nie znaleziono wydarzenia.");
-  const [people, courses, audit, files] = await Promise.all([
-    participantList(eventId, true),
+  const [people, courses, audit, files, survey, privacy] = await Promise.all([
+    participantList(eventId),
     db()
       .select({
         id: trainingCourses.id,
@@ -103,31 +62,65 @@ export async function eventOverview(eventId: string) {
         url: trainingCourses.url,
         mode: trainingCourses.mode,
         total: sql<number>`(SELECT COUNT(*)::int FROM training_codes c WHERE c.course_id = ${trainingCourses.id} AND c.retired_at IS NULL)`,
-        assigned: sql<number>`(SELECT COUNT(*)::int FROM participant_training_access a WHERE a.course_id = ${trainingCourses.id} AND NOT EXISTS (SELECT 1 FROM audit_logs ta WHERE ta.target_id=a.participant_id AND ta.action='PARTICIPANT_TEST_ACCOUNT'))`,
+        assigned: sql<number>`(SELECT COUNT(*)::int FROM participant_training_access a WHERE a.course_id = ${trainingCourses.id})`,
       })
       .from(trainingCourses)
       .where(eq(trainingCourses.eventId, eventId)),
     db()
-      .select()
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        adminId: auditLogs.adminId,
+        createdAt: auditLogs.createdAt,
+        adminEmail: admins.email,
+        participantName: sql<
+          string | null
+        >`concat_ws(' ', ${participants.firstName}, ${participants.lastName})`,
+      })
       .from(auditLogs)
+      .leftJoin(admins, eq(admins.id, auditLogs.adminId))
+      .leftJoin(
+        participants,
+        and(
+          eq(participants.id, auditLogs.targetId),
+          eq(participants.eventId, eventId),
+        ),
+      )
       .where(eq(auditLogs.eventId, eventId))
       .orderBy(desc(auditLogs.createdAt))
       .limit(50),
     db()
-      .select({
-        id: materials.id,
-        title: materials.title,
-        published: materials.published,
-      })
+      .select({ id: materials.id, title: materials.title })
       .from(materials)
       .where(eq(materials.eventId, eventId)),
+    surveyOverview(eventId),
+    db()
+      .select({
+        count: sql<number>`count(distinct ${auditLogs.targetId})::int`,
+      })
+      .from(auditLogs)
+      .innerJoin(
+        participants,
+        and(
+          eq(participants.id, auditLogs.targetId),
+          eq(participants.eventId, eventId),
+        ),
+      )
+      .where(
+        and(
+          eq(auditLogs.eventId, eventId),
+          eq(auditLogs.action, PARTICIPANT_PRIVACY_ACTION),
+        ),
+      ),
   ]);
   return {
-    event: { ...event, materialsUnlocked: await materialsUnlocked(eventId) },
+    event,
     people,
     courses,
     audit,
     materials: files,
+    survey,
+    privacyAcknowledgedCount: privacy[0]?.count ?? 0,
     mailEnabled:
       process.env.APP_ENV === "production" &&
       (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production") &&
@@ -176,35 +169,15 @@ export async function updateParticipant(
   adminId: string,
   id: string,
   input: unknown,
-  database: Database = db(),
 ) {
   const value = z
     .object({
       firstName: z.string().trim().min(1).max(100),
       lastName: z.string().trim().min(1).max(100),
       email: z.email().transform((v) => v.toLowerCase()),
-      certificateNameOverride: z
-        .string()
-        .max(240)
-        .regex(
-          /^[\p{L}\p{M} .’'\-‐‑–]*$/u,
-          "Wpisz imię i nazwisko w jednym wierszu.",
-        )
-        .transform((v) => v.normalize("NFC").replace(/ +/g, " ").trim())
-        .refine(
-          (v) => !/^dla(?: |$)/iu.test(v),
-          "Wpisz samą odmienioną formę, bez słowa „dla”.",
-        )
-        .refine(
-          (v) => !v || /\p{L}/u.test(v),
-          "Korekta musi zawierać imię i nazwisko.",
-        )
-        .transform((v) => v || null)
-        .nullable()
-        .optional(),
     })
     .parse(input);
-  return database.transaction(async (tx) => {
+  return db().transaction(async (tx) => {
     const [current] = await tx
       .select()
       .from(participants)
@@ -215,17 +188,12 @@ export async function updateParticipant(
       const [mail] = await tx
         .select({ id: emailLogs.id })
         .from(emailLogs)
-        .where(
-          and(
-            eq(emailLogs.participantId, id),
-            sql`${emailLogs.status} IN ('QUEUED','SENDING')`,
-          ),
-        )
+        .where(eq(emailLogs.participantId, id))
         .limit(1);
       assert(
         !mail,
         409,
-        "Adresu nie można zmienić podczas oczekującej wysyłki. Najpierw rozlicz kolejkę.",
+        "Adresu nie można zmienić po zleceniu wysyłki. Skontaktuj się z administratorem systemu, aby poprawić adres i rozliczyć kolejkę.",
       );
     }
     const [p] = await tx
@@ -258,14 +226,6 @@ export async function deleteParticipant(
     await tx
       .delete(participantTrainingAccess)
       .where(eq(participantTrainingAccess.participantId, id));
-    await tx
-      .delete(privacyRequests)
-      .where(
-        and(
-          eq(privacyRequests.eventId, eventId),
-          eq(privacyRequests.participantId, id),
-        ),
-      );
     const rows = await tx
       .delete(participants)
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
@@ -308,10 +268,6 @@ export async function deleteEventData(
         sql`${trainingCodes.id} IN (SELECT a.code_id FROM participant_training_access a JOIN participants p ON p.id = a.participant_id WHERE p.event_id = ${eventId})`,
       );
     await tx.delete(importBatches).where(eq(importBatches.eventId, eventId));
-    await tx.delete(dataArchives).where(eq(dataArchives.eventId, eventId));
-    await tx
-      .delete(privacyRequests)
-      .where(eq(privacyRequests.eventId, eventId));
     const rows = await tx
       .delete(participants)
       .where(eq(participants.eventId, eventId))
