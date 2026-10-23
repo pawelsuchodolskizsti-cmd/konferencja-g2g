@@ -1,0 +1,13 @@
+.cover {
+  display: block;
+  width: min(100%, 320px);
+  height: 300px;
+  object-fit: contain;
+  margin: 20px auto 24px;
+}
+
+@media (max-width: 600px) {
+  .cover {
+    height: 260px;
+  }
+}
