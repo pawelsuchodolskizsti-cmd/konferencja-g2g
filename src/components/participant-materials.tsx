@@ -33,7 +33,7 @@ export function ParticipantMaterials({
         {files.map((file) => {
           const cover = coverForTitle(file.title);
           return (
-          <article className={styles.course} key={file.id}>
+          <article className={`${styles.course} ${artwork.card}`} key={file.id}>
             <span className={styles.platform}>E-book • PDF</span>
             <h3>{file.title}</h3>
             {cover && (
