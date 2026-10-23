@@ -246,6 +246,12 @@ export default async function Page({
         {survey.published && !survey.available && (
           <CertificateRefresh unlockAt={survey.unlockAt} />
         )}
+        {!present && (
+          <p className={styles.detail}>
+            Potwierdzenie obecności odblokuje kolejne elementy Twojej strefy,
+            zgodnie z harmonogramem konferencji.
+          </p>
+        )}
         <nav
           className={styles.navigation}
           aria-label="Sekcje strefy uczestnika"
