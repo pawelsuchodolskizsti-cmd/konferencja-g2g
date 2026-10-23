@@ -37,6 +37,10 @@ export default function Page() {
             <br />
             Dobrze Cię tu widzieć!
           </p>
+          <p className={styles.intro}>
+            Dostęp do tej strefy przyda Ci się podczas konferencji. Zachowaj
+            swój kod, aby móc wrócić tutaj w każdej chwili.
+          </p>
           <ParticipantLogin />
         </div>
         <Link href="/" className={styles.back}>
