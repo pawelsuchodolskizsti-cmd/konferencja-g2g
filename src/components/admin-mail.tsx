@@ -49,6 +49,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [recipientQuery, setRecipientQuery] = useState("");
+  const [registrationFilter, setRegistrationFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedPending, setSelectedPending] = useState(false);
   const selectedLock = useRef(false);
@@ -237,6 +238,8 @@ export function AdminMail({ eventId }: { eventId: string }) {
   }
   const normalizedQuery = recipientQuery.trim().toLocaleLowerCase("pl");
   const visiblePeople = testPeople.filter((p) =>
+    (registrationFilter === "all" ||
+      (registrationFilter === "registered" ? !!p.firstLoginAt : !p.firstLoginAt)) &&
     (p.firstName + " " + p.lastName + " " + p.email)
       .toLocaleLowerCase("pl")
       .includes(normalizedQuery),
@@ -535,6 +538,21 @@ export function AdminMail({ eventId }: { eventId: string }) {
         </p>
         {peopleError && <p role="alert">{peopleError}</p>}
         <label>
+          Status rejestracji
+          <select
+            value={registrationFilter}
+            onChange={(e) => setRegistrationFilter(e.target.value)}
+            disabled={selectedPending}
+          >
+            <option value="all">Wszyscy</option>
+            <option value="registered">Zarejestrowani</option>
+            <option value="unregistered">Niezarejestrowani</option>
+          </select>
+        </label>
+        <p className="muted">
+          Zarejestrowani to osoby, które co najmniej raz zalogowały się do swojej strefy.
+        </p>
+        <label>
           Wyszukaj uczestnika
           <input
             type="search"
@@ -574,7 +592,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
         <p>
           Wybrano: {selectedIds.length}. Do wysłania:{" "}
           {selectedIds.filter((id) => !selectedResults[id]).length}. Zaznaczenia
-          pozostają po zmianie wyszukiwania.
+          pozostają po zmianie wyszukiwania lub filtra.
         </p>
         {selectedIds.length > 0 && (
           <details>
