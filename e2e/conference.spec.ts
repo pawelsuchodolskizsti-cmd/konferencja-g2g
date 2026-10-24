@@ -284,20 +284,18 @@ test("enforced CSP preserves login and material add/replace above former 2 MB li
   await page
     .getByRole("button", { name: "Dodaj materiał", exact: true })
     .click();
-  const row = page
-    .locator("div.card")
-    .filter({
-      has: page.locator(
-        'input[name="title"][value="' + filename.slice(0, -4) + '"]',
-      ),
-    });
+  const row = page.locator("div.card").filter({
+    has: page.locator(
+      'input[name="title"][value="' + filename.slice(0, -4) + '"]',
+    ),
+  });
   await expect(row).toHaveCount(1);
   const link = row.getByRole("link", { name: "Podgląd PDF", exact: true });
   const href = await link.getAttribute("href");
   expect(href).toBeTruthy();
   const before = await page.request.get(href!);
   expect(before.status()).toBe(200);
-  expect(await before.body()).toEqual(original);
+  expect((await before.body()).equals(original)).toBe(true);
   const replacement = Buffer.alloc(3 * 1024 * 1024 + 29, 53);
   replacement.write("%PDF-");
   await row.getByLabel("Zastąp plik PDF", { exact: true }).setInputFiles({
@@ -315,7 +313,9 @@ test("enforced CSP preserves login and material add/replace above former 2 MB li
   await expect
     .poll(async () => (await (await page.request.get(href!)).body()).length)
     .toBe(replacement.length);
-  expect(await (await page.request.get(href!)).body()).toEqual(replacement);
+  expect(
+    (await (await page.request.get(href!)).body()).equals(replacement),
+  ).toBe(true);
   await expect(
     page.locator('input[name="title"][value="' + filename.slice(0, -4) + '"]'),
   ).toHaveCount(1);

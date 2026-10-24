@@ -181,8 +181,8 @@ test("replacement above 20 MB preserves ID, title, visibility and original bytes
       await (
         (await manageMaterial(eventId, adminId, original.id, "GET")) as Response
       ).arrayBuffer(),
-    ),
-  ).toEqual(originalBytes);
+    ).equals(originalBytes),
+  ).toBe(true);
   for (
     let offset = 0, index = 0;
     offset < bytes.length;
@@ -206,8 +206,8 @@ test("replacement above 20 MB preserves ID, title, visibility and original bytes
       await (
         (await manageMaterial(eventId, adminId, original.id, "GET")) as Response
       ).arrayBuffer(),
-    ),
-  ).toEqual(bytes);
+    ).equals(bytes),
+  ).toBe(true);
   expect(await finishMaterialUpload(eventId, adminId, upload.id)).toEqual(
     result,
   );

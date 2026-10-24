@@ -20,7 +20,7 @@ import {
   rateLimits,
 } from "@/db/schema";
 import { assert } from "./errors";
-import { decrypt, encrypt, newCredentials, passwordHash } from "./crypto";
+import { encrypt, newCredentials, passwordHash } from "./crypto";
 import { participantIdentity } from "@/lib/participant-identity";
 import { safeCsv } from "./imports";
 import { participantList } from "./admin-data";
