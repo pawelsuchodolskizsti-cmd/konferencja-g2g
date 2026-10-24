@@ -426,7 +426,9 @@ export async function cleanupData(eventId: string, adminId: string) {
   });
 }
 export async function history(eventId: string, url: URL) {
-  const q = (url.searchParams.get("q") || "").slice(0, 100);
+  const q = (url.searchParams.get("q") || "")
+    .slice(0, 100)
+    .toLocaleLowerCase("pl");
   const offset = z.coerce
     .number()
     .int()
@@ -435,28 +437,41 @@ export async function history(eventId: string, url: URL) {
     .parse(url.searchParams.get("offset") || 0);
   const target = url.searchParams.get("target");
   if (target) z.uuid().parse(target);
-  return db()
-    .select({
-      id: auditLogs.id,
-      action: auditLogs.action,
-      targetId: auditLogs.targetId,
-      createdAt: auditLogs.createdAt,
-      adminEmail: admins.email,
-    })
-    .from(auditLogs)
-    .leftJoin(admins, eq(admins.id, auditLogs.adminId))
-    .where(
-      and(
-        eq(auditLogs.eventId, eventId),
-        q
-          ? sql`position(lower(${q}) in lower(${auditLogs.action})) > 0`
-          : undefined,
-        target ? eq(auditLogs.targetId, target) : undefined,
-      ),
-    )
-    .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
-    .limit(100)
-    .offset(offset);
+  const batch = (start: number, size: number) =>
+    db()
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        targetId: auditLogs.targetId,
+        createdAt: auditLogs.createdAt,
+        adminEmail: admins.email,
+      })
+      .from(auditLogs)
+      .leftJoin(admins, eq(admins.id, auditLogs.adminId))
+      .where(
+        and(
+          eq(auditLogs.eventId, eventId),
+          target ? eq(auditLogs.targetId, target) : undefined,
+        ),
+      )
+      .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
+      .limit(size)
+      .offset(start);
+  if (!q) return batch(offset, 100);
+  // Search decoded actions on the authorized server, not ciphertext in SQL.
+  // Read in bounded batches and keep only the requested page in memory.
+  const result: Awaited<ReturnType<typeof batch>> = [];
+  let matched = 0;
+  for (let start = 0; ; start += 500) {
+    const rows = await batch(start, 500);
+    for (const row of rows) {
+      if (!row.action.toLocaleLowerCase("pl").includes(q)) continue;
+      if (matched++ < offset) continue;
+      result.push(row);
+      if (result.length === 100) return result;
+    }
+    if (rows.length < 500) return result;
+  }
 }
 export async function exportReport(
   eventId: string,

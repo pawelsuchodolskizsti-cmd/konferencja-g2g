@@ -19,6 +19,7 @@ import {
   saveTeamMember,
   manageMaterial,
   cleanupData,
+  history,
 } from "../src/server/admin-operations";
 import { requireEvent } from "../src/server/auth";
 import { decrypt, encrypt, hashToken } from "../src/server/crypto";
@@ -403,4 +404,48 @@ test("activity uses all successful login records, isolates events and keeps shar
   );
   expect(people.find((p) => p.id === b.id)?.firstLoginAt).toBeNull();
   expect(people.find((p) => p.id === b.id)?.lastLoginAt).toBeNull();
+});
+
+test("history search and pagination continue to find encrypted SMTP recipients without crossing event boundaries", async () => {
+  await database.insert(s.auditLogs).values(
+    Array.from({ length: 103 }, (_, i) => ({
+      eventId,
+      adminId,
+      targetId: personId,
+      action: "SMTP_SELECTED_ACCEPTED lookup@example.test #" + i,
+    })),
+  );
+  await database
+    .insert(s.auditLogs)
+    .values({
+      eventId: otherEventId,
+      adminId,
+      action: "SMTP_TEST_ACCEPTED lookup@example.test",
+    });
+  const raw = await pg.query<{ action: string }>(
+    "SELECT action FROM audit_logs WHERE action LIKE 'SMTP_SELECTED_ACCEPTED %'",
+  );
+  expect(
+    raw.rows.every((row) => !row.action.includes("lookup@example.test")),
+  ).toBe(true);
+  const first = await history(
+    eventId,
+    new URL("https://test.invalid/?q=LOOKUP%40EXAMPLE.TEST"),
+  );
+  const second = await history(
+    eventId,
+    new URL("https://test.invalid/?q=LOOKUP%40EXAMPLE.TEST&offset=100"),
+  );
+  expect(first).toHaveLength(100);
+  expect(second).toHaveLength(3);
+  expect(new Set([...first, ...second].map((row) => row.id)).size).toBe(103);
+  expect([...first, ...second].every((row) => row.targetId === personId)).toBe(
+    true,
+  );
+  expect(
+    await history(
+      eventId,
+      new URL("https://test.invalid/?q=lookup&target=" + adminId),
+    ),
+  ).toHaveLength(0);
 });
