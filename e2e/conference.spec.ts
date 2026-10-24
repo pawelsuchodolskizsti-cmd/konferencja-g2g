@@ -393,8 +393,9 @@ test("organizational draft saves and previews without starting delivery", async 
     });
     await expect(retryButton).toBeVisible();
     await expect(
-      target.getByRole("cell").filter({ has: retryButton }),
-    ).toContainText("Odrzucone");
+      target.getByRole("cell").filter({ hasText: "Odrzucone" })
+        .getByRole("button", { name: "Ponów tę wiadomość", exact: true }),
+    ).toBeVisible();
     page.once("dialog", (dialog) => dialog.accept());
     await retryButton.click();
     await expect(page.getByRole("status")).toContainText(
