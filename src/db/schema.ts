@@ -380,3 +380,53 @@ export const dataArchives = pgTable(
   },
   (t) => [index("data_archives_event").on(t.eventId)],
 );
+
+export const organizationalCampaigns = pgTable(
+  "organizational_campaigns",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    adminId: uuid("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    launchedAt: timestamp("launched_at", { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: created("updated_at"),
+  },
+  (t) => [index("organizational_campaigns_event").on(t.eventId, t.createdAt)],
+);
+
+export const organizationalDeliveries = pgTable(
+  "organizational_deliveries",
+  {
+    id: id(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => organizationalCampaigns.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    recipientsEncrypted: text("recipients_encrypted").notNull(),
+    status: text("status", {
+      enum: ["QUEUED", "SENDING", "ACCEPTED", "FAILED", "REVIEW_REQUIRED"],
+    }).notNull().default("QUEUED"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: created("next_attempt_at"),
+    firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    leaseToken: uuid("lease_token"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    messageId: text("message_id").notNull(),
+    smtpQueueId: text("smtp_queue_id"),
+    errorCode: text("error_code"),
+    createdAt: created(),
+  },
+  (t) => [
+    uniqueIndex("organizational_delivery_once").on(t.campaignId, t.participantId),
+    index("organizational_delivery_queue").on(t.campaignId, t.status, t.nextAttemptAt),
+  ],
+);
