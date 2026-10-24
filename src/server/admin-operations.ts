@@ -1,3 +1,4 @@
+import { syncOrganizationalParticipant } from "./organizational-sync";
 import { materialContent } from "./material-content";
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
@@ -167,6 +168,11 @@ export async function resetCredentials(
 ) {
   z.object({ confirmation: z.literal("ZMIEŃ KODY") }).parse(input);
   return database.transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [person] = await tx
       .select()
       .from(participants)
@@ -187,10 +193,12 @@ export async function resetCredentials(
       409,
       "Najpierw rozlicz oczekującą wysyłkę wiadomości.",
     );
-    await tx
+    const [updated] = await tx
       .update(participants)
       .set({ ...newCredentials(), updatedAt: new Date() })
-      .where(eq(participants.id, id));
+      .where(eq(participants.id, id))
+      .returning();
+    await syncOrganizationalParticipant(tx, updated);
     await tx.delete(sessions).where(eq(sessions.participantId, id));
     await tx.insert(auditLogs).values({
       eventId,

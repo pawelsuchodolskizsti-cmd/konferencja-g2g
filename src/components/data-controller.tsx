@@ -42,20 +42,46 @@ export function DataController({
   const base = `/api/admin/events/${eventId}`;
   useEffect(() => {
     let active = true;
-    Promise.all([api<Overview>(base), api<Privacy>(`${base}/privacy`)])
-      .then(([d, p]) => {
+    let pending = false;
+    async function refresh() {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      try {
+        const [d, p] = await Promise.all([
+          api<Overview>(base),
+          api<Privacy>(`${base}/privacy`),
+        ]);
         if (active) {
           setData(d);
           setPrivacy(p);
+          setError("");
         }
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
+      } catch (e) {
+        if (active)
+          setError(
+            e instanceof Error ? e.message : "Nie udało się odświeżyć danych.",
+          );
+      } finally {
+        pending = false;
+      }
+    }
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [base]);
+  const people = (data?.people || []).filter((p) => !p.isTest);
+  const personIds = new Set(people.map((p) => p.id));
+  const privacyPeople = (privacy?.people || []).filter((p) =>
+    personIds.has(p.id),
+  );
+  const acknowledged = privacyPeople.filter((p) => p.acknowledgedAt).length;
   return (
     <div className="shell admin-theme">
       <aside className="sidebar">
@@ -149,7 +175,7 @@ export function DataController({
                         </tr>
                       </thead>
                       <tbody>
-                        {filterParticipants(data.people, { q }).map((p) => (
+                        {filterParticipants(people, { q }).map((p) => (
                           <tr key={p.id}>
                             <td>
                               {p.firstName} {p.lastName}
@@ -192,12 +218,26 @@ export function DataController({
                 </section>
               )}
               {section === "reports" && (
-                <ExportCenter eventId={eventId} people={data.people} />
+                <ExportCenter eventId={eventId} people={people} />
               )}
               {section === "history" && <HistoryPanel eventId={eventId} />}
               {section === "privacy" && privacy && (
                 <section className="card">
-                  <h2>RODO — tylko podgląd</h2>
+                  <h2>RODO - tylko podgląd</h2>
+                  <div className="stats" aria-label="Podsumowanie RODO">
+                    <div className="stat">
+                      <strong>{acknowledged}</strong>
+                      <small>Potwierdzili</small>
+                    </div>
+                    <div className="stat">
+                      <strong>{privacyPeople.length - acknowledged}</strong>
+                      <small>Bez potwierdzenia</small>
+                    </div>
+                    <div className="stat">
+                      <strong>{privacyPeople.length}</strong>
+                      <small>Uczestnicy</small>
+                    </div>
+                  </div>
                   <p>
                     Wersja klauzuli: {privacy.version}. Termin przechowywania:{" "}
                     {dateTime(data.event.retentionUntil)}.
@@ -213,7 +253,7 @@ export function DataController({
                       </tr>
                     </thead>
                     <tbody>
-                      {privacy.people.map((p) => (
+                      {privacyPeople.map((p) => (
                         <tr key={p.id}>
                           <td>
                             {p.firstName} {p.lastName}
@@ -237,7 +277,7 @@ export function DataController({
                           · {r.status === "DONE" ? "Zamknięte" : "Otwarte"}
                         </strong>
                         <p>
-                          {data.people.find((p) => p.id === r.participantId)
+                          {people.find((p) => p.id === r.participantId)
                             ?.email || "Bez powiązanej osoby"}{" "}
                           · {dateTime(r.createdAt)}
                         </p>

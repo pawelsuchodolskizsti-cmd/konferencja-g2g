@@ -117,7 +117,7 @@ async function handle(req: Request, ctx: Context) {
     }
     const eventId = z.uuid().parse(path[1]);
     const action = path[2];
-    await requireEvent(
+    const access = await requireEvent(
       admin.id,
       eventId,
       db(),
@@ -184,10 +184,20 @@ async function handle(req: Request, ctx: Context) {
           ),
         );
       }
-      if (path.length === 5 && path[4] === "process" && req.method === "POST")
+      if (path.length === 5 && path[4] === "process" && req.method === "POST") {
+        const { deliveryId } = z
+          .object({ deliveryId: z.uuid().optional() })
+          .strict()
+          .parse(await jsonBody(req));
         return Response.json(
-          await processOrganizational(eventId, campaignId, admin.id),
+          await processOrganizational(
+            eventId,
+            campaignId,
+            admin.id,
+            deliveryId,
+          ),
         );
+      }
       if (path.length === 5 && path[4] === "retry" && req.method === "POST") {
         const { deliveryId } = z
           .object({ deliveryId: z.uuid() })
@@ -273,7 +283,9 @@ async function handle(req: Request, ctx: Context) {
         z.enum(["csv", "xlsx"]).parse(url.searchParams.get("format") || "xlsx"),
       );
     if (!action && req.method === "GET")
-      return Response.json(await eventOverview(eventId));
+      return Response.json(
+        await eventOverview(eventId, access.role === "ADMIN"),
+      );
     if (!action && req.method === "PATCH")
       return Response.json(
         await saveEvent(admin.id, await jsonBody(req), eventId),
