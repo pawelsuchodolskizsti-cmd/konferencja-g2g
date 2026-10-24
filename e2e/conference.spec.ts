@@ -4,7 +4,16 @@ test("administrator signs in and sees imported participants", async ({
   page,
 }) => {
   const access = JSON.parse(await readFile(".local/access.json", "utf8"));
-  await page.goto("/admin/login");
+  const response = await page.goto("/admin/login");
+  expect(response?.headers()["content-security-policy"]).toContain(
+    "connect-src 'self'",
+  );
+  expect(response?.headers()["content-security-policy"]).toContain(
+    "script-src-attr 'none'",
+  );
+  expect(
+    response?.headers()["content-security-policy-report-only"],
+  ).toBeUndefined();
   await page.getByLabel("Adres e-mail", { exact: true }).fill(access.email);
   await page.getByLabel("Hasło", { exact: true }).fill(access.password);
   await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
@@ -46,6 +55,57 @@ test("administrator signs in and sees imported participants", async ({
   await expect(page.getByLabel("Do", { exact: true }).first()).toHaveValue(
     "10:00",
   );
+  await test.step("CSP permits adding and replacing PDFs above the former 2 MB limit", async () => {
+    await page.goto("/admin?section=materials");
+    const filename = "synthetic-e2e-" + Date.now() + ".pdf";
+    const original = Buffer.alloc(3 * 1024 * 1024 + 11, 42);
+    original.write("%PDF-");
+    await page.getByLabel("Nowy materiał PDF", { exact: true }).setInputFiles({
+      name: filename,
+      mimeType: "application/pdf",
+      buffer: original,
+    });
+    await page
+      .getByRole("button", { name: "Dodaj materiał", exact: true })
+      .click();
+    const row = page.locator("div.card").filter({
+      has: page.locator(
+        'input[name="title"][value="' + filename.slice(0, -4) + '"]',
+      ),
+    });
+    await expect(row).toHaveCount(1);
+    const link = row.getByRole("link", { name: "Podgląd PDF", exact: true });
+    const href = await link.getAttribute("href");
+    expect(href).toBeTruthy();
+    const before = await page.request.get(href!);
+    expect(before.status()).toBe(200);
+    expect((await before.body()).equals(original)).toBe(true);
+    const replacement = Buffer.alloc(3 * 1024 * 1024 + 29, 53);
+    replacement.write("%PDF-");
+    await row.getByLabel("Zastąp plik PDF", { exact: true }).setInputFiles({
+      name: "replacement.pdf",
+      mimeType: "application/pdf",
+      buffer: replacement,
+    });
+    await row.getByRole("button", { name: "Zastąp PDF", exact: true }).click();
+    await expect(
+      page.getByText(
+        "Plik zapisany. Zgodność z oryginałem potwierdzona sumą SHA-256.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect
+      .poll(async () => (await (await page.request.get(href!)).body()).length)
+      .toBe(replacement.length);
+    expect(
+      (await (await page.request.get(href!)).body()).equals(replacement),
+    ).toBe(true);
+    await expect(
+      page.locator(
+        'input[name="title"][value="' + filename.slice(0, -4) + '"]',
+      ),
+    ).toHaveCount(1);
+  });
 });
 test("checked-in participant keeps ticket navigation without QR while courses stay locked and PDF works", async ({
   page,
@@ -250,73 +310,4 @@ test("organizational draft saves and previews without starting delivery", async 
     page.getByLabel("Treść wiadomości organizacyjnej", { exact: true }),
   ).toHaveValue(/Twój kod/);
   expect(deliveryRequests).toEqual([]);
-});
-
-test("enforced CSP preserves login and material add/replace above former 2 MB limit", async ({
-  page,
-}) => {
-  const access = JSON.parse(await readFile(".local/access.json", "utf8"));
-  const response = await page.goto("/admin/login");
-  expect(response?.headers()["content-security-policy"]).toContain(
-    "connect-src 'self'",
-  );
-  expect(response?.headers()["content-security-policy"]).toContain(
-    "script-src-attr 'none'",
-  );
-  expect(
-    response?.headers()["content-security-policy-report-only"],
-  ).toBeUndefined();
-  await page.getByLabel("Adres e-mail", { exact: true }).fill(access.email);
-  await page.getByLabel("Hasło", { exact: true }).fill(access.password);
-  await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Dashboard", exact: true }),
-  ).toBeVisible();
-  await page.goto("/admin?section=materials");
-  const filename = "synthetic-e2e-" + Date.now() + ".pdf";
-  const original = Buffer.alloc(3 * 1024 * 1024 + 11, 42);
-  original.write("%PDF-");
-  await page.getByLabel("Nowy materiał PDF", { exact: true }).setInputFiles({
-    name: filename,
-    mimeType: "application/pdf",
-    buffer: original,
-  });
-  await page
-    .getByRole("button", { name: "Dodaj materiał", exact: true })
-    .click();
-  const row = page.locator("div.card").filter({
-    has: page.locator(
-      'input[name="title"][value="' + filename.slice(0, -4) + '"]',
-    ),
-  });
-  await expect(row).toHaveCount(1);
-  const link = row.getByRole("link", { name: "Podgląd PDF", exact: true });
-  const href = await link.getAttribute("href");
-  expect(href).toBeTruthy();
-  const before = await page.request.get(href!);
-  expect(before.status()).toBe(200);
-  expect((await before.body()).equals(original)).toBe(true);
-  const replacement = Buffer.alloc(3 * 1024 * 1024 + 29, 53);
-  replacement.write("%PDF-");
-  await row.getByLabel("Zastąp plik PDF", { exact: true }).setInputFiles({
-    name: "replacement.pdf",
-    mimeType: "application/pdf",
-    buffer: replacement,
-  });
-  await row.getByRole("button", { name: "Zastąp PDF", exact: true }).click();
-  await expect(
-    page.getByText(
-      "Plik zapisany. Zgodność z oryginałem potwierdzona sumą SHA-256.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect
-    .poll(async () => (await (await page.request.get(href!)).body()).length)
-    .toBe(replacement.length);
-  expect(
-    (await (await page.request.get(href!)).body()).equals(replacement),
-  ).toBe(true);
-  await expect(
-    page.locator('input[name="title"][value="' + filename.slice(0, -4) + '"]'),
-  ).toHaveCount(1);
 });
