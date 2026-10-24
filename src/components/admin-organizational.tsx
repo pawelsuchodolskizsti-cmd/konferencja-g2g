@@ -54,14 +54,13 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [origin, setOrigin] = useState("");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const dirty = useRef(false);
   const active = useRef(true);
   const running = useRef(false);
 
   useEffect(() => {
     active.current = true;
-    setOrigin(window.location.origin);
     return () => { active.current = false; };
   }, []);
 
@@ -90,9 +89,8 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
     void refreshCatalog().catch((e) => setError(e instanceof Error ? e.message : "Nie można wczytać uczestników."));
   }, [refreshCatalog]);
   useEffect(() => {
-    if (!campaignId) { setDetail(null); return; }
+    if (!campaignId) return;
     dirty.current = false;
-    setDetail(null);
     void refreshDetail(campaignId).catch((e) => setError(e instanceof Error ? e.message : "Nie można wczytać kampanii."));
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
@@ -131,6 +129,7 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
       const result = await api<{ id: string }>(base, { method: "POST", body: "{}" });
       dirty.current = false;
       setSelected([]);
+      setDetail(null);
       await refreshCatalog();
       setCampaignId(result.id);
       setNotice("Utworzono szkic. Żadna wiadomość nie została wysłana.");
@@ -252,6 +251,7 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
               value={campaignId}
               onChange={(e) => {
                 dirty.current = false;
+                setDetail(null);
                 setCampaignId(e.target.value);
                 setSelected([]);
                 setError(""); setNotice("");
