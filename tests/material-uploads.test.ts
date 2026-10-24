@@ -212,3 +212,40 @@ test("replacement above 20 MB preserves ID, title, visibility and original bytes
     result,
   );
 }, 30000);
+
+test("cleanup of expired upload sessions retains completed PDF versions", async () => {
+  const [material] = await database.select().from(s.materials);
+  const response = (await manageMaterial(
+    eventId,
+    adminId,
+    material.id,
+    "GET",
+  )) as Response;
+  const originalHash = createHash("sha256")
+    .update(Buffer.from(await response.arrayBuffer()))
+    .digest("hex");
+  await pg.exec(
+    "UPDATE material_uploads SET expires_at = now() - interval '2 hours'",
+  );
+  const fresh = await beginMaterialUpload(eventId, adminId, {
+    filename: "new.pdf",
+    size: 5,
+    sha256: "a".repeat(64),
+  });
+  expect(fresh.id).toBeTruthy();
+  const completed = await pg.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM material_uploads WHERE material_id IS NOT NULL",
+  );
+  expect(completed.rows[0].n).toBe(2);
+  const download = (await manageMaterial(
+    eventId,
+    adminId,
+    material.id,
+    "GET",
+  )) as Response;
+  expect(
+    createHash("sha256")
+      .update(Buffer.from(await download.arrayBuffer()))
+      .digest("hex"),
+  ).toBe(originalHash);
+});

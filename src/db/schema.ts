@@ -4,6 +4,8 @@ import {
   text,
   timestamp,
   integer,
+  bigint,
+  primaryKey,
   boolean,
   jsonb,
   uniqueIndex,
@@ -295,19 +297,40 @@ export const materialUploads = pgTable(
       .notNull()
       .references(() => admins.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
-    size: integer("size").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
     sha256: text("sha256").notNull(),
     chunks: jsonb("chunks").$type<string[]>().notNull().default([]),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    replacesId: uuid("replaces_id").references(() => materials.id, {
+      onDelete: "cascade",
+    }),
+    expectedContentHash: text("expected_content_hash"),
     materialId: uuid("material_id").references(() => materials.id, {
       onDelete: "cascade",
     }),
   },
   (t) => [
     check(
-      "material_uploads_size_check",
-      sql`${t.size} > 0 AND ${t.size} <= 20971520`,
+      "material_uploads_positive_size",
+      sql`${t.size} > 0 AND ${t.size} <= 9007199254740991`,
     ),
+  ],
+);
+export const materialUploadParts = pgTable(
+  "material_upload_parts",
+  {
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => materialUploads.id, { onDelete: "cascade" }),
+    part: integer("part").notNull(),
+    encryptedContent: text("encrypted_content").notNull(),
+  },
+  (t) => [
+    primaryKey({
+      name: "material_upload_parts_pkey",
+      columns: [t.uploadId, t.part],
+    }),
+    check("material_upload_parts_part_check", sql`${t.part} >= 0`),
   ],
 );
 export const surveys = pgTable("surveys", {
