@@ -244,6 +244,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
   const normalizedQuery = recipientQuery.trim().toLocaleLowerCase("pl");
   const visiblePeople = testPeople.filter(
     (p) =>
+      !p.isTest &&
       (registrationFilter === "all" ||
         (registrationFilter === "registered"
           ? !!p.firstLoginAt
@@ -263,7 +264,7 @@ export function AdminMail({ eventId }: { eventId: string }) {
   async function sendSelected() {
     if (selectedLock.current || sending || busy || testPending) return;
     const people = testPeople.filter(
-      (p) => selectedIds.includes(p.id) && !selectedResults[p.id],
+      (p) => !p.isTest && selectedIds.includes(p.id) && !selectedResults[p.id],
     );
     if (
       !people.length ||

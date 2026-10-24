@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import postgres from "postgres";
 import { databaseTls } from "../src/db/tls";
-import { enforcedCsp, reportOnlyCsp } from "../src/lib/security-headers";
+import { enforcedCsp } from "../src/lib/security-headers";
 
 test.each(["require", "disable", "prefer", "allow"])(
   "TLS validation overrides URL sslmode=%s",
@@ -33,11 +33,13 @@ test("TLS exception is restricted to loopback development outside Vercel", () =>
     databaseTls("postgres://remote.example/test", { APP_ENV: "development" }),
   ).toMatchObject({ rejectUnauthorized: true });
 });
-test("CSP restricts framing, objects and form targets without enforcing resource rollout", () => {
+test("CSP enforces resource origins and blocks inline event handlers while preserving scanner and PDF blobs", () => {
   expect(enforcedCsp).toContain("frame-ancestors 'none'");
   expect(enforcedCsp).toContain("object-src 'none'");
   expect(enforcedCsp).toContain("form-action 'self'");
-  expect(enforcedCsp).not.toContain("script-src");
-  expect(reportOnlyCsp).toContain("connect-src 'self'");
-  expect(reportOnlyCsp).not.toContain("'unsafe-eval'");
+  expect(enforcedCsp).toContain("script-src");
+  expect(enforcedCsp).toContain("script-src-attr 'none'");
+  expect(enforcedCsp).toContain("worker-src 'self' blob:");
+  expect(enforcedCsp).toContain("connect-src 'self'");
+  expect(enforcedCsp).not.toContain("'unsafe-eval'");
 });

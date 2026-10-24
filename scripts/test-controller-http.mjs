@@ -74,6 +74,9 @@ for (const [suffix, method] of [
   ["/materials", "POST"],
   ["/survey", "POST"],
   ["/invitation", "POST"],
+  ["/audit-encryption", "POST"],
+  ["/organizational/00000000-0000-4000-8000-000000000001/reconcile", "POST"],
+  ["/organizational/00000000-0000-4000-8000-000000000001/resolve", "POST"],
   ["/courses", "POST"],
 ])
   await request(

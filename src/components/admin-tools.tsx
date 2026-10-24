@@ -105,11 +105,6 @@ export function ParticipantActions({
         .
       </p>
       <div className="actions">
-        <DownloadButton
-          href={`${base}/codes-export?format=pdf&ids=${person.id}`}
-        >
-          Pobierz zaproszenie PDF z QR
-        </DownloadButton>
         <DownloadButton href={`${base}/participants/${person.id}/certificate`}>
           Pobierz certyfikat
         </DownloadButton>
@@ -134,7 +129,7 @@ export function ParticipantActions({
         onClick={async () => {
           if (
             window.confirm(
-              "Unieważnić dotychczasowy kod uczestnika i QR oraz wylogować tę osobę? Po zmianie pobierz i przekaż nowe zaproszenie.",
+              "Unieważnić dotychczasowy kod uczestnika i QR oraz wylogować tę osobę? Po zmianie przekaż tej osobie nowy kod dostępu.",
             )
           )
             await action(`participants/${person.id}/reset`, {
@@ -231,36 +226,14 @@ export function AddParticipant({
 export function ExportCenter({
   people,
   eventId,
-  invitations = false,
 }: {
   people: Person[];
   eventId: string;
-  invitations?: boolean;
 }) {
   const [q, setQ] = useState(""),
     [filter, setFilter] = useState("all"),
     [ids, setIds] = useState<string[]>([]);
-  const [config, setConfig] = useState({
-    title: "ZAPROSZENIE",
-    message: "Zapraszamy do udziału w konferencji.",
-  });
-  const [notice, setNotice] = useState(""),
-    [busy, setBusy] = useState(false);
   const base = `/api/admin/events/${eventId}`;
-  useEffect(() => {
-    if (!invitations) return;
-    let active = true;
-    api<typeof config>(`${base}/invitation`)
-      .then((c) => {
-        if (active) setConfig(c);
-      })
-      .catch((e) => {
-        if (active) setNotice(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [base, invitations]);
   const filtered = filterParticipants(people, { q, filter });
   const selected = ids.length
     ? filtered.filter((p) => ids.includes(p.id))
@@ -273,64 +246,11 @@ export function ExportCenter({
   return (
     <>
       <section className="card">
-        <h2>
-          {invitations
-            ? "Zaproszenia z QR i kodem uczestnika"
-            : "Centrum eksportów"}
-        </h2>
+        <h2>Centrum eksportów</h2>
         <p>
           Wybierz filtr i opcjonalnie zaznacz osoby. Pobieranie nie wysyła
           wiadomości ani nie zmienia kodów.
         </p>
-        {invitations && (
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              setNotice("");
-              try {
-                await api(`${base}/invitation`, {
-                  method: "POST",
-                  body: JSON.stringify(config),
-                });
-                setNotice("Szablon zaproszenia zapisany.");
-              } catch (e) {
-                setNotice(e instanceof Error ? e.message : "Błąd zapisu.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <label>
-              Nagłówek zaproszenia
-              <input
-                value={config.title}
-                maxLength={50}
-                required
-                onChange={(e) =>
-                  setConfig({ ...config, title: e.target.value })
-                }
-              />
-            </label>
-            <label>
-              Treść zaproszenia
-              <textarea
-                value={config.message}
-                maxLength={180}
-                required
-                onChange={(e) =>
-                  setConfig({ ...config, message: e.target.value })
-                }
-              />
-            </label>
-            <button disabled={busy}>Zapisz szablon zaproszenia</button>
-            <p role="status">{notice}</p>
-            <p className="muted">
-              PDF zawiera również dane konferencji, imię i nazwisko,
-              indywidualny QR oraz kod do strefy.
-            </p>
-          </form>
-        )}
         <div className="row">
           <label>
             Szukaj uczestnika lub kodu
@@ -376,7 +296,7 @@ export function ExportCenter({
             <DownloadButton href={`${base}/codes-export?format=csv&${params}`}>
               CSV z kodami
             </DownloadButton>
-            {!invitations && (
+            {
               <>
                 <DownloadButton
                   href={`${base}/reports?kind=attendance&${params}`}
@@ -392,10 +312,10 @@ export function ExportCenter({
                   Potwierdzenia klauzuli CSV
                 </DownloadButton>
               </>
-            )}
+            }
           </div>
         )}
-        {!invitations && (
+        {
           <p>
             <DownloadButton href={`${base}/survey-export?format=csv`}>
               Anonimowe odpowiedzi ankiety CSV (całość)
@@ -404,7 +324,7 @@ export function ExportCenter({
               Ankieta Excel (całość)
             </DownloadButton>
           </p>
-        )}
+        }
         <p className="muted">
           Excel zachowuje zera na początku kodów. Plików z kodami nie
           udostępniaj publicznie.
@@ -462,13 +382,12 @@ export function MaterialsManager({
   const base = `/api/admin/events/${data.event.id}`;
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
-  async function upload(form: HTMLFormElement) {
+  async function upload(form: HTMLFormElement, replacesId?: string) {
     const file = new FormData(form).get("file");
     if (!(file instanceof File)) return;
     setUploading(true);
     try {
-      if (!file.size || file.size > 20 * 1024 * 1024)
-        throw new Error("Limit pliku: 20 MB.");
+      if (!file.size) throw new Error("Wybierz niepusty plik PDF.");
       setUploadStatus("Sprawdzanie sumy kontrolnej pliku…");
       const hash = await crypto.subtle.digest(
         "SHA-256",
@@ -485,6 +404,7 @@ export function MaterialsManager({
             filename: file.name,
             size: file.size,
             sha256,
+            ...(replacesId ? { replacesId } : {}),
           }),
         },
       );
@@ -593,7 +513,7 @@ export function MaterialsManager({
               Widoczny dla uczestników
             </label>
             <div className="actions">
-              <button disabled={busy}>Zapisz materiał</button>
+              <button disabled={busy || uploading}>Zapisz materiał</button>
               <a
                 className="button secondary"
                 href={`${base}/materials/${file.id}`}
@@ -605,7 +525,7 @@ export function MaterialsManager({
               <button
                 className="danger"
                 type="button"
-                disabled={busy}
+                disabled={busy || uploading}
                 onClick={() => {
                   if (window.confirm(`Usunąć materiał „${file.title}”?`))
                     void action(`materials/${file.id}`, undefined, "DELETE");
@@ -619,15 +539,14 @@ export function MaterialsManager({
             onSubmit={async (e) => {
               e.preventDefault();
               const form = e.currentTarget;
-              if (await action(`materials/${file.id}`, new FormData(form)))
-                form.reset();
+              await upload(form, file.id);
             }}
           >
             <label>
-              Zastąp plik PDF (do 2 MB)
+              Zastąp plik PDF
               <input type="file" name="file" accept=".pdf" required />
             </label>
-            <button disabled={busy}>Zastąp PDF</button>
+            <button disabled={busy || uploading}>Zastąp PDF</button>
           </form>
         </div>
       ))}
@@ -639,7 +558,7 @@ export function MaterialsManager({
         }}
       >
         <label>
-          Nowy materiał PDF (do 20 MB)
+          Nowy materiał PDF
           <input type="file" name="file" accept=".pdf" required />
         </label>
         <button disabled={busy || uploading}>
@@ -673,7 +592,6 @@ type PrivacyInfo = {
   }[];
 };
 export function PrivacyPanel({ eventId }: { eventId: string }) {
-  const [ackFilter, setAckFilter] = useState("all");
   const [data, setData] = useState<PrivacyInfo | null>(null),
     [revision, setRevision] = useState(0),
     [notice, setNotice] = useState(""),
@@ -732,16 +650,9 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
       setBusy(false);
     }
   }
-  const acknowledgedCount =
-    data?.people.filter((p) => p.acknowledgedAt).length ?? 0;
-  const visiblePeople = (data?.people ?? []).filter(
-    (p) =>
-      ackFilter === "all" ||
-      (ackFilter === "accepted" ? !!p.acknowledgedAt : !p.acknowledgedAt),
-  );
   return (
     <section className="card">
-      <h2>RODO i zarządzanie danymi</h2>
+      <h2>Obsługa danych i zgłoszeń RODO</h2>
       <button
         type="button"
         className="secondary"
@@ -772,62 +683,6 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
           <DownloadButton href={`${base}/reports?kind=privacy`}>
             Pobierz potwierdzenia CSV
           </DownloadButton>
-          <div className="stats">
-            <div className="stat">
-              <strong>{data.people.length}</strong>
-              <span>Wszyscy uczestnicy</span>
-            </div>
-            <div className="stat">
-              <strong>{acknowledgedCount}</strong>
-              <span>Zaakceptowali klauzulę RODO</span>
-            </div>
-            <div className="stat">
-              <strong>{data.people.length - acknowledgedCount}</strong>
-              <span>Nie zaakceptowali</span>
-            </div>
-          </div>
-          <label>
-            Status potwierdzenia RODO
-            <select
-              value={ackFilter}
-              onChange={(e) => setAckFilter(e.target.value)}
-            >
-              <option value="all">Wszyscy</option>
-              <option value="accepted">Zaakceptowali</option>
-              <option value="not-accepted">Nie zaakceptowali</option>
-            </select>
-          </label>
-          <p role="status">
-            Wyświetlono: {visiblePeople.length} z {data.people.length}
-          </p>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Uczestnik</th>
-                  <th>Zapoznanie z aktualną klauzulą</th>
-                  <th>Dane</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiblePeople.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      {p.firstName} {p.lastName}
-                    </td>
-                    <td>{dateTime(p.acknowledgedAt)}</td>
-                    <td>
-                      <DownloadButton
-                        href={`${base}/participants/${p.id}/data`}
-                      >
-                        Eksport danych
-                      </DownloadButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           <h3>Rejestr zgłoszeń dotyczących danych</h3>
           <p>
             Zamknięcie zgłoszenia jest zapisem jego obsługi. Nie usuwa

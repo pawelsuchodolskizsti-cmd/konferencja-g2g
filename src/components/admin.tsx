@@ -438,7 +438,11 @@ export function Admin({
                 <AdminMail key={eventId} eventId={eventId} />
               )}
               {section === "organizational" && (
-                <AdminOrganizational key={eventId} eventId={eventId} event={overview.event} />
+                <AdminOrganizational
+                  key={eventId}
+                  eventId={eventId}
+                  event={overview.event}
+                />
               )}
               {section === "materials" && (
                 <MaterialsManager data={overview} action={action} busy={busy} />
@@ -1120,23 +1124,10 @@ function Courses({
         <button disabled={busy}>Dodaj szkolenie</button>
       </form>
       <section className="card">
-        <h2>Materiały dla obecnych uczestników</h2>
-        {data.materials.map((file) => (
-          <p key={file.id}>{file.title}</p>
-        ))}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            if (await action("materials", new FormData(form))) form.reset();
-          }}
-        >
-          <label>
-            Dodaj materiał PDF (do 2 MB)
-            <input name="file" type="file" accept=".pdf" required />
-          </label>
-          <button disabled={busy}>Dodaj materiał</button>
-        </form>
+        <h2>Materiały dla uczestników</h2>
+        <a className="button secondary" href="/admin?section=materials">
+          Przejdź do materiałów
+        </a>
       </section>
     </>
   );

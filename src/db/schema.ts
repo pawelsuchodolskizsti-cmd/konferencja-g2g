@@ -4,6 +4,8 @@ import {
   text,
   timestamp,
   integer,
+  bigint,
+  primaryKey,
   boolean,
   jsonb,
   uniqueIndex,
@@ -12,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { protectedText, protectedImportRows } from "./pii.ts";
+import { protectedAuditAction } from "./audit-pii.ts";
 
 const id = () => uuid("id").defaultRandom().primaryKey();
 const created = (name = "created_at") =>
@@ -262,7 +265,7 @@ export const auditLogs = pgTable("audit_logs", {
   adminId: uuid("admin_id").references(() => admins.id, {
     onDelete: "set null",
   }),
-  action: text("action").notNull(),
+  action: protectedAuditAction("action").notNull(),
   targetId: uuid("target_id"),
   createdAt: created(),
 });
@@ -294,19 +297,40 @@ export const materialUploads = pgTable(
       .notNull()
       .references(() => admins.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
-    size: integer("size").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
     sha256: text("sha256").notNull(),
     chunks: jsonb("chunks").$type<string[]>().notNull().default([]),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    replacesId: uuid("replaces_id").references(() => materials.id, {
+      onDelete: "cascade",
+    }),
+    expectedContentHash: text("expected_content_hash"),
     materialId: uuid("material_id").references(() => materials.id, {
       onDelete: "cascade",
     }),
   },
   (t) => [
     check(
-      "material_uploads_size_check",
-      sql`${t.size} > 0 AND ${t.size} <= 20971520`,
+      "material_uploads_positive_size",
+      sql`${t.size} > 0 AND ${t.size} <= 9007199254740991`,
     ),
+  ],
+);
+export const materialUploadParts = pgTable(
+  "material_upload_parts",
+  {
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => materialUploads.id, { onDelete: "cascade" }),
+    part: integer("part").notNull(),
+    encryptedContent: text("encrypted_content").notNull(),
+  },
+  (t) => [
+    primaryKey({
+      name: "material_upload_parts_pkey",
+      columns: [t.uploadId, t.part],
+    }),
+    check("material_upload_parts_part_check", sql`${t.part} >= 0`),
   ],
 );
 export const surveys = pgTable("surveys", {
@@ -411,9 +435,12 @@ export const organizationalDeliveries = pgTable(
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
     recipientsEncrypted: text("recipients_encrypted").notNull(),
+    contentEncrypted: text("content_encrypted"),
     status: text("status", {
       enum: ["QUEUED", "SENDING", "ACCEPTED", "FAILED", "REVIEW_REQUIRED"],
-    }).notNull().default("QUEUED"),
+    })
+      .notNull()
+      .default("QUEUED"),
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: created("next_attempt_at"),
     firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }),
@@ -427,7 +454,14 @@ export const organizationalDeliveries = pgTable(
     createdAt: created(),
   },
   (t) => [
-    uniqueIndex("organizational_delivery_once").on(t.campaignId, t.participantId),
-    index("organizational_delivery_queue").on(t.campaignId, t.status, t.nextAttemptAt),
+    uniqueIndex("organizational_delivery_once").on(
+      t.campaignId,
+      t.participantId,
+    ),
+    index("organizational_delivery_queue").on(
+      t.campaignId,
+      t.status,
+      t.nextAttemptAt,
+    ),
   ],
 );

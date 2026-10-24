@@ -1,4 +1,5 @@
 import "server-only";
+import { realParticipant } from "./participant-scope";
 import { and, eq, asc, sql, like } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { participants, attendance, auditLogs } from "@/db/schema";
@@ -45,8 +46,13 @@ export async function privacyRecords(
     .from(participants)
     .leftJoin(attendance, eq(attendance.participantId, participants.id))
     .leftJoin(records, eq(records.participantId, participants.id))
-    .where(eq(participants.eventId, eventId))
-    .orderBy(participants.lastName, participants.firstName);
+    .where(and(eq(participants.eventId, eventId), realParticipant));
+  people.sort(
+    (a, b) =>
+      a.lastName.localeCompare(b.lastName, "pl") ||
+      a.firstName.localeCompare(b.firstName, "pl") ||
+      a.id.localeCompare(b.id),
+  );
   return { version: PARTICIPANT_PRIVACY_VERSION, people };
 }
 export async function exportPrivacyRecords(
@@ -73,6 +79,7 @@ export async function exportPrivacyRecords(
       and(
         eq(auditLogs.eventId, eventId),
         like(auditLogs.action, "PARTICIPANT_PRIVACY_ACK_%"),
+        realParticipant,
       ),
     )
     .orderBy(asc(auditLogs.createdAt), asc(auditLogs.id));

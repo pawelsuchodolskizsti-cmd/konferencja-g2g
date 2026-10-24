@@ -18,7 +18,9 @@ let personId: string;
 beforeAll(async () => {
   process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
   process.env.TOKEN_PEPPER = "test".repeat(20);
-  for (const {tag: file} of JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8")).entries)
+  for (const { tag: file } of JSON.parse(
+    await readFile("drizzle/meta/_journal.json", "utf8"),
+  ).entries)
     await pg.exec(await readFile(`drizzle/${file}.sql`, "utf8"));
   for (const [index, slug] of ["privacy", "other-event"].entries()) {
     const [event] = await database
@@ -67,17 +69,29 @@ beforeAll(async () => {
     if (index === 0) {
       eventId = event.id;
       personId = person.id;
-      await database
-        .insert(s.participants)
-        .values({
-          ...newCredentials(),
-          eventId,
-          firstName: "Bez",
-          lastName: "Potwierdzenia",
-          email: "missing@example.org",
-        });
+      await database.insert(s.participants).values({
+        ...newCredentials(),
+        eventId,
+        firstName: "Bez",
+        lastName: "Potwierdzenia",
+        email: "missing@example.org",
+      });
     }
   }
+  const [testPerson] = await database
+    .insert(s.participants)
+    .values({
+      ...newCredentials(),
+      eventId,
+      firstName: "Demo",
+      lastName: "Only",
+      email: "excluded-demo@example.test",
+    })
+    .returning();
+  await database.insert(s.auditLogs).values([
+    { eventId, targetId: testPerson.id, action: "PARTICIPANT_TEST_ACCOUNT" },
+    { eventId, targetId: testPerson.id, action: PARTICIPANT_PRIVACY_ACTION },
+  ]);
 });
 afterAll(async () => pg.close());
 test("privacy report counts current version per participant and scopes to event", async () => {
@@ -104,5 +118,5 @@ test("privacy export includes every version, escapes spreadsheet formulas and ex
   expect(csv).toContain("'=FORMULA");
   expect(csv).not.toContain("other@example.org");
   expect(csv).not.toContain("missing@example.org");
+  expect(csv).not.toContain("excluded-demo@example.test");
 });
-

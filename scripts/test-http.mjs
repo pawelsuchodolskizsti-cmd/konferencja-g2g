@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { unzipSync } from "fflate";
 import * as XLSX from "xlsx";
 import { PARTICIPANT_PRIVACY_VERSION } from "../src/lib/participant-privacy.ts";
 import { decrypt } from "../src/server/crypto.ts";
@@ -416,7 +415,7 @@ try {
     },
   );
   await checked(
-    "nowe funkcje admina: osoba, CSV, PDF, ZIP, RODO, role",
+    "funkcje admina: osoba, CSV, RODO, role i wyłączenie starych zaproszeń",
     async () => {
       const created = await (
         await call(`${base}/participants`, {
@@ -449,23 +448,12 @@ try {
           })
         ).text();
         assert.equal(bulk.trim().split("\r\n").length, people.length + 1);
-        const pdf = await (
-          await call(`${base}/codes-export?format=pdf&ids=${id}`)
-        ).arrayBuffer();
-        assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1);
-        await writeFile(".local/fixtures/invitation.pdf", Buffer.from(pdf));
-        const zip = unzipSync(
-          new Uint8Array(
-            await (
-              await call(`${base}/codes-export?format=zip&ids=${id}`)
-            ).arrayBuffer(),
-          ),
-        );
-        assert.equal(
-          Object.keys(zip).filter((x) => x.endsWith(".pdf")).length,
-          1,
-        );
-        assert(Object.keys(zip).some((x) => x.endsWith(".csv")));
+        await call(`${base}/codes-export?format=pdf&ids=${id}`, {
+          expected: 400,
+        });
+        await call(`${base}/codes-export?format=zip&ids=${id}`, {
+          expected: 400,
+        });
         const data = await (
           await call(`${base}/participants/${id}/data`)
         ).text();

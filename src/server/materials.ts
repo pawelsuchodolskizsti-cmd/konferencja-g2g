@@ -1,10 +1,10 @@
 import { materialsAvailableForParticipant } from "./material-access";
-import { pdfStream } from "./incremental-pdf";
+import { materialContent } from "./material-content";
 import { and, eq } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { auditLogs, materials } from "@/db/schema";
 import { assert } from "./errors";
-import { decrypt, encrypt } from "./crypto";
+import { encrypt } from "./crypto";
 import { presentParticipant } from "./attendance";
 export async function uploadMaterial(
   eventId: string,
@@ -14,7 +14,7 @@ export async function uploadMaterial(
   assert(
     file.size > 0 && file.size <= 2 * 1024 * 1024,
     400,
-    "Maksymalny rozmiar materiału: 2 MB.",
+    "Ten starszy formularz wymaga odświeżenia. Dodaj plik w sekcji Materiały, która przesyła PDF w częściach.",
   );
   assert(file.name.toLowerCase().endsWith(".pdf"), 400, "Wybierz plik PDF.");
   const content = Buffer.from(await file.arrayBuffer());
@@ -66,16 +66,11 @@ export async function downloadMaterial(
       ),
     );
   assert(item, 404, "Nie znaleziono materiału.");
-  return new Response(
-    pdfStream([
-      new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
-    ]),
-    {
-      headers: {
-        "Content-Type": item.mimeType,
-        "Content-Disposition": 'attachment; filename="material.pdf"',
-        "Cache-Control": "private, no-store",
-      },
+  return new Response(materialContent(item.encryptedContent, database), {
+    headers: {
+      "Content-Type": item.mimeType,
+      "Content-Disposition": 'attachment; filename="material.pdf"',
+      "Cache-Control": "private, no-store",
     },
-  );
+  });
 }

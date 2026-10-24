@@ -1,4 +1,4 @@
-import { pdfStream } from "./incremental-pdf";
+import { materialContent } from "./material-content";
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -12,7 +12,6 @@ import {
   emailLogs,
   events,
   importBatches,
-  invitationSettings,
   materials,
   participants,
   participantTrainingAccess,
@@ -21,7 +20,7 @@ import {
   rateLimits,
 } from "@/db/schema";
 import { assert } from "./errors";
-import { decrypt, encrypt, newCredentials, passwordHash } from "./crypto";
+import { encrypt, newCredentials, passwordHash } from "./crypto";
 import { participantIdentity } from "@/lib/participant-identity";
 import { safeCsv } from "./imports";
 import { participantList } from "./admin-data";
@@ -427,7 +426,9 @@ export async function cleanupData(eventId: string, adminId: string) {
   });
 }
 export async function history(eventId: string, url: URL) {
-  const q = (url.searchParams.get("q") || "").slice(0, 100);
+  const q = (url.searchParams.get("q") || "")
+    .slice(0, 100)
+    .toLocaleLowerCase("pl");
   const offset = z.coerce
     .number()
     .int()
@@ -436,28 +437,41 @@ export async function history(eventId: string, url: URL) {
     .parse(url.searchParams.get("offset") || 0);
   const target = url.searchParams.get("target");
   if (target) z.uuid().parse(target);
-  return db()
-    .select({
-      id: auditLogs.id,
-      action: auditLogs.action,
-      targetId: auditLogs.targetId,
-      createdAt: auditLogs.createdAt,
-      adminEmail: admins.email,
-    })
-    .from(auditLogs)
-    .leftJoin(admins, eq(admins.id, auditLogs.adminId))
-    .where(
-      and(
-        eq(auditLogs.eventId, eventId),
-        q
-          ? sql`position(lower(${q}) in lower(${auditLogs.action})) > 0`
-          : undefined,
-        target ? eq(auditLogs.targetId, target) : undefined,
-      ),
-    )
-    .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
-    .limit(100)
-    .offset(offset);
+  const batch = (start: number, size: number) =>
+    db()
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        targetId: auditLogs.targetId,
+        createdAt: auditLogs.createdAt,
+        adminEmail: admins.email,
+      })
+      .from(auditLogs)
+      .leftJoin(admins, eq(admins.id, auditLogs.adminId))
+      .where(
+        and(
+          eq(auditLogs.eventId, eventId),
+          target ? eq(auditLogs.targetId, target) : undefined,
+        ),
+      )
+      .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
+      .limit(size)
+      .offset(start);
+  if (!q) return batch(offset, 100);
+  // Search decoded actions on the authorized server, not ciphertext in SQL.
+  // Read in bounded batches and keep only the requested page in memory.
+  const result: Awaited<ReturnType<typeof batch>> = [];
+  let matched = 0;
+  for (let start = 0; ; start += 500) {
+    const rows = await batch(start, 500);
+    for (const row of rows) {
+      if (!row.action.toLocaleLowerCase("pl").includes(q)) continue;
+      if (matched++ < offset) continue;
+      result.push(row);
+      if (result.length === 100) return result;
+    }
+    if (rows.length < 500) return result;
+  }
 }
 export async function exportReport(
   eventId: string,
@@ -603,43 +617,6 @@ export async function saveTeamMember(
     return { saved: true };
   });
 }
-export async function invitationConfig(eventId: string) {
-  const [config] = await db()
-    .select()
-    .from(invitationSettings)
-    .where(eq(invitationSettings.eventId, eventId));
-  return (
-    config || {
-      title: "ZAPROSZENIE",
-      message: "Zapraszamy do udziału w konferencji.",
-    }
-  );
-}
-export async function saveInvitation(
-  eventId: string,
-  adminId: string,
-  input: unknown,
-) {
-  const data = z
-    .object({
-      title: z.string().trim().min(1).max(50),
-      message: z.string().trim().min(1).max(180),
-    })
-    .parse(input);
-  await db().transaction(async (tx) => {
-    await tx
-      .insert(invitationSettings)
-      .values({ eventId, ...data })
-      .onConflictDoUpdate({
-        target: invitationSettings.eventId,
-        set: { ...data, updatedAt: new Date() },
-      });
-    await tx
-      .insert(auditLogs)
-      .values({ eventId, adminId, action: "INVITATION_TEMPLATE_UPDATED" });
-  });
-  return { saved: true };
-}
 export async function manageMaterial(
   eventId: string,
   adminId: string,
@@ -654,18 +631,13 @@ export async function manageMaterial(
     .where(and(eq(materials.eventId, eventId), eq(materials.id, id)));
   assert(item, 404, "Brak materiału.");
   if (method === "GET")
-    return new Response(
-      pdfStream([
-        new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
-      ]),
-      {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'inline; filename="material.pdf"',
-          "Cache-Control": "private, no-store",
-        },
+    return new Response(materialContent(item.encryptedContent), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'inline; filename="material.pdf"',
+        "Cache-Control": "private, no-store",
       },
-    );
+    });
   if (method === "DELETE") {
     await db()
       .delete(materials)
@@ -674,7 +646,7 @@ export async function manageMaterial(
     assert(
       file.size > 0 && file.size <= 2 * 1024 * 1024,
       400,
-      "Limit PDF: 2 MB.",
+      "Odśwież panel i użyj zastępowania PDF w sekcji Materiały, która przesyła plik w częściach.",
     );
     const bytes = Buffer.from(await file.arrayBuffer());
     assert(

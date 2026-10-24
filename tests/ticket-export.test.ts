@@ -27,5 +27,6 @@ test("mail merge export preserves existing codes, leading zeros, Polish text and
   expect(sheet.B2.f).toBeUndefined();
   expect(sheet.D2.t).toBe("s");
   expect(sheet.D2.v).toBe("001234");
-  expect(sheet.F2.v).toBe("bilet-synthetic-id.pdf");
+  expect(sheet.F2).toBeUndefined();
+  expect(rows[0]).not.toContain("Plik biletu");
 });

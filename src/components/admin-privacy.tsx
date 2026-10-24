@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, dateTime } from "./api";
+import { DownloadButton } from "./admin-tools";
 type Records = {
   version: string;
   people: {
@@ -67,6 +68,10 @@ export function AdminPrivacy({ eventId }: { eventId: string }) {
   return (
     <section className="card">
       <h2>Potwierdzenia zapoznania się z klauzulą</h2>
+      <p className="muted">
+        Jedna lista rzeczywistych uczestników. Konta testowe są pomijane w
+        licznikach i eksportach. Aktualizacja co 15 sekund.
+      </p>
       <p>
         Zapisy dotyczą potwierdzenia informacji RODO, a nie zgody na
         przetwarzanie ani odpowiedzi ankietowych.
@@ -145,6 +150,7 @@ export function AdminPrivacy({ eventId }: { eventId: string }) {
                   <th>Pierwsze potwierdzenie</th>
                   <th>Ostatnie potwierdzenie</th>
                   <th>Liczba potwierdzeń</th>
+                  <th>Dane</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,6 +165,13 @@ export function AdminPrivacy({ eventId }: { eventId: string }) {
                     <td>{dateTime(p.firstAcknowledgedAt)}</td>
                     <td>{dateTime(p.lastAcknowledgedAt)}</td>
                     <td>{p.count}</td>
+                    <td>
+                      <DownloadButton
+                        href={`/api/admin/events/${eventId}/participants/${p.id}/data`}
+                      >
+                        Eksport danych
+                      </DownloadButton>
+                    </td>
                   </tr>
                 ))}
               </tbody>

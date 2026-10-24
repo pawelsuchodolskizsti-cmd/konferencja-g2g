@@ -1,3 +1,4 @@
+import { organizationalArchive } from "./organizational-archive";
 import { realParticipant } from "./participant-scope";
 import "server-only";
 import { createHash } from "node:crypto";
@@ -18,7 +19,7 @@ import {
 import { encrypt, decrypt } from "./crypto";
 import { assert } from "./errors";
 import { audit, exportReport, privacyOverview } from "./admin-operations";
-import { exportTickets, TICKET_BATCH_SIZE } from "./ticket-export";
+import { exportTickets } from "./ticket-export";
 import { exportSurvey, surveyOverview } from "./surveys";
 
 const metadata = {
@@ -70,19 +71,14 @@ export async function createArchive(
         await (await exportTickets(eventId, adminId, format)).arrayBuffer(),
       );
   }
-  for (let offset = 0; offset < people.length; offset += TICKET_BATCH_SIZE)
-    files[
-      `zaproszenia-${offset + 1}-${Math.min(offset + TICKET_BATCH_SIZE, people.length)}.pdf`
-    ] = new Uint8Array(
-      await (
-        await exportTickets(eventId, adminId, "book", offset)
-      ).arrayBuffer(),
-    );
+  files["wiadomosci-organizacyjne.json"] = json(
+    await organizationalArchive(eventId),
+  );
   files["historia.json"] = json(
     await db().select().from(auditLogs).where(eq(auditLogs.eventId, eventId)),
   );
   files["INFORMACJA.txt"] = new TextEncoder().encode(
-    "Archiwum raportów konferencji. Zawiera dane osobowe i kody dostępu. Nie udostępniaj publicznie. Zaproszenia są w wielostronicowych PDF po maksymalnie 50 osób. Kolejność stron odpowiada kolejności uczestników w CSV/Excel; zakres w nazwie PDF wskazuje numery uczestników bez wiersza nagłówkowego. Kolumna Plik biletu opisuje nazwę pliku w osobno pobieranych paczkach indywidualnych zaproszeń ZIP. Certyfikaty: raport wydania, bez generowania nowych PDF. Archiwum nie jest kopią bazy do automatycznego odtworzenia. Usunięcie uczestników nie usuwa danych z wcześniejszych archiwów.\n",
+    "Archiwum raportów konferencji. Zawiera dane osobowe i kody dostępu. Nie udostępniaj publicznie. Zaproszenia PDF nie są już generowane; kody uczestników pozostają w CSV/Excel. Wiadomości organizacyjne: treść, odbiorcy, statusy i diagnostyka w wiadomosci-organizacyjne.json. Certyfikaty: raport wydania, bez generowania nowych PDF. Archiwum nie jest kopią bazy do automatycznego odtworzenia. Usunięcie uczestników nie usuwa danych z wcześniejszych archiwów.\n",
   );
   const bytes = zipSync(files, { level: 1 });
   assert(
