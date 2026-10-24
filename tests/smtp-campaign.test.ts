@@ -64,13 +64,11 @@ beforeAll(async () => {
   process.env.TOKEN_PEPPER = "test".repeat(16);
   process.env.APP_ENV = "production";
   process.env.APP_URL = "https://conference.example.org";
-  await pg.exec(await readFile("drizzle/0000_initial.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0011_secondary_email.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0001_schema.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0005_schema.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0006_schema.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0008_smtp_campaign.sql", "utf8"));
-  await pg.exec(await readFile("drizzle/0009_courses_unlock.sql", "utf8"));
+  const journal = JSON.parse(
+    await readFile("drizzle/meta/_journal.json", "utf8"),
+  );
+  for (const entry of journal.entries)
+    await pg.exec(await readFile("drizzle/" + entry.tag + ".sql", "utf8"));
   fixture.database = database as unknown as Database;
   const [admin] = await database
     .insert(s.admins)
@@ -703,13 +701,11 @@ test("test accounts are rejected by manual recipient send without sending or cha
       email: "excluded@example.test",
     })
     .returning();
-  await database
-    .insert(s.auditLogs)
-    .values({
-      eventId,
-      targetId: person.id,
-      action: "PARTICIPANT_TEST_ACCOUNT",
-    });
+  await database.insert(s.auditLogs).values({
+    eventId,
+    targetId: person.id,
+    action: "PARTICIPANT_TEST_ACCOUNT",
+  });
   const sentBefore = fixture.sent.length;
   await expect(
     sendSelectedSmtp(eventId, adminId, {
