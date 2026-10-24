@@ -592,7 +592,6 @@ type PrivacyInfo = {
   }[];
 };
 export function PrivacyPanel({ eventId }: { eventId: string }) {
-  const [ackFilter, setAckFilter] = useState("all");
   const [data, setData] = useState<PrivacyInfo | null>(null),
     [revision, setRevision] = useState(0),
     [notice, setNotice] = useState(""),
@@ -651,16 +650,9 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
       setBusy(false);
     }
   }
-  const acknowledgedCount =
-    data?.people.filter((p) => p.acknowledgedAt).length ?? 0;
-  const visiblePeople = (data?.people ?? []).filter(
-    (p) =>
-      ackFilter === "all" ||
-      (ackFilter === "accepted" ? !!p.acknowledgedAt : !p.acknowledgedAt),
-  );
   return (
     <section className="card">
-      <h2>RODO i zarządzanie danymi</h2>
+      <h2>Obsługa danych i zgłoszeń RODO</h2>
       <button
         type="button"
         className="secondary"
@@ -691,62 +683,6 @@ export function PrivacyPanel({ eventId }: { eventId: string }) {
           <DownloadButton href={`${base}/reports?kind=privacy`}>
             Pobierz potwierdzenia CSV
           </DownloadButton>
-          <div className="stats">
-            <div className="stat">
-              <strong>{data.people.length}</strong>
-              <span>Wszyscy uczestnicy</span>
-            </div>
-            <div className="stat">
-              <strong>{acknowledgedCount}</strong>
-              <span>Zaakceptowali klauzulę RODO</span>
-            </div>
-            <div className="stat">
-              <strong>{data.people.length - acknowledgedCount}</strong>
-              <span>Nie zaakceptowali</span>
-            </div>
-          </div>
-          <label>
-            Status potwierdzenia RODO
-            <select
-              value={ackFilter}
-              onChange={(e) => setAckFilter(e.target.value)}
-            >
-              <option value="all">Wszyscy</option>
-              <option value="accepted">Zaakceptowali</option>
-              <option value="not-accepted">Nie zaakceptowali</option>
-            </select>
-          </label>
-          <p role="status">
-            Wyświetlono: {visiblePeople.length} z {data.people.length}
-          </p>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Uczestnik</th>
-                  <th>Zapoznanie z aktualną klauzulą</th>
-                  <th>Dane</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiblePeople.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      {p.firstName} {p.lastName}
-                    </td>
-                    <td>{dateTime(p.acknowledgedAt)}</td>
-                    <td>
-                      <DownloadButton
-                        href={`${base}/participants/${p.id}/data`}
-                      >
-                        Eksport danych
-                      </DownloadButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           <h3>Rejestr zgłoszeń dotyczących danych</h3>
           <p>
             Zamknięcie zgłoszenia jest zapisem jego obsługi. Nie usuwa

@@ -16,6 +16,7 @@ import {
   clearSelectedParticipants,
   removeArchive,
 } from "../src/server/data-archives";
+import { encrypt } from "../src/server/crypto";
 import { createParticipant } from "../src/server/admin-operations";
 const pg = new PGlite();
 const database = drizzle(pg);
@@ -75,6 +76,40 @@ beforeAll(async () => {
       email: "jan@example.test",
     })
   ).id;
+  const [campaign] = await database
+    .insert(s.organizationalCampaigns)
+    .values({
+      eventId,
+      adminId,
+      subject: "Archiwalny temat",
+      body: "Archiwalna pełna treść {{firstName}}",
+      launchedAt: new Date(),
+    })
+    .returning();
+  await database.insert(s.organizationalDeliveries).values([
+    {
+      campaignId: campaign.id,
+      participantId: personId,
+      recipientsEncrypted: encrypt(JSON.stringify({ to: "test@example.test" })),
+      contentEncrypted: encrypt(
+        JSON.stringify({
+          subject: "Archiwalny temat",
+          html: "<p>Archiwalna pełna treść Anna</p>",
+        }),
+      ),
+      messageId: "<synthetic-accepted@example.test>",
+      status: "ACCEPTED",
+      attempts: 1,
+      acceptedAt: new Date(),
+    },
+    {
+      campaignId: campaign.id,
+      participantId: keepId,
+      recipientsEncrypted: encrypt(JSON.stringify({ to: "jan@example.test" })),
+      messageId: "<synthetic-queued@example.test>",
+      status: "QUEUED",
+    },
+  ]);
 });
 afterAll(() => pg.close());
 test("archive contains reports and organizational messages, encrypts payload and isolates events", async () => {
@@ -90,10 +125,19 @@ test("archive contains reports and organizational messages, encrypts payload and
   expect(Object.keys(files)).toContain("attendance.csv");
   expect(Object.keys(files)).toContain("ankieta.xlsx");
   expect(Object.keys(files).some((name) => name.endsWith(".pdf"))).toBe(false);
+  const organizational = JSON.parse(
+    new TextDecoder().decode(files["wiadomosci-organizacyjne.json"]),
+  );
+  expect(organizational.campaigns).toHaveLength(1);
+  expect(organizational.campaigns[0].body).toBe(
+    "Archiwalna pełna treść {{firstName}}",
+  );
+  expect(organizational.campaigns[0].deliveries).toHaveLength(2);
   expect(
-    JSON.parse(new TextDecoder().decode(files["wiadomosci-organizacyjne.json"]))
-      .campaigns,
-  ).toEqual([]);
+    organizational.campaigns[0].deliveries.find(
+      (d: { status: string }) => d.status === "ACCEPTED",
+    ).content.html,
+  ).toContain("Anna");
   expect(
     (await database.select().from(s.dataArchives))[0].payload,
   ).not.toContain("Kowalski");
