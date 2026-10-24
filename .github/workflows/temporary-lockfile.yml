@@ -1,0 +1,25 @@
+name: Temporary patched lockfile export
+on:
+  push:
+    branches: [feat/organizational-messages-retry]
+permissions:
+  contents: read
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm up next@16.4.1 zod@4.6.6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patched-lockfile
+          path: |
+            package.json
+            pnpm-lock.yaml
+          if-no-files-found: error
