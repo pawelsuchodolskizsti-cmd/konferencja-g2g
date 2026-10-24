@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { eq } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import * as s from "../src/db/schema";
-import { encrypt, newCredentials } from "../src/server/crypto";
+import { decrypt, encrypt, newCredentials } from "../src/server/crypto";
 import type { Database } from "../src/db";
 
 const fixture = vi.hoisted(() => ({ database: null as Database | null }));
@@ -25,6 +25,9 @@ import {
   resolveOrganizational,
   saveOrganizationalDraft,
 } from "../src/server/organizational-mail";
+
+import { updateParticipant } from "../src/server/admin-data";
+import { resetCredentials } from "../src/server/admin-operations";
 
 const pg = new PGlite();
 const db = drizzle(pg);
@@ -296,3 +299,195 @@ test("archive preserves encrypted exact message snapshot and all campaign recipi
   expect(exported.deliveries[0].status).toBe("ACCEPTED");
   expect(exported.deliveries[0].contentEvidence).toBe("saved-before-smtp");
 });
+
+test("retry processing stays on its single delivery even when other recipients are queued", async () => {
+  const id = await draft("single-target");
+  await launchOrganizational(eventId, id, adminId, { ids: people });
+  const before = (await getOrganizational(eventId, id)).deliveries;
+  const target = before.find((row) => row.participantId === people[0])!;
+  const other = before.find((row) => row.participantId === people[1])!;
+  vi.mocked(sendSmtp).mockRejectedValueOnce(
+    new SmtpFailure("RECIPIENT", 550, "5.1.1"),
+  );
+  expect(
+    (await processOrganizational(eventId, id, adminId, target.id)).errors,
+  ).toBe(1);
+  await retryOrganizational(eventId, id, target.id, adminId);
+  // Throttling this target must not fall back to another ready recipient.
+  expect(
+    (await processOrganizational(eventId, id, adminId, target.id)).sent,
+  ).toBe(0);
+  expect(sendSmtp).toHaveBeenCalledTimes(1);
+  vi.setSystemTime(Date.now() + 31000);
+  expect(
+    (await processOrganizational(eventId, id, adminId, target.id)).sent,
+  ).toBe(1);
+  expect(sendSmtp).toHaveBeenCalledTimes(2);
+  expect(
+    vi
+      .mocked(sendSmtp)
+      .mock.calls.every(([payload]) => payload.to === "jan@example.org"),
+  ).toBe(true);
+  expect(
+    (await getOrganizational(eventId, id)).deliveries.find(
+      (row) => row.id === other.id,
+    ),
+  ).toEqual(other);
+  // A second request for an accepted target also must not drain the queue.
+  vi.setSystemTime(Date.now() + 31000);
+  expect(
+    (await processOrganizational(eventId, id, adminId, target.id)).sent,
+  ).toBe(0);
+  expect(sendSmtp).toHaveBeenCalledTimes(2);
+  const foreign = await draft("foreign-target");
+  await launchOrganizational(eventId, foreign, adminId, { ids: [people[1]] });
+  const foreignTarget = (await getOrganizational(eventId, foreign))
+    .deliveries[0];
+  await expect(
+    processOrganizational(eventId, id, adminId, foreignTarget.id),
+  ).rejects.toThrow("Nie znaleziono wiadomości");
+  expect(sendSmtp).toHaveBeenCalledTimes(2);
+});
+
+async function isolatedPerson() {
+  const [person] = await db
+    .insert(s.participants)
+    .values({
+      eventId,
+      firstName: "Osoba",
+      lastName: "Syntetyczna",
+      email: "sync-" + counter + "@example.org",
+      ...newCredentials(),
+    })
+    .returning();
+  return person;
+}
+
+test("queued and failed messages follow participant edits and new codes, while accepted snapshots stay intact", async () => {
+  const person = await isolatedPerson();
+  const acceptedId = await draft("accepted-history");
+  await launchOrganizational(eventId, acceptedId, adminId, {
+    ids: [person.id],
+  });
+  await processOrganizational(eventId, acceptedId, adminId);
+  const [acceptedBefore] = await db
+    .select()
+    .from(s.organizationalDeliveries)
+    .where(eq(s.organizationalDeliveries.campaignId, acceptedId));
+  const failedId = await draft("failed-current");
+  await launchOrganizational(eventId, failedId, adminId, { ids: [person.id] });
+  vi.setSystemTime(Date.now() + 31000);
+  vi.mocked(sendSmtp).mockRejectedValueOnce(
+    new SmtpFailure("RECIPIENT", 550, "5.1.1"),
+  );
+  await processOrganizational(eventId, failedId, adminId);
+  const queuedId = await draft("queued-current");
+  await launchOrganizational(eventId, queuedId, adminId, { ids: [person.id] });
+  const newEmail = "updated-" + counter + "@example.org";
+  await updateParticipant(
+    eventId,
+    adminId,
+    person.id,
+    {
+      firstName: "Aktualna",
+      lastName: "Poprawiona",
+      email: newEmail,
+      secondaryEmail: "copy-" + counter + "@example.org",
+    },
+    fixture.database!,
+  );
+  await resetCredentials(
+    eventId,
+    adminId,
+    person.id,
+    { confirmation: "ZMIEŃ KODY" },
+    fixture.database!,
+  );
+  const [updated] = await db
+    .select()
+    .from(s.participants)
+    .where(eq(s.participants.id, person.id));
+  const oldCode = JSON.parse(decrypt(person.credentials)).accessCode;
+  const newCode = JSON.parse(decrypt(updated.credentials)).accessCode;
+  expect(newCode).not.toBe(oldCode);
+  for (const campaignId of [failedId, queuedId]) {
+    const [row] = await db
+      .select()
+      .from(s.organizationalDeliveries)
+      .where(eq(s.organizationalDeliveries.campaignId, campaignId));
+    expect(JSON.parse(decrypt(row.recipientsEncrypted))).toEqual({
+      to: newEmail,
+      cc: "copy-" + counter + "@example.org",
+    });
+    expect(row.contentEncrypted).toBeNull();
+  }
+  const target = (await getOrganizational(eventId, failedId)).deliveries[0];
+  await retryOrganizational(eventId, failedId, target.id, adminId);
+  vi.setSystemTime(Date.now() + 31000);
+  expect(
+    (await processOrganizational(eventId, failedId, adminId, target.id)).sent,
+  ).toBe(1);
+  const payload = vi.mocked(sendSmtp).mock.calls.at(-1)![0];
+  expect(payload.to).toBe(newEmail);
+  expect(payload.cc).toBe("copy-" + counter + "@example.org");
+  expect(payload.html).toContain("Aktualna");
+  expect(payload.html).toContain(newCode);
+  expect(payload.html).not.toContain(oldCode);
+  expect(
+    (await getOrganizational(eventId, queuedId)).deliveries[0].status,
+  ).toBe("QUEUED");
+  const [acceptedAfter] = await db
+    .select()
+    .from(s.organizationalDeliveries)
+    .where(eq(s.organizationalDeliveries.campaignId, acceptedId));
+  expect(acceptedAfter).toEqual(acceptedBefore);
+  // A previously queued message also renders current values on its first attempt.
+  vi.setSystemTime(Date.now() + 31000);
+  await processOrganizational(eventId, queuedId, adminId);
+  expect(vi.mocked(sendSmtp).mock.calls.at(-1)![0].html).toContain(newCode);
+  expect(vi.mocked(sendSmtp).mock.calls.at(-1)![0].to).toBe(newEmail);
+});
+
+test.each(["SENDING", "REVIEW_REQUIRED"] as const)(
+  "participant edits roll back while organizational delivery is %s",
+  async (status) => {
+    const person = await isolatedPerson();
+    const id = await draft("guard-" + status);
+    await launchOrganizational(eventId, id, adminId, { ids: [person.id] });
+    await db
+      .update(s.organizationalDeliveries)
+      .set({ status })
+      .where(eq(s.organizationalDeliveries.campaignId, id));
+    await expect(
+      updateParticipant(
+        eventId,
+        adminId,
+        person.id,
+        {
+          firstName: "Zmiana",
+          lastName: person.lastName,
+          email: "changed-" + counter + "@example.org",
+        },
+        fixture.database!,
+      ),
+    ).rejects.toThrow("Najpierw zakończ lub rozlicz");
+    await expect(
+      resetCredentials(
+        eventId,
+        adminId,
+        person.id,
+        { confirmation: "ZMIEŃ KODY" },
+        fixture.database!,
+      ),
+    ).rejects.toThrow("Najpierw zakończ lub rozlicz");
+    const [after] = await db
+      .select()
+      .from(s.participants)
+      .where(eq(s.participants.id, person.id));
+    expect(after).toEqual(person);
+    expect((await getOrganizational(eventId, id)).deliveries[0].status).toBe(
+      status,
+    );
+    expect(sendSmtp).not.toHaveBeenCalled();
+  },
+);

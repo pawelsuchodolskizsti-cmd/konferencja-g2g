@@ -310,4 +310,184 @@ test("organizational draft saves and previews without starting delivery", async 
     page.getByLabel("Treść wiadomości organizacyjnej", { exact: true }),
   ).toHaveValue(/Twój kod/);
   expect(deliveryRequests).toEqual([]);
+  await test.step("retry beside a failed status processes only that one message", async () => {
+    const stamp = new Date().toISOString();
+    const campaignId = "00000000-0000-4000-8000-000000000111";
+    const targetId = "00000000-0000-4000-8000-000000000112";
+    const waitingId = "00000000-0000-4000-8000-000000000113";
+    const deliveries = [targetId, waitingId].map((id, index) => ({
+      id,
+      participantId: id,
+      firstName: index ? "Oczekująca" : "Ponawiana",
+      lastName: "Testowa",
+      recipients: { to: index ? "waiting@example.test" : "retry@example.test" },
+      status: index ? "QUEUED" : "FAILED",
+      attempts: index ? 0 : 1,
+      firstAttemptAt: index ? null : stamp,
+      lastAttemptAt: index ? null : stamp,
+      acceptedAt: null as string | null,
+      errorCode: index ? null : "SMTP_RECIPIENT_550_5.1.1",
+      messageId: id + "@example.test",
+      smtpQueueId: null,
+      nextAttemptAt: stamp,
+    }));
+    const calls: { action: string; deliveryId: string }[] = [];
+    await page.route(/\/organizational(?:\/.*)?$/, async (route) => {
+      const path = new URL(route.request().url()).pathname.split(
+        "/organizational",
+      )[1];
+      if (path === "") {
+        await route.fulfill({
+          json: {
+            people: [],
+            campaigns: [
+              {
+                id: campaignId,
+                subject: "Test izolacji ponowienia",
+                createdAt: stamp,
+                launchedAt: stamp,
+                updatedAt: stamp,
+                stats: {},
+              },
+            ],
+          },
+        });
+      } else if (path === "/" + campaignId) {
+        await route.fulfill({
+          json: {
+            id: campaignId,
+            subject: "Test izolacji ponowienia",
+            body: "Wiadomość syntetyczna",
+            createdAt: stamp,
+            launchedAt: stamp,
+            deliveries,
+          },
+        });
+      } else if (path.endsWith("/reconcile")) {
+        await route.fulfill({ json: { reconciled: 0 } });
+      } else if (path.endsWith("/retry") || path.endsWith("/process")) {
+        const action = path.endsWith("/retry") ? "retry" : "process";
+        const body = route.request().postDataJSON();
+        calls.push({ action, deliveryId: body.deliveryId });
+        expect(body).toEqual({ deliveryId: targetId });
+        deliveries[0].status = action === "retry" ? "QUEUED" : "ACCEPTED";
+        if (action === "process") deliveries[0].acceptedAt = stamp;
+        await route.fulfill({
+          json:
+            action === "retry"
+              ? { queued: true }
+              : { sent: 1, errors: 0, stopped: false, retryAfterMs: 0 },
+        });
+      } else {
+        await route.abort();
+        throw new Error("Unexpected organizational request: " + path);
+      }
+    });
+    await page.reload();
+    const target = page
+      .getByRole("row")
+      .filter({ hasText: "Ponawiana Testowa" });
+    const retryButton = target.getByRole("button", {
+      name: "Ponów tę wiadomość",
+      exact: true,
+    });
+    await expect(retryButton).toBeVisible();
+    await expect(
+      target.getByRole("cell").filter({ has: retryButton }),
+    ).toContainText("Odrzucone");
+    page.once("dialog", (dialog) => dialog.accept());
+    await retryButton.click();
+    await expect(page.getByRole("status")).toContainText(
+      "Zakończono próbę tylko tej wiadomości",
+    );
+    await expect(target).toContainText("Przyjęte przez home.pl");
+    await expect(
+      page.getByRole("row").filter({ hasText: "Oczekująca Testowa" }),
+    ).toContainText("Oczekuje");
+    expect(calls).toEqual([
+      { action: "retry", deliveryId: targetId },
+      { action: "process", deliveryId: targetId },
+    ]);
+  });
+});
+
+test("controller sees one real participant list and matching RODO counters", async ({
+  page,
+}) => {
+  const access = JSON.parse(
+    await readFile(".local/controller-access.json", "utf8"),
+  );
+  await page.goto("/admin/login");
+  await page.getByLabel("Adres e-mail", { exact: true }).fill(access.email);
+  await page.getByLabel("Hasło", { exact: true }).fill(access.password);
+  await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Weryfikacja danych", exact: true }),
+  ).toBeVisible();
+  const events = await (await page.request.get("/api/admin/events")).json();
+  const base = "/api/admin/events/" + events[0].id;
+  const overview = await (await page.request.get(base)).json();
+  expect(overview.people.every((p: { isTest: boolean }) => !p.isTest)).toBe(
+    true,
+  );
+  await expect(page.locator("tbody tr")).toHaveCount(overview.people.length);
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("link", { name: "RODO — podgląd", exact: true }).click();
+  const privacy = await (await page.request.get(base + "/privacy")).json();
+  const confirmed = privacy.people.filter(
+    (p: { acknowledgedAt: string | null }) => p.acknowledgedAt,
+  ).length;
+  const summary = page.getByLabel("Podsumowanie RODO", { exact: true });
+  await expect(
+    summary
+      .locator(".stat")
+      .filter({ hasText: "Potwierdzili" })
+      .locator("strong"),
+  ).toHaveText(String(confirmed));
+  await expect(
+    summary
+      .locator(".stat")
+      .filter({ hasText: "Bez potwierdzenia" })
+      .locator("strong"),
+  ).toHaveText(String(privacy.people.length - confirmed));
+  await expect(
+    summary
+      .locator(".stat")
+      .filter({ hasText: "Uczestnicy" })
+      .locator("strong"),
+  ).toHaveText(String(overview.people.length));
+  await expect(page.locator("tbody tr")).toHaveCount(privacy.people.length);
+  // Simulate newly received read-only data without changing any consent.
+  const changed = {
+    ...privacy,
+    people: privacy.people.map(
+      (p: { acknowledgedAt: string | null }, i: number) =>
+        i === 0
+          ? {
+              ...p,
+              acknowledgedAt: p.acknowledgedAt
+                ? null
+                : new Date().toISOString(),
+            }
+          : p,
+    ),
+  };
+  await page.route("**" + base + "/privacy", (route) =>
+    route.fulfill({ json: changed }),
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    summary
+      .locator(".stat")
+      .filter({ hasText: "Potwierdzili" })
+      .locator("strong"),
+  ).toHaveText(String(confirmed + (privacy.people[0].acknowledgedAt ? -1 : 1)));
+  if (await menu.isVisible()) await menu.click();
+  await page
+    .getByRole("link", { name: "Raporty i eksporty", exact: true })
+    .click();
+  await expect(
+    page.getByText("Gość Demonstracyjny", { exact: true }),
+  ).toHaveCount(0);
 });

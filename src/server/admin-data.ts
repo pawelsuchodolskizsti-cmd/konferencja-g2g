@@ -1,3 +1,4 @@
+import { syncOrganizationalParticipant } from "./organizational-sync";
 import { materialsUnlocked } from "./material-access";
 import { realParticipant, testParticipant } from "./participant-scope";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -88,14 +89,14 @@ export async function participantList(eventId: string, includeTest = false) {
     accessCode: String(JSON.parse(decrypt(credentials)).accessCode),
   }));
 }
-export async function eventOverview(eventId: string) {
+export async function eventOverview(eventId: string, includeTest = true) {
   const [event] = await db()
     .select()
     .from(events)
     .where(eq(events.id, eventId));
   assert(event, 404, "Nie znaleziono wydarzenia.");
   const [people, courses, audit, files] = await Promise.all([
-    participantList(eventId, true),
+    participantList(eventId, includeTest),
     db()
       .select({
         id: trainingCourses.id,
@@ -211,6 +212,11 @@ export async function updateParticipant(
     })
     .parse(input);
   return database.transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [current] = await tx
       .select()
       .from(participants)
@@ -242,15 +248,22 @@ export async function updateParticipant(
       .update(participants)
       .set({ ...value, updatedAt: new Date() })
       .where(and(eq(participants.id, id), eq(participants.eventId, eventId)))
-      .returning({ id: participants.id });
+      .returning();
     assert(p, 404, "Brak uczestnika.");
+    if (
+      current.firstName !== p.firstName ||
+      current.lastName !== p.lastName ||
+      current.email !== p.email ||
+      current.secondaryEmail !== p.secondaryEmail
+    )
+      await syncOrganizationalParticipant(tx, p);
     await tx.insert(auditLogs).values({
       eventId,
       adminId,
       action: "PARTICIPANT_UPDATED",
       targetId: id,
     });
-    return p;
+    return { id: p.id };
   });
 }
 export async function deleteParticipant(

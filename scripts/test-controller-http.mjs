@@ -38,6 +38,28 @@ const cookie = (await request("/api/auth/admin", "", "POST", account)).headers
   .get("set-cookie")
   .split(";")[0];
 const overview = await (await request(base, cookie)).json();
+const adminOverview = await (await request(base, adminCookie)).json();
+assert.ok(
+  adminOverview.people.some((p) => p.isTest),
+  "Fixture must include a test account",
+);
+assert.ok(
+  overview.people.every((p) => !p.isTest),
+  "Controller must not receive test accounts",
+);
+assert.deepEqual(
+  overview.people.map((p) => p.id).sort(),
+  adminOverview.people
+    .filter((p) => !p.isTest)
+    .map((p) => p.id)
+    .sort(),
+);
+const privacy = await (await request(base + "/privacy", cookie)).json();
+assert.deepEqual(
+  privacy.people.map((p) => p.id).sort(),
+  overview.people.map((p) => p.id).sort(),
+  "RODO and export selection must share the same real participants",
+);
 const p = overview.people[0];
 for (const suffix of [
   "/privacy",

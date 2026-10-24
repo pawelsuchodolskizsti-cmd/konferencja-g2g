@@ -235,7 +235,7 @@ export function AdminOrganizational({
     }
   }
 
-  async function runQueue(id: string) {
+  async function runQueue(id: string, deliveryId?: string) {
     if (running.current) return;
     running.current = true;
     setSending(true);
@@ -244,7 +244,7 @@ export function AdminOrganizational({
       for (let iteration = 0; active.current && iteration < 3000; iteration++) {
         const response = await api<Batch>(base + "/" + id + "/process", {
           method: "POST",
-          body: "{}",
+          body: JSON.stringify(deliveryId ? { deliveryId } : {}),
         });
         const current = await refreshDetail(id);
         await refreshCatalog();
@@ -256,11 +256,15 @@ export function AdminOrganizational({
         }
         if (
           !current.deliveries.some(
-            (d) => d.status === "QUEUED" || d.status === "SENDING",
+            (d) =>
+              (!deliveryId || d.id === deliveryId) &&
+              (d.status === "QUEUED" || d.status === "SENDING"),
           )
         ) {
           setNotice(
-            "Zakończono kolejkę. Status „przyjęte” nie oznacza doręczenia do skrzynki.",
+            deliveryId
+              ? "Zakończono próbę tylko tej wiadomości. Sprawdź jej status; przyjęcie przez serwer nie potwierdza doręczenia do skrzynki."
+              : "Zakończono kolejkę. Status „przyjęte” nie oznacza doręczenia do skrzynki.",
           );
           break;
         }
@@ -381,7 +385,7 @@ export function AdminOrganizational({
     } finally {
       setBusy(false);
     }
-    await runQueue(campaignId);
+    await runQueue(campaignId, d.id);
   }
 
   return (
@@ -731,6 +735,18 @@ export function AdminOrganizational({
                           >
                             {label[d.status]}
                           </span>
+                          {d.status === "FAILED" && (
+                            <div className="actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={busy || sending}
+                                onClick={() => void retry(d)}
+                              >
+                                Ponów tę wiadomość
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td>{dateTime(d.lastAttemptAt || d.firstAttemptAt)}</td>
                         <td>{dateTime(d.acceptedAt)}</td>
@@ -744,16 +760,7 @@ export function AdminOrganizational({
                           </small>
                         </td>
                         <td>
-                          {d.status === "FAILED" ? (
-                            <button
-                              type="button"
-                              className="secondary"
-                              disabled={busy || sending}
-                              onClick={() => void retry(d)}
-                            >
-                              Ponów wysyłkę
-                            </button>
-                          ) : d.status === "REVIEW_REQUIRED" ? (
+                          {d.status === "REVIEW_REQUIRED" ? (
                             <div className="actions">
                               <button
                                 type="button"

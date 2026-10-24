@@ -179,14 +179,12 @@ export async function createOrganizational(eventId: string, adminId: string) {
       body: organizationalDefaultBody,
     })
     .returning({ id: organizationalCampaigns.id });
-  await db()
-    .insert(auditLogs)
-    .values({
-      eventId,
-      adminId,
-      action: "ORGANIZATIONAL_DRAFT_CREATED",
-      targetId: created.id,
-    });
+  await db().insert(auditLogs).values({
+    eventId,
+    adminId,
+    action: "ORGANIZATIONAL_DRAFT_CREATED",
+    targetId: created.id,
+  });
   return created;
 }
 
@@ -338,14 +336,12 @@ export async function saveOrganizationalDraft(
     )
     .returning({ id: organizationalCampaigns.id });
   assert(saved, 409, "Nie można edytować kampanii po uruchomieniu.");
-  await db()
-    .insert(auditLogs)
-    .values({
-      eventId,
-      adminId,
-      action: "ORGANIZATIONAL_DRAFT_SAVED",
-      targetId: campaignId,
-    });
+  await db().insert(auditLogs).values({
+    eventId,
+    adminId,
+    action: "ORGANIZATIONAL_DRAFT_SAVED",
+    targetId: campaignId,
+  });
   return { saved: true };
 }
 
@@ -366,6 +362,11 @@ export async function launchOrganizational(
     "Lista uczestników zawiera duplikaty.",
   );
   return db().transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [c] = await tx
       .select()
       .from(organizationalCampaigns)
@@ -451,8 +452,17 @@ type Claim =
   | { type: "waiting"; retryAfterMs: number }
   | { type: "empty" };
 
-async function claimNext(eventId: string, campaignId: string): Promise<Claim> {
+async function claimNext(
+  eventId: string,
+  campaignId: string,
+  deliveryId?: string,
+): Promise<Claim> {
   return db().transaction(async (tx) => {
+    await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .for("update");
     const [c] = await tx
       .select({
         id: organizationalCampaigns.id,
@@ -478,6 +488,7 @@ async function claimNext(eventId: string, campaignId: string): Promise<Claim> {
         and(
           eq(organizationalDeliveries.campaignId, campaignId),
           eq(organizationalDeliveries.status, "QUEUED"),
+          deliveryId ? eq(organizationalDeliveries.id, deliveryId) : undefined,
           lte(organizationalDeliveries.nextAttemptAt, now),
         ),
       )
@@ -495,6 +506,9 @@ async function claimNext(eventId: string, campaignId: string): Promise<Claim> {
           and(
             eq(organizationalDeliveries.campaignId, campaignId),
             eq(organizationalDeliveries.status, "QUEUED"),
+            deliveryId
+              ? eq(organizationalDeliveries.id, deliveryId)
+              : undefined,
           ),
         )
         .orderBy(asc(organizationalDeliveries.nextAttemptAt))
@@ -506,9 +520,18 @@ async function claimNext(eventId: string, campaignId: string): Promise<Claim> {
           }
         : { type: "empty" as const };
     }
-    const recipients = JSON.parse(
-      decrypt(row.recipientsEncrypted),
-    ) as Recipients;
+    const [person] = await tx
+      .select()
+      .from(participants)
+      .where(
+        and(
+          eq(participants.id, row.participantId),
+          eq(participants.eventId, eventId),
+          realParticipant,
+        ),
+      );
+    assert(person, 404, "Nie znaleziono uczestnika.");
+    const recipients = participantMailRecipients(person);
     const [global] = await tx
       .insert(rateLimits)
       .values({
@@ -559,6 +582,8 @@ async function claimNext(eventId: string, campaignId: string): Promise<Claim> {
       .update(organizationalDeliveries)
       .set({
         status: "SENDING",
+        recipientsEncrypted: encrypt(JSON.stringify(recipients)),
+        contentEncrypted: null,
         attempts: row.attempts + 1,
         firstAttemptAt: row.firstAttemptAt ?? stamp,
         lastAttemptAt: stamp,
@@ -644,10 +669,23 @@ export async function processOrganizational(
   eventId: string,
   campaignId: string,
   adminId: string,
+  deliveryId?: string,
 ) {
   const { password, event } = await config(eventId);
   const c = await campaign(eventId, campaignId);
   assert(c.launchedAt, 409, "Najpierw zatwierdź listę odbiorców.");
+  if (deliveryId) {
+    const [target] = await db()
+      .select({ id: organizationalDeliveries.id })
+      .from(organizationalDeliveries)
+      .where(
+        and(
+          eq(organizationalDeliveries.id, deliveryId),
+          eq(organizationalDeliveries.campaignId, campaignId),
+        ),
+      );
+    assert(target, 404, "Nie znaleziono wiadomości w tej kampanii.");
+  }
   await reconcileOrganizational(eventId, campaignId, adminId);
   let sent = 0,
     errors = 0,
@@ -655,7 +693,7 @@ export async function processOrganizational(
     stopped = false;
   const started = Date.now();
   for (let i = 0; i < 5 && Date.now() - started < 20000; i++) {
-    const claim = await claimNext(eventId, campaignId);
+    const claim = await claimNext(eventId, campaignId, deliveryId);
     if (claim.type === "empty") break;
     if (claim.type === "waiting") {
       retryAfterMs = claim.retryAfterMs;
@@ -681,28 +719,22 @@ export async function processOrganizational(
         "Adres uczestnika zmienił się po zatwierdzeniu kampanii.",
       );
       const values = variables(person, event);
-      const content = row.contentEncrypted
-        ? (JSON.parse(decrypt(row.contentEncrypted)) as {
-            subject: string;
-            html: string;
-          })
-        : {
-            subject: renderOrganizationalSubject(c.subject, values),
-            html:
-              '<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.6">' +
-              renderOrganizationalBody(c.body, values) +
-              "</div></body></html>",
-          };
-      if (!row.contentEncrypted)
-        await db()
-          .update(organizationalDeliveries)
-          .set({ contentEncrypted: encrypt(JSON.stringify(content)) })
-          .where(
-            and(
-              eq(organizationalDeliveries.id, row.id),
-              eq(organizationalDeliveries.leaseToken, row.leaseToken!),
-            ),
-          );
+      const content = {
+        subject: renderOrganizationalSubject(c.subject, values),
+        html:
+          '<!doctype html><html lang="pl"><head><meta charset="utf-8"></head><body><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#122c3a;line-height:1.6">' +
+          renderOrganizationalBody(c.body, values) +
+          "</div></body></html>",
+      };
+      await db()
+        .update(organizationalDeliveries)
+        .set({ contentEncrypted: encrypt(JSON.stringify(content)) })
+        .where(
+          and(
+            eq(organizationalDeliveries.id, row.id),
+            eq(organizationalDeliveries.leaseToken, row.leaseToken!),
+          ),
+        );
       const receipt = await sendSmtp(
         {
           from: SENDER,
