@@ -47,7 +47,7 @@ test("administrator signs in and sees imported participants", async ({
     "10:00",
   );
 });
-test("participant sees entry QR while courses stay locked and can download a PDF", async ({
+test("checked-in participant keeps ticket navigation without QR while courses stay locked and PDF works", async ({
   page,
 }) => {
   const access = JSON.parse(
@@ -63,8 +63,11 @@ test("participant sees entry QR while courses stay locked and can download a PDF
   await page.getByLabel("Twój kod dostępu").fill(access.code);
   await page.locator('input[name="privacyAcknowledged"]').check();
   await page.getByRole("button", { name: "Wejdź do strefy" }).click();
-  await expect(page.getByRole("heading", { name: "Kod QR do wejścia" })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Indywidualny kod QR do potwierdzenia obecności" })).toBeVisible();
+  // test:http has already checked this synthetic participant in.
+  await expect(page.getByLabel("Bilet wykorzystany", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Bilet wykorzystany", { exact: true })).toContainText("01");
+  await expect(page.getByRole("heading", { name: "Kod QR do wejścia" })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Indywidualny kod QR do potwierdzenia obecności" })).toHaveCount(0);
   // Keep the whole "Certyfikat" label inside its single navigation cell on narrow phones.
   const initialViewport = page.viewportSize()!;
   for (const width of [320, 375, 390]) {
@@ -146,4 +149,35 @@ test("frozen sponsor layout uses seven correctly sized independent crops", async
       expect(Math.abs(box!.width / box!.height - ratio)).toBeLessThan(0.01);
     }
   }
+});
+
+test("organizational draft saves and previews without starting delivery", async ({ page }) => {
+  const access = JSON.parse(await readFile(".local/access.json", "utf8"));
+  const deliveryRequests: string[] = [];
+  // Even a regression cannot dispatch mail in this browser test.
+  await page.route(/\/organizational\/[^/]+\/(launch|process|retry)$/, async (route) => {
+    deliveryRequests.push(route.request().url());
+    await route.abort();
+  });
+  await page.goto("/admin/login");
+  await page.getByLabel("Adres e-mail", { exact: true }).fill(access.email);
+  await page.getByLabel("Hasło", { exact: true }).fill(access.password);
+  await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await page.goto("/admin?section=organizational");
+  await expect(page.getByRole("heading", { name: "Wiadomości organizacyjne", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Nowy szkic", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Szkic wiadomości", exact: true })).toBeVisible();
+  const subject = "Test E2E {{firstName}} " + Date.now();
+  await page.getByLabel("Temat wiadomości organizacyjnej", { exact: true }).fill(subject);
+  await page.getByLabel("Treść wiadomości organizacyjnej", { exact: true })
+    .fill("Witaj {{firstName}}, Twój kod: {{accessCode}}. <b>Informacja testowa</b>");
+  await page.getByRole("button", { name: "Zapisz szkic", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Szkic zapisany");
+  await expect(page.getByRole("button", { name: "Zatwierdź i rozpocznij wysyłkę do 0 osób", exact: true })).toBeDisabled();
+  await expect(page.locator("strong").filter({ hasText: /^Informacja testowa$/ }).or(page.locator("b").filter({ hasText: /^Informacja testowa$/ }))).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Temat wiadomości organizacyjnej", { exact: true })).toHaveValue(subject);
+  await expect(page.getByLabel("Treść wiadomości organizacyjnej", { exact: true })).toHaveValue(/Twój kod/);
+  expect(deliveryRequests).toEqual([]);
 });
