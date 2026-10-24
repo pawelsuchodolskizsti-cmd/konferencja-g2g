@@ -20,6 +20,7 @@ CREATE TABLE "organizational_deliveries" (
   "attempts" integer NOT NULL DEFAULT 0,
   "next_attempt_at" timestamp with time zone DEFAULT now() NOT NULL,
   "first_attempt_at" timestamp with time zone,
+  "last_attempt_at" timestamp with time zone,
   "accepted_at" timestamp with time zone,
   "lease_token" uuid,
   "lease_until" timestamp with time zone,

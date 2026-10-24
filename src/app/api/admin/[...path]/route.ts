@@ -1,3 +1,12 @@
+import {
+  listOrganizational,
+  createOrganizational,
+  getOrganizational,
+  saveOrganizationalDraft,
+  launchOrganizational,
+  processOrganizational,
+  retryOrganizational,
+} from "@/server/organizational-mail";
 import { privacyRecords, exportPrivacyRecords } from "@/server/privacy-records";
 import { setMaterialsUnlocked } from "@/server/material-access";
 import {
@@ -113,6 +122,30 @@ async function handle(req: Request, ctx: Context) {
       db(),
       adminPermission(req.method, path),
     );
+    if (action === "organizational") {
+      if (path.length === 3 && req.method === "GET")
+        return Response.json(await listOrganizational(eventId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      if (path.length === 3 && req.method === "POST")
+        return Response.json(await createOrganizational(eventId, admin.id), { status: 201 });
+      const campaignId = z.uuid().parse(path[3]);
+      if (path.length === 4 && req.method === "GET")
+        return Response.json(await getOrganizational(eventId, campaignId), {
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      if (path.length === 5 && path[4] === "draft" && req.method === "POST")
+        return Response.json(await saveOrganizationalDraft(eventId, campaignId, admin.id, await jsonBody(req)));
+      if (path.length === 5 && path[4] === "launch" && req.method === "POST")
+        return Response.json(await launchOrganizational(eventId, campaignId, admin.id, await jsonBody(req)));
+      if (path.length === 5 && path[4] === "process" && req.method === "POST")
+        return Response.json(await processOrganizational(eventId, campaignId, admin.id));
+      if (path.length === 5 && path[4] === "retry" && req.method === "POST") {
+        const { deliveryId } = z.object({ deliveryId: z.uuid() }).strict().parse(await jsonBody(req));
+        return Response.json(await retryOrganizational(eventId, campaignId, deliveryId, admin.id));
+      }
+      throw new AppError(404, "Nie znaleziono operacji.");
+    }
     if (action === "privacy" && path[3] === "records" && req.method === "GET")
       return Response.json(await privacyRecords(eventId), {
         headers: { "Cache-Control": "private, no-store" },

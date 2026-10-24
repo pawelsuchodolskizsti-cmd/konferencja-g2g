@@ -417,6 +417,7 @@ export const organizationalDeliveries = pgTable(
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: created("next_attempt_at"),
     firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     leaseToken: uuid("lease_token"),
     leaseUntil: timestamp("lease_until", { withTimezone: true }),
