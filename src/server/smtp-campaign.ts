@@ -533,6 +533,7 @@ export async function sendSelectedSmtp(
       and(
         eq(participants.id, value.participantId),
         eq(participants.eventId, eventId),
+        realParticipant,
       ),
     );
   assert(person, 404, "Nie znaleziono uczestnika w tej konferencji.");
@@ -569,6 +570,7 @@ async function sendSingleSmtp(
             and(
               eq(participants.id, participantId),
               eq(participants.eventId, eventId),
+              ...(selected ? [realParticipant] : []),
             ),
           )
       )[0]

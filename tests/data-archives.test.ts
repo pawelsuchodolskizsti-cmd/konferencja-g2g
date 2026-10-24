@@ -4,7 +4,6 @@ import { drizzle } from "drizzle-orm/pglite";
 import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { unzipSync } from "fflate";
-import { PDFDocument } from "pdf-lib";
 import * as s from "../src/db/schema";
 import { adminPermission } from "../src/lib/admin-permissions";
 const state = vi.hoisted(() => ({ database: undefined as unknown }));
@@ -78,7 +77,7 @@ beforeAll(async () => {
   ).id;
 });
 afterAll(() => pg.close());
-test("archive contains reports and invitations, encrypts payload and isolates events", async () => {
+test("archive contains reports and organizational messages, encrypts payload and isolates events", async () => {
   const a = await createArchive(eventId, adminId);
   expect(a.participantCount).toBe(2);
   expect((await listArchives(eventId))[0].id).toBe(a.id);
@@ -90,10 +89,11 @@ test("archive contains reports and invitations, encrypts payload and isolates ev
   const files = unzipSync(bytes);
   expect(Object.keys(files)).toContain("attendance.csv");
   expect(Object.keys(files)).toContain("ankieta.xlsx");
-  expect(Object.keys(files)).toContain("zaproszenia-1-2.pdf");
+  expect(Object.keys(files).some((name) => name.endsWith(".pdf"))).toBe(false);
   expect(
-    (await PDFDocument.load(files["zaproszenia-1-2.pdf"])).getPageCount(),
-  ).toBe(2);
+    JSON.parse(new TextDecoder().decode(files["wiadomosci-organizacyjne.json"]))
+      .campaigns,
+  ).toEqual([]);
   expect(
     (await database.select().from(s.dataArchives))[0].payload,
   ).not.toContain("Kowalski");

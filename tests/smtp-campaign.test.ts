@@ -690,3 +690,40 @@ test("selected delivery with ambiguous SMTP result cannot be sent again on repla
   });
   expect(vi.mocked(sendSmtp).mock.calls.length).toBe(before + 1);
 });
+
+test("test accounts are rejected by manual recipient send without sending or changing participant data", async () => {
+  const { sendSelectedSmtp } = await import("../src/server/smtp-campaign");
+  const [person] = await database
+    .insert(s.participants)
+    .values({
+      ...newCredentials(),
+      eventId,
+      firstName: "Excluded",
+      lastName: "Demo",
+      email: "excluded@example.test",
+    })
+    .returning();
+  await database
+    .insert(s.auditLogs)
+    .values({
+      eventId,
+      targetId: person.id,
+      action: "PARTICIPANT_TEST_ACCOUNT",
+    });
+  const sentBefore = fixture.sent.length;
+  await expect(
+    sendSelectedSmtp(eventId, adminId, {
+      participantId: person.id,
+      requestId: crypto.randomUUID(),
+    }),
+  ).rejects.toMatchObject({ status: 404 });
+  expect(fixture.sent).toHaveLength(sentBefore);
+  expect(
+    (
+      await database
+        .select()
+        .from(s.participants)
+        .where(eq(s.participants.id, person.id))
+    )[0],
+  ).toEqual(person);
+});

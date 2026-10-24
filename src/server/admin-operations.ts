@@ -1,4 +1,4 @@
-import { pdfStream } from "./incremental-pdf";
+import { materialContent } from "./material-content";
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -12,7 +12,6 @@ import {
   emailLogs,
   events,
   importBatches,
-  invitationSettings,
   materials,
   participants,
   participantTrainingAccess,
@@ -603,43 +602,6 @@ export async function saveTeamMember(
     return { saved: true };
   });
 }
-export async function invitationConfig(eventId: string) {
-  const [config] = await db()
-    .select()
-    .from(invitationSettings)
-    .where(eq(invitationSettings.eventId, eventId));
-  return (
-    config || {
-      title: "ZAPROSZENIE",
-      message: "Zapraszamy do udziału w konferencji.",
-    }
-  );
-}
-export async function saveInvitation(
-  eventId: string,
-  adminId: string,
-  input: unknown,
-) {
-  const data = z
-    .object({
-      title: z.string().trim().min(1).max(50),
-      message: z.string().trim().min(1).max(180),
-    })
-    .parse(input);
-  await db().transaction(async (tx) => {
-    await tx
-      .insert(invitationSettings)
-      .values({ eventId, ...data })
-      .onConflictDoUpdate({
-        target: invitationSettings.eventId,
-        set: { ...data, updatedAt: new Date() },
-      });
-    await tx
-      .insert(auditLogs)
-      .values({ eventId, adminId, action: "INVITATION_TEMPLATE_UPDATED" });
-  });
-  return { saved: true };
-}
 export async function manageMaterial(
   eventId: string,
   adminId: string,
@@ -654,18 +616,13 @@ export async function manageMaterial(
     .where(and(eq(materials.eventId, eventId), eq(materials.id, id)));
   assert(item, 404, "Brak materiału.");
   if (method === "GET")
-    return new Response(
-      pdfStream([
-        new Uint8Array(Buffer.from(decrypt(item.encryptedContent), "base64")),
-      ]),
-      {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'inline; filename="material.pdf"',
-          "Cache-Control": "private, no-store",
-        },
+    return new Response(materialContent(item.encryptedContent), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'inline; filename="material.pdf"',
+        "Cache-Control": "private, no-store",
       },
-    );
+    });
   if (method === "DELETE") {
     await db()
       .delete(materials)
@@ -674,7 +631,7 @@ export async function manageMaterial(
     assert(
       file.size > 0 && file.size <= 2 * 1024 * 1024,
       400,
-      "Limit PDF: 2 MB.",
+      "Odśwież panel i użyj zastępowania PDF w sekcji Materiały, która przesyła plik w częściach.",
     );
     const bytes = Buffer.from(await file.arrayBuffer());
     assert(

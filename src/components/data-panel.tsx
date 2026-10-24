@@ -75,7 +75,7 @@ export function DataPanel({
         <h2>Archiwa konferencji</h2>
         <p>
           „Utwórz archiwum” zapisuje na serwerze paczkę ZIP: listę uczestników i
-          kodów CSV/Excel, wielostronicowe PDF zaproszeń (po 50 osób),
+          kodów CSV/Excel, pełne zestawienie kampanii organizacyjnych,
           obecności, raport certyfikatów, RODO, ankietę CSV/Excel, historię oraz
           ustawienia konferencji. Wcześniej pobrane pliki nie są dodawane
           automatycznie.
@@ -98,6 +98,40 @@ export function DataPanel({
           >
             {busy ? "Trwa operacja…" : "Utwórz archiwum"}
           </button>
+        )}
+        {!readOnly && (
+          <p>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  const result = await api<{
+                    auditRowsVerified: number;
+                    auditRowsMigrated: number;
+                    exactValuesVerified: boolean;
+                  }>(base + "/audit-encryption", {
+                    method: "POST",
+                    body: "{}",
+                  });
+                  setNotice(
+                    "Szyfrowanie historii sprawdzone. Wpisy: " +
+                      result.auditRowsVerified +
+                      ", zaszyfrowane starsze wpisy: " +
+                      result.auditRowsMigrated +
+                      ". Zgodność treści: " +
+                      (result.exactValuesVerified
+                        ? "potwierdzona"
+                        : "niepotwierdzona") +
+                      ".",
+                  );
+                })
+              }
+            >
+              Sprawdź szyfrowanie historii
+            </button>
+          </p>
         )}
         {error && (
           <p role="alert" className="error">

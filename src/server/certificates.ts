@@ -12,7 +12,13 @@ async function certificateInput(participantId: string, database: Database) {
   assert(
     certificateAvailable(event),
     403,
-    "Certyfikat będzie dostępny po zakończeniu konferencji.",
+    "Certyfikat będzie dostępny od " +
+      new Intl.DateTimeFormat("pl-PL", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: event.timezone,
+      }).format(event.certificateUnlockAt) +
+      ".",
   );
   const [existing] = await database
     .select()

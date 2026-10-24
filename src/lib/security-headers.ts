@@ -1,10 +1,10 @@
-// Enforce low-risk restrictions now. Resource restrictions remain report-only
-// until browser verification covers all participant/admin flows.
-export const enforcedCsp =
-  "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'";
-export const reportOnlyCsp = [
+// Enforced in production and in the production-build E2E suite.
+// Inline styles and Next.js bootstrap scripts remain compatible; inline event
+// handlers, foreign resource origins, framing and object embedding are blocked.
+export const enforcedCsp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

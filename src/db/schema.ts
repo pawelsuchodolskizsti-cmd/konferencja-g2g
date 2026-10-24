@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { protectedText, protectedImportRows } from "./pii.ts";
+import { protectedAuditAction } from "./audit-pii.ts";
 
 const id = () => uuid("id").defaultRandom().primaryKey();
 const created = (name = "created_at") =>
@@ -262,7 +263,7 @@ export const auditLogs = pgTable("audit_logs", {
   adminId: uuid("admin_id").references(() => admins.id, {
     onDelete: "set null",
   }),
-  action: text("action").notNull(),
+  action: protectedAuditAction("action").notNull(),
   targetId: uuid("target_id"),
   createdAt: created(),
 });
@@ -411,9 +412,12 @@ export const organizationalDeliveries = pgTable(
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
     recipientsEncrypted: text("recipients_encrypted").notNull(),
+    contentEncrypted: text("content_encrypted"),
     status: text("status", {
       enum: ["QUEUED", "SENDING", "ACCEPTED", "FAILED", "REVIEW_REQUIRED"],
-    }).notNull().default("QUEUED"),
+    })
+      .notNull()
+      .default("QUEUED"),
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: created("next_attempt_at"),
     firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }),
@@ -427,7 +431,14 @@ export const organizationalDeliveries = pgTable(
     createdAt: created(),
   },
   (t) => [
-    uniqueIndex("organizational_delivery_once").on(t.campaignId, t.participantId),
-    index("organizational_delivery_queue").on(t.campaignId, t.status, t.nextAttemptAt),
+    uniqueIndex("organizational_delivery_once").on(
+      t.campaignId,
+      t.participantId,
+    ),
+    index("organizational_delivery_queue").on(
+      t.campaignId,
+      t.status,
+      t.nextAttemptAt,
+    ),
   ],
 );

@@ -9,28 +9,51 @@ import {
 } from "@/lib/organizational-mail";
 
 type Person = {
-  id: string; firstName: string; lastName: string;
-  email: string; secondaryEmail: string | null;
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  secondaryEmail: string | null;
 };
 type Delivery = {
-  id: string; participantId: string; firstName: string; lastName: string;
+  id: string;
+  participantId: string;
+  firstName: string;
+  lastName: string;
   recipients: { to: string; cc?: string };
   status: "QUEUED" | "SENDING" | "ACCEPTED" | "FAILED" | "REVIEW_REQUIRED";
-  attempts: number; firstAttemptAt: string | null; lastAttemptAt: string | null;
-  acceptedAt: string | null; errorCode: string | null;
-  messageId: string; smtpQueueId: string | null; nextAttemptAt: string;
+  attempts: number;
+  firstAttemptAt: string | null;
+  lastAttemptAt: string | null;
+  acceptedAt: string | null;
+  errorCode: string | null;
+  messageId: string;
+  smtpQueueId: string | null;
+  nextAttemptAt: string;
 };
 type CampaignSummary = {
-  id: string; subject: string; createdAt: string;
-  launchedAt: string | null; updatedAt: string;
+  id: string;
+  subject: string;
+  createdAt: string;
+  launchedAt: string | null;
+  updatedAt: string;
   stats: Record<string, number>;
 };
 type Catalog = { people: Person[]; campaigns: CampaignSummary[] };
 type Campaign = {
-  id: string; subject: string; body: string;
-  createdAt: string; launchedAt: string | null; deliveries: Delivery[];
+  id: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  launchedAt: string | null;
+  deliveries: Delivery[];
 };
-type Batch = { sent: number; errors: number; retryAfterMs: number; stopped: boolean };
+type Batch = {
+  sent: number;
+  errors: number;
+  retryAfterMs: number;
+  stopped: boolean;
+};
 
 const label: Record<Delivery["status"], string> = {
   QUEUED: "Oczekuje",
@@ -41,9 +64,18 @@ const label: Record<Delivery["status"], string> = {
 };
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function AdminOrganizational({ eventId, event }: { eventId: string; event: EventData }) {
+export function AdminOrganizational({
+  eventId,
+  event,
+}: {
+  eventId: string;
+  event: EventData;
+}) {
   const base = "/api/admin/events/" + eventId + "/organizational";
-  const [catalog, setCatalog] = useState<Catalog>({ people: [], campaigns: [] });
+  const [catalog, setCatalog] = useState<Catalog>({
+    people: [],
+    campaigns: [],
+  });
   const [campaignId, setCampaignId] = useState("");
   const [detail, setDetail] = useState<Campaign | null>(null);
   const [subject, setSubject] = useState("");
@@ -58,10 +90,13 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
   const dirty = useRef(false);
   const active = useRef(true);
   const running = useRef(false);
+  const selectedCampaign = useRef("");
 
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; };
+    return () => {
+      active.current = false;
+    };
   }, []);
 
   const refreshCatalog = useCallback(async () => {
@@ -70,28 +105,40 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
     setCatalog(result);
     setCampaignId((id) =>
       id && result.campaigns.some((c) => c.id === id)
-        ? id : result.campaigns[0]?.id || ""
+        ? id
+        : result.campaigns[0]?.id || "",
     );
     return result;
   }, [base]);
-  const refreshDetail = useCallback(async (id: string) => {
-    const result = await api<Campaign>(base + "/" + id);
-    if (!active.current) return result;
-    setDetail((previous) => previous?.id === id || !previous ? result : previous);
-    if (!dirty.current) {
-      setSubject(result.subject);
-      setBody(result.body);
-    }
-    return result;
-  }, [base]);
+  const refreshDetail = useCallback(
+    async (id: string) => {
+      await api(base + "/" + id + "/reconcile", { method: "POST", body: "{}" });
+      const result = await api<Campaign>(base + "/" + id);
+      if (!active.current || selectedCampaign.current !== id) return result;
+      setDetail(result);
+      if (!dirty.current) {
+        setSubject(result.subject);
+        setBody(result.body);
+      }
+      return result;
+    },
+    [base],
+  );
 
   useEffect(() => {
-    void refreshCatalog().catch((e) => setError(e instanceof Error ? e.message : "Nie można wczytać uczestników."));
+    void refreshCatalog().catch((e) =>
+      setError(
+        e instanceof Error ? e.message : "Nie można wczytać uczestników.",
+      ),
+    );
   }, [refreshCatalog]);
   useEffect(() => {
     if (!campaignId) return;
+    selectedCampaign.current = campaignId;
     dirty.current = false;
-    void refreshDetail(campaignId).catch((e) => setError(e instanceof Error ? e.message : "Nie można wczytać kampanii."));
+    void refreshDetail(campaignId).catch((e) =>
+      setError(e instanceof Error ? e.message : "Nie można wczytać kampanii."),
+    );
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
         void refreshDetail(campaignId).catch(() => undefined);
@@ -103,30 +150,51 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
   const activeCampaign = detail?.id === campaignId ? detail : null;
   const launched = !!activeCampaign?.launchedAt;
   const filtered = catalog.people.filter((p) =>
-    (p.firstName + " " + p.lastName + " " + p.email + " " + (p.secondaryEmail || ""))
-      .toLocaleLowerCase("pl").includes(query.trim().toLocaleLowerCase("pl"))
+    (
+      p.firstName +
+      " " +
+      p.lastName +
+      " " +
+      p.email +
+      " " +
+      (p.secondaryEmail || "")
+    )
+      .toLocaleLowerCase("pl")
+      .includes(query.trim().toLocaleLowerCase("pl")),
   );
-  const chosen = catalog.people.find((p) => p.id === selected[0]) || catalog.people[0];
+  const chosen =
+    catalog.people.find((p) => p.id === selected[0]) || catalog.people[0];
   const previewValues: OrganizationalTemplateValues = {
     firstName: chosen?.firstName || "Anna",
     lastName: chosen?.lastName || "Przykładowa",
     eventName: event.name,
     date: new Intl.DateTimeFormat("pl-PL", {
-      dateStyle: "long", timeStyle: "short", timeZone: event.timezone,
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: event.timezone,
     }).format(new Date(event.startsAt)),
     location: event.location,
     accessCode: "ABC123",
     panelUrl: (origin || "https://konferencja-g2g.pl") + "/uczestnik",
   };
-  const summary = activeCampaign?.deliveries.reduce((stats, d) => {
-    stats[d.status] = (stats[d.status] || 0) + 1;
-    return stats;
-  }, {} as Record<Delivery["status"], number>) || {} as Record<Delivery["status"], number>;
+  const summary =
+    activeCampaign?.deliveries.reduce(
+      (stats, d) => {
+        stats[d.status] = (stats[d.status] || 0) + 1;
+        return stats;
+      },
+      {} as Record<Delivery["status"], number>,
+    ) || ({} as Record<Delivery["status"], number>);
 
   async function create() {
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true);
+    setError("");
+    setNotice("");
     try {
-      const result = await api<{ id: string }>(base, { method: "POST", body: "{}" });
+      const result = await api<{ id: string }>(base, {
+        method: "POST",
+        body: "{}",
+      });
       dirty.current = false;
       setSelected([]);
       setDetail(null);
@@ -134,7 +202,9 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
       setCampaignId(result.id);
       setNotice("Utworzono szkic. Żadna wiadomość nie została wysłana.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się utworzyć szkicu.");
+      setError(
+        e instanceof Error ? e.message : "Nie udało się utworzyć szkicu.",
+      );
     } finally {
       setBusy(false);
     }
@@ -142,10 +212,13 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
 
   async function save() {
     if (!activeCampaign || launched) return false;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true);
+    setError("");
+    setNotice("");
     try {
       await api(base + "/" + campaignId + "/draft", {
-        method: "POST", body: JSON.stringify({ subject, body }),
+        method: "POST",
+        body: JSON.stringify({ subject, body }),
       });
       dirty.current = false;
       await refreshDetail(campaignId);
@@ -153,7 +226,9 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
       setNotice("Szkic zapisany. Niczego nie wysłano.");
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się zapisać szkicu.");
+      setError(
+        e instanceof Error ? e.message : "Nie udało się zapisać szkicu.",
+      );
       return false;
     } finally {
       setBusy(false);
@@ -163,26 +238,42 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
   async function runQueue(id: string) {
     if (running.current) return;
     running.current = true;
-    setSending(true); setError("");
+    setSending(true);
+    setError("");
     try {
       for (let iteration = 0; active.current && iteration < 3000; iteration++) {
         const response = await api<Batch>(base + "/" + id + "/process", {
-          method: "POST", body: "{}",
+          method: "POST",
+          body: "{}",
         });
         const current = await refreshDetail(id);
         await refreshCatalog();
         if (response.stopped) {
-          setError("Wysyłka zatrzymana po błędzie wymagającym sprawdzenia. Zweryfikuj statusy przed wznowieniem.");
+          setError(
+            "Wysyłka zatrzymana po błędzie wymagającym sprawdzenia. Zweryfikuj statusy przed wznowieniem.",
+          );
           break;
         }
-        if (!current.deliveries.some((d) => d.status === "QUEUED")) {
-          setNotice("Zakończono kolejkę. Status „przyjęte” nie oznacza doręczenia do skrzynki.");
+        if (
+          !current.deliveries.some(
+            (d) => d.status === "QUEUED" || d.status === "SENDING",
+          )
+        ) {
+          setNotice(
+            "Zakończono kolejkę. Status „przyjęte” nie oznacza doręczenia do skrzynki.",
+          );
           break;
         }
-        await pause(Math.min(30000, Math.max(1000, response.retryAfterMs || 1500)));
+        await pause(
+          Math.min(30000, Math.max(1000, response.retryAfterMs || 1500)),
+        );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się dokończyć kolejki. Sprawdź historię przed wznowieniem.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Nie udało się dokończyć kolejki. Sprawdź historię przed wznowieniem.",
+      );
     } finally {
       running.current = false;
       if (active.current) setSending(false);
@@ -191,22 +282,36 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
 
   async function launch() {
     if (!activeCampaign || launched || selected.length === 0) return;
-    if (!window.confirm(
-      "Uruchomić osobną kampanię organizacyjną dla " + selected.length +
-      " uczestników? Każdy dostanie jeden e-mail, a drugi adres (jeśli podano) znajdzie się w DW. " +
-      "Lista odbiorców i treść zostaną zablokowane. Nie można cofnąć wysłania."
-    )) return;
+    if (
+      !window.confirm(
+        "Uruchomić osobną kampanię organizacyjną dla " +
+          selected.length +
+          " uczestników? Każdy dostanie jeden e-mail, a drugi adres (jeśli podano) znajdzie się w DW. " +
+          "Lista odbiorców i treść zostaną zablokowane. Nie można cofnąć wysłania.",
+      )
+    )
+      return;
     if (!(await save())) return;
     setBusy(true);
     try {
-      const { queued } = await api<{ queued: number }>(base + "/" + campaignId + "/launch", {
-        method: "POST", body: JSON.stringify({ ids: selected }),
-      });
-      setNotice("Przygotowano " + queued + " wiadomości. Wysyłka rozpoczyna się po zatwierdzeniu.");
+      const { queued } = await api<{ queued: number }>(
+        base + "/" + campaignId + "/launch",
+        {
+          method: "POST",
+          body: JSON.stringify({ ids: selected }),
+        },
+      );
+      setNotice(
+        "Przygotowano " +
+          queued +
+          " wiadomości. Wysyłka rozpoczyna się po zatwierdzeniu.",
+      );
       await refreshDetail(campaignId);
       await refreshCatalog();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się uruchomić kampanii.");
+      setError(
+        e instanceof Error ? e.message : "Nie udało się uruchomić kampanii.",
+      );
       return;
     } finally {
       setBusy(false);
@@ -214,23 +319,68 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
     await runQueue(campaignId);
   }
 
+  async function resolve(d: Delivery, outcome: "ACCEPTED" | "NOT_ACCEPTED") {
+    if (busy || sending || d.status !== "REVIEW_REQUIRED") return;
+    const answer = window.prompt(
+      (outcome === "ACCEPTED"
+        ? "Potwierdzasz w home.pl przyjęcie tej konkretnej wiadomości."
+        : "Potwierdzasz w home.pl, że ta konkretna wiadomość NIE została przyjęta. Błędne potwierdzenie może spowodować podwójną wysyłkę.") +
+        " Identyfikator: " +
+        d.messageId +
+        ". Wpisz SPRAWDZONO W HOME.PL.",
+    );
+    if (answer !== "SPRAWDZONO W HOME.PL") return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(base + "/" + campaignId + "/resolve", {
+        method: "POST",
+        body: JSON.stringify({
+          deliveryId: d.id,
+          outcome,
+          confirmation: answer,
+        }),
+      });
+      await refreshDetail(campaignId);
+      await refreshCatalog();
+      setNotice("Zapisano wynik weryfikacji. Nie wysłano wiadomości.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nie zapisano wyniku.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function retry(d: Delivery) {
     if (d.status !== "FAILED" || busy || sending) return;
-    if (!window.confirm(
-      "Ponowić jedną wiadomość dla " + d.firstName + " " + d.lastName +
-      "? Operacja jest dozwolona, ponieważ serwer nie potwierdził przyjęcia wcześniejszej próby."
-    )) return;
-    setBusy(true); setError(""); setNotice("");
+    if (
+      !window.confirm(
+        "Ponowić jedną wiadomość dla " +
+          d.firstName +
+          " " +
+          d.lastName +
+          "? Operacja jest dozwolona, ponieważ serwer nie potwierdził przyjęcia wcześniejszej próby.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    setNotice("");
     try {
       await api(base + "/" + campaignId + "/retry", {
-        method: "POST", body: JSON.stringify({ deliveryId: d.id }),
+        method: "POST",
+        body: JSON.stringify({ deliveryId: d.id }),
       });
       await refreshDetail(campaignId);
       setNotice("Wiadomość ustawiona do bezpiecznego ponowienia.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nie udało się ponowić wiadomości.");
+      setError(
+        e instanceof Error ? e.message : "Nie udało się ponowić wiadomości.",
+      );
       return;
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
     await runQueue(campaignId);
   }
 
@@ -239,9 +389,9 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
       <section className="card">
         <h2>Wiadomości organizacyjne</h2>
         <p className="muted">
-          Osobne kampanie, niezależne od zaproszeń. Każdy uczestnik otrzyma własną wiadomość
-          z istniejącym kodem dostępu. Drugi adres odbiorcy jest wysyłany jako DW (CC),
-          nie jako osobna kopia kampanii.
+          Osobne kampanie, niezależne od zaproszeń. Każdy uczestnik otrzyma
+          własną wiadomość z istniejącym kodem dostępu. Drugi adres odbiorcy
+          jest wysyłany jako DW (CC), nie jako osobna kopia kampanii.
         </p>
         <div className="actions">
           <label style={{ flex: 1 }}>
@@ -254,23 +404,41 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
                 setDetail(null);
                 setCampaignId(e.target.value);
                 setSelected([]);
-                setError(""); setNotice("");
+                setError("");
+                setNotice("");
               }}
             >
-              {!catalog.campaigns.length && <option value="">Brak kampanii</option>}
+              {!catalog.campaigns.length && (
+                <option value="">Brak kampanii</option>
+              )}
               {catalog.campaigns.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {(c.launchedAt ? "Wysłana: " : "Szkic: ") + c.subject + " — " + dateTime(c.createdAt)}
+                  {(c.launchedAt ? "Wysłana: " : "Szkic: ") +
+                    c.subject +
+                    " — " +
+                    dateTime(c.createdAt)}
                 </option>
               ))}
             </select>
           </label>
-          <button type="button" disabled={busy || sending} onClick={() => void create()}>
+          <button
+            type="button"
+            disabled={busy || sending}
+            onClick={() => void create()}
+          >
             Nowy szkic
           </button>
         </div>
-        {notice && <p role="status" className="notice">{notice}</p>}
-        {error && <p role="alert" className="notice error">{error}</p>}
+        {notice && (
+          <p role="status" className="notice">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="notice error">
+            {error}
+          </p>
+        )}
         {!catalog.campaigns.length && <p>Utwórz pierwszy szkic wiadomości.</p>}
       </section>
 
@@ -279,49 +447,86 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
           <section className="card">
             <h2>Szkic wiadomości</h2>
             <p className="muted">
-              Pola personalizacji: <code>{"{{firstName}}"}</code>, <code>{"{{lastName}}"}</code>,
-              <code>{"{{eventName}}"}</code>, <code>{"{{date}}"}</code>,
-              <code>{"{{location}}"}</code>, <code>{"{{panelUrl}}"}</code> i
-              <code>{"{{accessCode}}"}</code>. W treści dozwolone są znaczniki
+              Pola personalizacji: <code>{"{{firstName}}"}</code>,{" "}
+              <code>{"{{lastName}}"}</code>,<code>{"{{eventName}}"}</code>,{" "}
+              <code>{"{{date}}"}</code>,<code>{"{{location}}"}</code>,{" "}
+              <code>{"{{panelUrl}}"}</code> i<code>{"{{accessCode}}"}</code>. W
+              treści dozwolone są znaczniki
               <code>{" <b> "}</code> i <code>{" <i> "}</code>.
             </p>
             <label>
               Temat wiadomości
               <input
                 aria-label="Temat wiadomości organizacyjnej"
-                value={subject} maxLength={200} disabled={launched || busy || sending}
-                onChange={(e) => { setSubject(e.target.value); dirty.current = true; }}
+                value={subject}
+                maxLength={200}
+                disabled={launched || busy || sending}
+                onChange={(e) => {
+                  setSubject(e.target.value);
+                  dirty.current = true;
+                }}
               />
             </label>
             <label>
               Treść wiadomości
               <textarea
                 aria-label="Treść wiadomości organizacyjnej"
-                rows={13} value={body} maxLength={10000}
+                rows={13}
+                value={body}
+                maxLength={10000}
                 disabled={launched || busy || sending}
-                onChange={(e) => { setBody(e.target.value); dirty.current = true; }}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  dirty.current = true;
+                }}
               />
             </label>
             {!launched && (
-              <button type="button" disabled={busy || sending} onClick={() => void save()}>
+              <button
+                type="button"
+                disabled={busy || sending}
+                onClick={() => void save()}
+              >
                 Zapisz szkic
               </button>
             )}
-            {launched && <p>Treść uruchomionej kampanii jest zablokowana. Nowa wiadomość wymaga osobnego szkicu.</p>}
+            {launched && (
+              <p>
+                Treść uruchomionej kampanii jest zablokowana. Nowa wiadomość
+                wymaga osobnego szkicu.
+              </p>
+            )}
           </section>
           <section className="card">
             <h2>Podgląd wiadomości</h2>
             <p className="muted">
-              Podgląd pokazuje przykład personalizacji. Kod „ABC123” jest fikcyjny —
-              faktyczny kod zostanie pobrany osobno dla każdego odbiorcy przy wysyłce.
+              Podgląd pokazuje przykład personalizacji. Kod „ABC123” jest
+              fikcyjny — faktyczny kod zostanie pobrany osobno dla każdego
+              odbiorcy przy wysyłce.
             </p>
-            <p><strong>Temat: {renderOrganizationalSubject(subject, previewValues)}</strong></p>
-            <div style={{
-              padding: 20, background: "white", color: "#122c3a", lineHeight: 1.6,
-              border: "1px solid #bdd8e8", overflowWrap: "anywhere",
-            }} dangerouslySetInnerHTML={{ __html: renderOrganizationalBody(body, previewValues) }} />
-            <p className="muted">Do: {chosen?.email || "uczestnik@example.org"}.
-              {chosen?.secondaryEmail ? " DW: " + chosen.secondaryEmail + "." : " Brak dodatkowego adresu DW."}
+            <p>
+              <strong>
+                Temat: {renderOrganizationalSubject(subject, previewValues)}
+              </strong>
+            </p>
+            <div
+              style={{
+                padding: 20,
+                background: "white",
+                color: "#122c3a",
+                lineHeight: 1.6,
+                border: "1px solid #bdd8e8",
+                overflowWrap: "anywhere",
+              }}
+              dangerouslySetInnerHTML={{
+                __html: renderOrganizationalBody(body, previewValues),
+              }}
+            />
+            <p className="muted">
+              Do: {chosen?.email || "uczestnik@example.org"}.
+              {chosen?.secondaryEmail
+                ? " DW: " + chosen.secondaryEmail + "."
+                : " Brak dodatkowego adresu DW."}
             </p>
           </section>
           {!launched && (
@@ -329,40 +534,91 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
               <h2>Wybierz odbiorców</h2>
               <label>
                 Wyszukaj uczestnika
-                <input type="search" value={query}
+                <input
+                  type="search"
+                  value={query}
                   aria-label="Wyszukaj osobę do wiadomości organizacyjnej"
                   placeholder="Imię, nazwisko lub e-mail"
-                  onChange={(e) => setQuery(e.target.value)} />
+                  onChange={(e) => setQuery(e.target.value)}
+                />
               </label>
               <div className="actions">
-                <button type="button" className="secondary" disabled={!filtered.length || sending || busy}
-                  onClick={() => setSelected((previous) => [...new Set([...previous, ...filtered.map((p) => p.id)])])}>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!filtered.length || sending || busy}
+                  onClick={() =>
+                    setSelected((previous) => [
+                      ...new Set([...previous, ...filtered.map((p) => p.id)]),
+                    ])
+                  }
+                >
                   Zaznacz widoczne ({filtered.length})
                 </button>
-                <button type="button" className="secondary" disabled={!selected.length || sending || busy}
-                  onClick={() => setSelected([])}>Wyczyść wybór</button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!selected.length || sending || busy}
+                  onClick={() => setSelected([])}
+                >
+                  Wyczyść wybór
+                </button>
               </div>
-              <p><strong>Wybrano {selected.length} z {catalog.people.length} uczestników.</strong></p>
+              <p>
+                <strong>
+                  Wybrano {selected.length} z {catalog.people.length}{" "}
+                  uczestników.
+                </strong>
+              </p>
               <div style={{ maxHeight: 360, overflowY: "auto" }}>
                 {filtered.map((p) => (
-                  <label key={p.id} style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "9px 0",
-                  }}>
-                    <input type="checkbox" checked={selected.includes(p.id)} disabled={busy || sending}
-                      style={{ width: 20, height: 20, minHeight: 20, flexShrink: 0, margin: 0 }}
-                      onChange={(e) => setSelected((previous) => e.target.checked
-                        ? [...new Set([...previous, p.id])]
-                        : previous.filter((id) => id !== p.id))} />
+                  <label
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "9px 0",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(p.id)}
+                      disabled={busy || sending}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        minHeight: 20,
+                        flexShrink: 0,
+                        margin: 0,
+                      }}
+                      onChange={(e) =>
+                        setSelected((previous) =>
+                          e.target.checked
+                            ? [...new Set([...previous, p.id])]
+                            : previous.filter((id) => id !== p.id),
+                        )
+                      }
+                    />
                     <span>
-                      <strong>{p.firstName} {p.lastName}</strong>
-                      <br /><small>Do: {p.email}{p.secondaryEmail ? " · DW: " + p.secondaryEmail : ""}</small>
+                      <strong>
+                        {p.firstName} {p.lastName}
+                      </strong>
+                      <br />
+                      <small>
+                        Do: {p.email}
+                        {p.secondaryEmail ? " · DW: " + p.secondaryEmail : ""}
+                      </small>
                     </span>
                   </label>
                 ))}
                 {!filtered.length && <p>Brak pasujących uczestników.</p>}
               </div>
-              <button type="button" disabled={busy || sending || !selected.length}
-                onClick={() => void launch()}>
+              <button
+                type="button"
+                disabled={busy || sending || !selected.length}
+                onClick={() => void launch()}
+              >
                 Zatwierdź i rozpocznij wysyłkę do {selected.length} osób
               </button>
             </section>
@@ -371,64 +627,165 @@ export function AdminOrganizational({ eventId, event }: { eventId: string; event
             <section className="card">
               <h2>Potwierdzenia i statusy wysyłki</h2>
               <p className="muted">
-                „Przyjęte przez home.pl” oznacza odpowiedź SMTP 250 po przesłaniu treści.
-                Nie jest potwierdzeniem dostarczenia do skrzynki. Przy niepewnym wyniku
-                należy sprawdzić skrzynkę i historię u operatora — nie ponawiamy automatycznie.
+                „Przyjęte przez home.pl” oznacza odpowiedź SMTP 250 po
+                przesłaniu treści. Nie jest potwierdzeniem dostarczenia do
+                skrzynki. Przy niepewnym wyniku należy sprawdzić skrzynkę i
+                historię u operatora — nie ponawiamy automatycznie.
               </p>
-              <p>Uruchomiono: <strong>{dateTime(activeCampaign.launchedAt)}</strong></p>
+              <p className="muted">
+                Podczas wysyłki pozostaw tę kartę otwartą. Po zamknięciu możesz
+                wznowić oczekującą kolejkę. Status każdej wiadomości odświeża
+                się co 12 sekund.
+              </p>
+              <p>
+                Uruchomiono:{" "}
+                <strong>{dateTime(activeCampaign.launchedAt)}</strong>
+              </p>
               <div className="stats">
-                <div className="stat"><small>Oczekujące</small><strong>{summary.QUEUED || 0}</strong></div>
-                <div className="stat"><small>Przyjęte przez SMTP</small><strong>{summary.ACCEPTED || 0}</strong></div>
-                <div className="stat"><small>Nieprzyjęte</small><strong>{summary.FAILED || 0}</strong></div>
-                <div className="stat"><small>Do sprawdzenia</small><strong>{summary.REVIEW_REQUIRED || 0}</strong></div>
+                <div className="stat">
+                  <small>Oczekujące</small>
+                  <strong>{summary.QUEUED || 0}</strong>
+                </div>
+                <div className="stat">
+                  <small>Wysyłanie</small>
+                  <strong>{summary.SENDING || 0}</strong>
+                </div>
+                <div className="stat">
+                  <small>Przyjęte przez SMTP</small>
+                  <strong>{summary.ACCEPTED || 0}</strong>
+                </div>
+                <div className="stat">
+                  <small>Nieprzyjęte</small>
+                  <strong>{summary.FAILED || 0}</strong>
+                </div>
+                <div className="stat">
+                  <small>Do sprawdzenia</small>
+                  <strong>{summary.REVIEW_REQUIRED || 0}</strong>
+                </div>
               </div>
               <div className="actions">
-                <button disabled={busy || sending || !(summary.QUEUED > 0)} type="button"
-                  onClick={() => void runQueue(campaignId)}>
+                <button
+                  disabled={
+                    busy ||
+                    sending ||
+                    !(summary.QUEUED > 0 || summary.SENDING > 0)
+                  }
+                  type="button"
+                  onClick={() => void runQueue(campaignId)}
+                >
                   {sending ? "Trwa wysyłka…" : "Wznów oczekującą kolejkę"}
                 </button>
-                <button className="secondary" type="button" disabled={busy}
-                  onClick={() => void refreshDetail(campaignId).catch((e) => setError(String(e)))}>
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void refreshDetail(campaignId).catch((e) =>
+                      setError(String(e)),
+                    )
+                  }
+                >
                   Odśwież status
                 </button>
               </div>
               <div className="tablewrap">
                 <table>
                   <thead>
-                    <tr><th>Uczestnik</th><th>Adresy</th><th>Status</th><th>Data próby</th>
-                      <th>Data przyjęcia</th><th>Próby / diagnostyka</th><th>Działanie</th></tr>
+                    <tr>
+                      <th>Uczestnik</th>
+                      <th>Adresy</th>
+                      <th>Status</th>
+                      <th>Data próby</th>
+                      <th>Data przyjęcia</th>
+                      <th>Próby / diagnostyka</th>
+                      <th>Działanie</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {activeCampaign.deliveries.map((d) => (
                       <tr key={d.id}>
-                        <td><strong>{d.firstName} {d.lastName}</strong></td>
-                        <td>Do: {d.recipients.to}{d.recipients.cc && <><br />DW: {d.recipients.cc}</>}</td>
                         <td>
-                          <span className={"badge " + (d.status === "ACCEPTED" ? "good" : d.status === "FAILED" ? "bad" : "")}>
+                          <strong>
+                            {d.firstName} {d.lastName}
+                          </strong>
+                        </td>
+                        <td>
+                          Do: {d.recipients.to}
+                          {d.recipients.cc && (
+                            <>
+                              <br />
+                              DW: {d.recipients.cc}
+                            </>
+                          )}
+                        </td>
+                        <td>
+                          <span
+                            className={
+                              "badge " +
+                              (d.status === "ACCEPTED"
+                                ? "good"
+                                : d.status === "FAILED"
+                                  ? "bad"
+                                  : "")
+                            }
+                          >
                             {label[d.status]}
                           </span>
                         </td>
                         <td>{dateTime(d.lastAttemptAt || d.firstAttemptAt)}</td>
                         <td>{dateTime(d.acceptedAt)}</td>
-                        <td>{d.attempts} {d.attempts === 1 ? "próba" : "prób"}<br />
+                        <td>
+                          {d.attempts} {d.attempts === 1 ? "próba" : "prób"}
+                          <br />
                           <small>{d.errorCode || d.smtpQueueId || "-"}</small>
+                          <br />
+                          <small style={{ overflowWrap: "anywhere" }}>
+                            {d.messageId}
+                          </small>
                         </td>
                         <td>
                           {d.status === "FAILED" ? (
-                            <button type="button" className="secondary" disabled={busy || sending}
-                              onClick={() => void retry(d)}>
+                            <button
+                              type="button"
+                              className="secondary"
+                              disabled={busy || sending}
+                              onClick={() => void retry(d)}
+                            >
                               Ponów wysyłkę
                             </button>
                           ) : d.status === "REVIEW_REQUIRED" ? (
-                            <span>Sprawdź w home.pl — brak bezpiecznego ponowienia</span>
-                          ) : "—"}
+                            <div className="actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={busy || sending}
+                                onClick={() => void resolve(d, "ACCEPTED")}
+                              >
+                                Potwierdź przyjęcie w home.pl
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={busy || sending}
+                                onClick={() => void resolve(d, "NOT_ACCEPTED")}
+                              >
+                                Potwierdź nieprzyjęcie w home.pl
+                              </button>
+                            </div>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {error && <p role="alert" className="notice error">{error}</p>}
+              {error && (
+                <p role="alert" className="notice error">
+                  {error}
+                </p>
+              )}
             </section>
           )}
         </>

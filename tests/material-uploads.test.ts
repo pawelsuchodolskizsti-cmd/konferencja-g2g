@@ -130,11 +130,11 @@ test("large original bytes survive encrypted chunks and streamed download; manua
     downloadMaterial(personId, String(item.id)),
   ).rejects.toMatchObject({ status: 403 });
 });
-test("rejects oversized uploads and mismatched checksum", async () => {
+test("accepts declared sizes above former 20 MB limit but rejects empty files and mismatched checksum", async () => {
   await expect(
     beginMaterialUpload(eventId, adminId, {
       filename: "test.pdf",
-      size: 21 * 1024 * 1024,
+      size: 0,
       sha256: "a".repeat(64),
     }),
   ).rejects.toBeDefined();
@@ -154,3 +154,61 @@ test("rejects oversized uploads and mismatched checksum", async () => {
     finishMaterialUpload(eventId, adminId, upload.id),
   ).rejects.toMatchObject({ status: 400 });
 });
+
+test("replacement above 20 MB preserves ID, title, visibility and original bytes on failure", async () => {
+  const [original] = await database.select().from(s.materials);
+  const originalResponse = (await manageMaterial(
+    eventId,
+    adminId,
+    original.id,
+    "GET",
+  )) as Response;
+  const originalBytes = Buffer.from(await originalResponse.arrayBuffer());
+  const bytes = Buffer.alloc(21 * 1024 * 1024 + 7, 52);
+  bytes.write("%PDF-");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const upload = await beginMaterialUpload(eventId, adminId, {
+    filename: "replacement.pdf",
+    size: bytes.length,
+    sha256,
+    replacesId: original.id,
+  });
+  await expect(
+    finishMaterialUpload(eventId, adminId, upload.id),
+  ).rejects.toMatchObject({ status: 400 });
+  expect(
+    Buffer.from(
+      await (
+        (await manageMaterial(eventId, adminId, original.id, "GET")) as Response
+      ).arrayBuffer(),
+    ),
+  ).toEqual(originalBytes);
+  for (
+    let offset = 0, index = 0;
+    offset < bytes.length;
+    offset += upload.chunkSize, index++
+  )
+    await appendMaterialChunk(
+      eventId,
+      adminId,
+      upload.id,
+      index,
+      bytes.subarray(offset, offset + upload.chunkSize),
+    );
+  const result = await finishMaterialUpload(eventId, adminId, upload.id);
+  expect(result.id).toBe(original.id);
+  const [after] = await database.select().from(s.materials);
+  expect(after.title).toBe(original.title);
+  expect(after.published).toBe(original.published);
+  expect(await database.select().from(s.materials)).toHaveLength(1);
+  expect(
+    Buffer.from(
+      await (
+        (await manageMaterial(eventId, adminId, original.id, "GET")) as Response
+      ).arrayBuffer(),
+    ),
+  ).toEqual(bytes);
+  expect(await finishMaterialUpload(eventId, adminId, upload.id)).toEqual(
+    result,
+  );
+}, 30000);

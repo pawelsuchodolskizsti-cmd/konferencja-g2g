@@ -5,6 +5,7 @@ import postgres from "postgres";
 import { databaseTls } from "../src/db/tls";
 import * as schema from "../src/db/schema";
 import { migrateParticipantPii } from "../src/db/migrate-pii";
+import { migrateAuditPii } from "../src/db/migrate-audit-pii";
 if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL");
 const client = postgres(process.env.DATABASE_URL, {
   max: 1,
@@ -20,6 +21,10 @@ try {
   console.log(
     "Test accounts marked:",
     JSON.stringify(await markTestParticipants(database)),
+  );
+  console.log(
+    "Audit encryption verified:",
+    JSON.stringify(await migrateAuditPii(database)),
   );
   console.log("Migracje zakończone.");
 } finally {

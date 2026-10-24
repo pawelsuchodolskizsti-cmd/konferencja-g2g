@@ -6,7 +6,10 @@ import {
   launchOrganizational,
   processOrganizational,
   retryOrganizational,
+  reconcileOrganizational,
+  resolveOrganizational,
 } from "@/server/organizational-mail";
+import { migrateAuditPii } from "@/db/migrate-audit-pii";
 import { privacyRecords, exportPrivacyRecords } from "@/server/privacy-records";
 import { setMaterialsUnlocked } from "@/server/material-access";
 import {
@@ -43,14 +46,12 @@ import {
   csvResponse,
   exportReport,
   history,
-  invitationConfig,
   manageMaterial,
   participantRecord,
   personalData,
   privacyOverview,
   resetCredentials,
   removeTeamMember,
-  saveInvitation,
   savePrivacyRequest,
   saveTeamMember,
   selectionFrom,
@@ -122,27 +123,79 @@ async function handle(req: Request, ctx: Context) {
       db(),
       adminPermission(req.method, path),
     );
+    if (
+      action === "audit-encryption" &&
+      path.length === 3 &&
+      req.method === "POST"
+    )
+      return Response.json(await migrateAuditPii(db()));
     if (action === "organizational") {
       if (path.length === 3 && req.method === "GET")
         return Response.json(await listOrganizational(eventId), {
           headers: { "Cache-Control": "private, no-store" },
         });
       if (path.length === 3 && req.method === "POST")
-        return Response.json(await createOrganizational(eventId, admin.id), { status: 201 });
+        return Response.json(await createOrganizational(eventId, admin.id), {
+          status: 201,
+        });
       const campaignId = z.uuid().parse(path[3]);
       if (path.length === 4 && req.method === "GET")
         return Response.json(await getOrganizational(eventId, campaignId), {
           headers: { "Cache-Control": "private, no-store" },
         });
       if (path.length === 5 && path[4] === "draft" && req.method === "POST")
-        return Response.json(await saveOrganizationalDraft(eventId, campaignId, admin.id, await jsonBody(req)));
+        return Response.json(
+          await saveOrganizationalDraft(
+            eventId,
+            campaignId,
+            admin.id,
+            await jsonBody(req),
+          ),
+        );
       if (path.length === 5 && path[4] === "launch" && req.method === "POST")
-        return Response.json(await launchOrganizational(eventId, campaignId, admin.id, await jsonBody(req)));
+        return Response.json(
+          await launchOrganizational(
+            eventId,
+            campaignId,
+            admin.id,
+            await jsonBody(req),
+          ),
+        );
+      if (path.length === 5 && path[4] === "reconcile" && req.method === "POST")
+        return Response.json(
+          await reconcileOrganizational(eventId, campaignId, admin.id),
+        );
+      if (path.length === 5 && path[4] === "resolve" && req.method === "POST") {
+        const { deliveryId, ...resolution } = z
+          .object({
+            deliveryId: z.uuid(),
+            outcome: z.enum(["ACCEPTED", "NOT_ACCEPTED"]),
+            confirmation: z.literal("SPRAWDZONO W HOME.PL"),
+          })
+          .strict()
+          .parse(await jsonBody(req));
+        return Response.json(
+          await resolveOrganizational(
+            eventId,
+            campaignId,
+            deliveryId,
+            admin.id,
+            resolution,
+          ),
+        );
+      }
       if (path.length === 5 && path[4] === "process" && req.method === "POST")
-        return Response.json(await processOrganizational(eventId, campaignId, admin.id));
+        return Response.json(
+          await processOrganizational(eventId, campaignId, admin.id),
+        );
       if (path.length === 5 && path[4] === "retry" && req.method === "POST") {
-        const { deliveryId } = z.object({ deliveryId: z.uuid() }).strict().parse(await jsonBody(req));
-        return Response.json(await retryOrganizational(eventId, campaignId, deliveryId, admin.id));
+        const { deliveryId } = z
+          .object({ deliveryId: z.uuid() })
+          .strict()
+          .parse(await jsonBody(req));
+        return Response.json(
+          await retryOrganizational(eventId, campaignId, deliveryId, admin.id),
+        );
       }
       throw new AppError(404, "Nie znaleziono operacji.");
     }
@@ -326,7 +379,7 @@ async function handle(req: Request, ctx: Context) {
       );
     if (action === "codes-export" && ["GET", "POST"].includes(req.method)) {
       const format = z
-        .enum(["xlsx", "csv", "zip", "pdf"])
+        .enum(["xlsx", "csv"])
         .parse(url.searchParams.get("format") || "xlsx");
       const offset = z.coerce
         .number()
@@ -467,12 +520,6 @@ async function handle(req: Request, ctx: Context) {
     if (action === "team" && req.method === "POST")
       return Response.json(
         await saveTeamMember(eventId, admin.id, await jsonBody(req)),
-      );
-    if (action === "invitation" && req.method === "GET")
-      return Response.json(await invitationConfig(eventId));
-    if (action === "invitation" && req.method === "POST")
-      return Response.json(
-        await saveInvitation(eventId, admin.id, await jsonBody(req)),
       );
     if (action === "participants" && !path[3] && req.method === "POST")
       return Response.json(

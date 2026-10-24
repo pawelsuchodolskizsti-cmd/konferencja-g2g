@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { unzipSync } from "fflate";
-import { PDFDocument } from "pdf-lib";
 process.loadEnvFile(".env.local");
 assert.equal(process.env.APP_ENV, "development");
 assert.equal(new URL(process.env.APP_URL).hostname, "localhost");
@@ -37,18 +36,13 @@ const files = unzipSync(bytes);
 assert.equal(archive.byteLength, bytes.length);
 assert.ok(files["attendance.csv"]);
 assert.ok(files["ankieta.xlsx"]);
-const books = Object.keys(files).filter((f) =>
-  /^zaproszenia-\d+-\d+\.pdf$/.test(f),
+assert.ok(files["wiadomosci-organizacyjne.json"]);
+assert.equal(
+  Object.keys(files).some((name) => name.endsWith(".pdf")),
+  false,
 );
-assert.equal(books.length, Math.ceil(archive.participantCount / 50));
-let pages = 0;
-for (const name of books) {
-  const pdf = await PDFDocument.load(files[name]);
-  const [, first, last] = name.match(/zaproszenia-(\d+)-(\d+)/);
-  assert.equal(pdf.getPageCount(), Number(last) - Number(first) + 1);
-  pages += pdf.getPageCount();
-}
-assert.equal(pages, archive.participantCount);
+const codes = new TextDecoder().decode(files["uczestnicy-z-kodami.csv"]);
+assert.equal(codes.trim().split("\r\n").length - 1, archive.participantCount);
 assert.ok(
   bytes.length < 10 * 1024 * 1024,
   "Archive exceeds the 10 MiB regression budget",
@@ -58,7 +52,6 @@ assert.ok(
   "Archive exceeds the 60s route duration",
 );
 await writeFile(".local/fixtures/archive.zip", bytes);
-await writeFile(".local/fixtures/invitations-book.pdf", files[books[0]]);
 const controller = JSON.parse(
   await readFile(".local/controller-access.json", "utf8"),
 );
@@ -80,7 +73,6 @@ await req(base + "/data-cleanup/preview", cc, "POST", {}, 403);
 console.log(
   JSON.stringify({
     participants: archive.participantCount,
-    pages,
     files: Object.keys(files).length,
     bytes: bytes.length,
     elapsedSeconds: Math.round((performance.now() - start) / 100) / 10,
