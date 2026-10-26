@@ -145,6 +145,15 @@ export async function importCodes(
     return { imported: result.length, skipped: codes.length - result.length };
   });
 }
+function isOneDayHomeCourse(url: string) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "oneday.com.pl" || hostname.endsWith(".oneday.com.pl");
+  } catch {
+    return false;
+  }
+}
+
 export async function participantCourses(
   participantId: string,
   database: Database = db(),
@@ -159,8 +168,12 @@ export async function participantCourses(
     .select()
     .from(trainingCourses)
     .where(eq(trainingCourses.eventId, person.eventId));
+  // Zachowujemy konfigurację i kody w bazie, ale kurs prowadzący do strony głównej One Day nie jest udostępniany uczestnikom.
+  const participantVisibleCourses = courses.filter(
+    (course) => !isOneDayHomeCourse(course.url),
+  );
   const result = [];
-  for (const course of courses) {
+  for (const course of participantVisibleCourses) {
     let code: string | null = null;
     if (course.mode === "SHARED")
       code = course.sharedCode ? decrypt(course.sharedCode) : null;
