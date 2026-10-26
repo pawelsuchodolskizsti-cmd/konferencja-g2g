@@ -71,14 +71,6 @@ export default async function Page({
             code: "ONEDAY",
             available: true,
           },
-          {
-            id: "preview-2",
-            name: "Przykładowe szkolenie 2",
-            platform: "Platforma szkoleniowa",
-            url: "#szkolenia",
-            code: "G2G-TEST-02",
-            available: true,
-          },
         ]
       : present && coursesUnlocked
         ? await participantCourses(person.id)
@@ -416,7 +408,7 @@ export default async function Page({
               <h2 id="training-title">Dostęp do szkoleń</h2>
               <>
                 {courses.length ? (
-                  <TrainingCarousel>
+                  <TrainingCarousel centered={courses.length === 1}>
                     {courses.map((course) => (
                       <article className={styles.course} key={course.id}>
                         <span className={styles.platform}>

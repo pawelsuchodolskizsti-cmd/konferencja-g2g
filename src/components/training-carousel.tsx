@@ -6,9 +6,11 @@ import styles from "@/app/uczestnik/panel/panel.module.css";
 export function TrainingCarousel({
   children,
   label = "Szkolenia, przewijaj w lewo i w prawo",
+  centered = false,
 }: {
   children: ReactNode;
   label?: string;
+  centered?: boolean;
 }) {
   const track = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,11 @@ export function TrainingCarousel({
     <div className={styles.carousel}>
       <div
         ref={track}
-        className={styles.courseTrack}
+        className={
+          centered
+            ? `${styles.courseTrack} ${styles.courseTrackCentered}`
+            : styles.courseTrack
+        }
         tabIndex={0}
         role="region"
         aria-label={label}
